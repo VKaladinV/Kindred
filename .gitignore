@@ -1,0 +1,15 @@
+node_modules/
+*.log
+npm-debug.log*
+
+# OS cruft
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Local Netlify state
+.netlify/
+
+# Personal data must never be committed — backups contain real people,
+# their photos, health details and prayers.
+kindred-backup-*.json

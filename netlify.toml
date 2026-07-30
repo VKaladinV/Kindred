@@ -1,0 +1,37 @@
+# Kindred is plain static files — nothing to build, publish the folder as-is.
+
+[build]
+  publish = "."
+
+# The service worker and the page itself must never be served stale from the
+# CDN, or an update to the app would not reach a device that already has it.
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
+
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+[[headers]]
+  for = "/manifest.webmanifest"
+  [headers.values]
+    Content-Type = "application/manifest+json; charset=utf-8"
+    Cache-Control = "no-cache"
+
+# Verifies the Android app against this domain so the wrapped APK opens without
+# a browser URL bar. The file is added at the point the APK is built.
+[[headers]]
+  for = "/.well-known/assetlinks.json"
+  [headers.values]
+    Content-Type = "application/json"
+    Access-Control-Allow-Origin = "*"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "no-referrer"
+    X-Frame-Options = "SAMEORIGIN"

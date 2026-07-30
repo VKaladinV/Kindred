@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kindred — people I hold close</title>
+<meta name="description" content="A quiet place to remember the people you care about: check-ins, life events, and a prayer list.">
+<meta name="theme-color" content="#fbfdfa" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#131a15" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Kindred">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="icon" href="icon-192.png" sizes="192x192" type="image/png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..700,0..100,0..1;1,9..144,300..700,0..100,0..1&family=Karla:ital,wght@0,300..700;1,400..600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="grain" aria-hidden="true"></div>
+<div class="bloom" aria-hidden="true"></div>
+
+<!-- ─────────── NAVIGATION ───────────
+     One element, two layouts: a left column on a computer,
+     a bottom bar within thumb reach on a phone. -->
+<nav class="sidenav" aria-label="Main">
+  <div class="nav-brand" aria-hidden="true">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="4.6" r="2.1" fill="currentColor" stroke="none"/><circle cx="18.4" cy="16.3" r="2.1" fill="currentColor" stroke="none"/><circle cx="5.6" cy="16.3" r="2.1" fill="currentColor" stroke="none"/></svg>
+  </div>
+
+  <button class="nav-item is-active" data-view="circle" aria-current="page">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="9" r="3.6"/><path d="M5.5 19.5a6.8 6.8 0 0 1 13 0"/></svg>
+    <span>Circle</span>
+  </button>
+  <button class="nav-item" data-view="prayers">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.5s-7.2-4.4-7.2-9.6a4 4 0 0 1 7.2-2.4 4 4 0 0 1 7.2 2.4c0 5.2-7.2 9.6-7.2 9.6z"/></svg>
+    <span>Prayers</span>
+  </button>
+  <button class="nav-item" data-view="today">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5.5" width="16" height="14" rx="2.5"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/></svg>
+    <span>Today</span>
+    <em class="nav-count" id="tab-count" hidden></em>
+  </button>
+
+  <span class="nav-gap"></span>
+
+  <button class="nav-item nav-add" id="btn-add">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5.5v13M5.5 12h13"/></svg>
+    <span>Add</span>
+  </button>
+  <button class="nav-item" id="btn-settings">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M12 3.4v2.2M12 18.4v2.2M4.9 7.9l1.9 1.1M17.2 15l1.9 1.1M4.9 16.1l1.9-1.1M17.2 9l1.9-1.1"/></svg>
+    <span>Settings</span>
+  </button>
+</nav>
+
+<div class="shell">
+
+<header class="masthead">
+  <p class="eyebrow">kept close</p>
+  <h1>Kindred</h1>
+  <p class="tagline" id="tagline">the people I hold, and how they are</p>
+</header>
+
+<main>
+
+  <!-- ─────────── CIRCLE ─────────── -->
+  <section class="view is-active" id="view-circle" aria-label="Circle">
+
+    <div class="nudge" id="nudge" hidden>
+      <p class="nudge-label"><span class="dot"></span> It's been a while</p>
+      <div class="nudge-row" id="nudge-row"></div>
+    </div>
+
+    <div class="toolbar">
+      <div class="chips" id="chips"></div>
+      <label class="search">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>
+        <input type="search" id="search" placeholder="Find someone" aria-label="Find someone">
+      </label>
+    </div>
+
+    <div class="circle-grid" id="grid"></div>
+
+    <div class="blank" id="blank" hidden>
+      <p class="blank-mark">◦</p>
+      <h2>No one here yet</h2>
+      <p>Add the first person you want to keep close. A name is all you need to begin — a photo, their story and prayers can come later.</p>
+      <button class="btn btn-primary" id="btn-add-first">Add someone</button>
+    </div>
+  </section>
+
+  <!-- ─────────── PRAYERS ─────────── -->
+  <section class="view" id="view-prayers" aria-label="Prayers" hidden>
+    <div class="section-head">
+      <h2 class="section-title">The prayer list</h2>
+      <p class="section-sub" id="prayer-sub"></p>
+    </div>
+    <div id="prayer-open"></div>
+    <details class="answered" id="answered-wrap" hidden>
+      <summary><span id="answered-count"></span> answered</summary>
+      <div id="prayer-answered"></div>
+    </details>
+    <div class="blank" id="prayer-blank" hidden>
+      <p class="blank-mark">✜</p>
+      <h2>The list is empty</h2>
+      <p>Open anyone in your circle and add what you want to carry for them. It will gather here.</p>
+    </div>
+  </section>
+
+  <!-- ─────────── TODAY ─────────── -->
+  <section class="view" id="view-today" aria-label="Today" hidden>
+    <div class="section-head">
+      <h2 class="section-title">Today</h2>
+      <p class="section-sub" id="today-date"></p>
+    </div>
+    <div id="today-body"></div>
+  </section>
+
+</main>
+
+<footer class="colophon">
+  <span id="footer-count"></span>
+  <span class="sep">·</span>
+  <span>everything stays on this device</span>
+</footer>
+
+</div><!-- /.shell -->
+
+<!-- ─────────── PERSON SHEET ─────────── -->
+<div class="scrim" id="scrim" hidden></div>
+<section class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="Person" hidden>
+  <button class="sheet-close" id="sheet-close" aria-label="Close">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+  </button>
+  <div class="sheet-scroll" id="sheet-scroll"></div>
+</section>
+
+<!-- ─────────── ADD / EDIT PERSON ─────────── -->
+<dialog class="dlg" id="dlg-person">
+  <form id="form-person" method="dialog">
+    <h2 class="dlg-title" id="dlg-person-title">Someone new</h2>
+
+    <div class="photo-pick">
+      <div class="photo-preview" id="photo-preview"><span id="photo-initials">?</span></div>
+      <div class="photo-pick-text">
+        <label class="btn btn-quiet" for="photo-input">Choose a photo</label>
+        <input type="file" id="photo-input" accept="image/*" hidden>
+        <button type="button" class="link-btn" id="photo-clear" hidden>remove photo</button>
+        <p class="hint">Square-cropped and kept on this device.</p>
+      </div>
+    </div>
+
+    <label class="field">
+      <span>Name</span>
+      <input type="text" id="f-name" required maxlength="60" autocomplete="off" placeholder="Ouma Hettie">
+    </label>
+
+    <div class="field-row">
+      <label class="field">
+        <span>How you know them</span>
+        <input type="text" id="f-relationship" maxlength="40" autocomplete="off" placeholder="grandmother">
+      </label>
+      <label class="field">
+        <span>Circle</span>
+        <select id="f-group"></select>
+      </label>
+    </div>
+
+    <div class="field-row">
+      <label class="field">
+        <span>Birthday <em>optional</em></span>
+        <input type="date" id="f-birthday">
+      </label>
+      <label class="field">
+        <span>Reach out every</span>
+        <select id="f-cadence"></select>
+      </label>
+    </div>
+
+    <label class="field">
+      <span>Phone or handle <em>optional</em></span>
+      <input type="text" id="f-contact" maxlength="80" autocomplete="off" placeholder="+27 …">
+    </label>
+
+    <div class="dlg-actions">
+      <button type="button" class="btn btn-danger-quiet" id="btn-delete-person" hidden>Remove</button>
+      <span class="spacer"></span>
+      <button type="button" class="btn btn-quiet" id="btn-person-cancel">Cancel</button>
+      <button type="submit" class="btn btn-primary" id="btn-person-save">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- ─────────── A RECORD: history · coming up · season ─────────── -->
+<dialog class="dlg" id="dlg-event">
+  <form id="form-event" method="dialog">
+    <h2 class="dlg-title" id="dlg-event-title">Something to remember</h2>
+
+    <div class="type-pick" id="type-pick" role="radiogroup" aria-label="What kind of record"></div>
+    <p class="hint type-hint" id="type-hint"></p>
+
+    <label class="field">
+      <span id="e-title-label">What happened</span>
+      <input type="text" id="e-title" required maxlength="80" autocomplete="off" placeholder="Started chemo">
+    </label>
+
+    <div class="field-row">
+      <label class="field">
+        <span id="e-date-label">When</span>
+        <input type="date" id="e-date" required>
+      </label>
+      <label class="field">
+        <span>Kind</span>
+        <select id="e-kind"></select>
+      </label>
+    </div>
+
+    <label class="field" id="wrap-end" hidden>
+      <span>When it ended <em>leave empty if it is still going</em></span>
+      <input type="date" id="e-end">
+    </label>
+
+    <label class="check-field" id="wrap-repeat" hidden>
+      <input type="checkbox" id="e-repeat">
+      <span>Happens again every year <em>birthdays of the departed, anniversaries, annual scans</em></span>
+    </label>
+
+    <label class="field">
+      <span>Anything to remember <em>optional</em></span>
+      <textarea id="e-note" rows="3" maxlength="600" placeholder="Six cycles, every third Tuesday. Her sister drives her."></textarea>
+    </label>
+
+    <div class="dlg-actions">
+      <button type="button" class="btn btn-danger-quiet" id="btn-delete-event" hidden>Delete</button>
+      <span class="spacer"></span>
+      <button type="button" class="btn btn-quiet" id="btn-event-cancel">Cancel</button>
+      <button type="submit" class="btn btn-primary">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- ─────────── ANSWERED PRAYER ─────────── -->
+<dialog class="dlg" id="dlg-answer">
+  <form id="form-answer" method="dialog">
+    <h2 class="dlg-title">Answered</h2>
+    <p class="dlg-lede" id="answer-lede"></p>
+    <label class="field">
+      <span>How it was answered <em>optional</em></span>
+      <textarea id="a-note" rows="3" maxlength="600" placeholder="The scan came back clear."></textarea>
+    </label>
+    <div class="dlg-actions">
+      <span class="spacer"></span>
+      <button type="button" class="btn btn-quiet" id="btn-answer-cancel">Cancel</button>
+      <button type="submit" class="btn btn-primary">Mark answered</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- ─────────── SETTINGS ─────────── -->
+<dialog class="dlg" id="dlg-settings">
+  <h2 class="dlg-title">Backup &amp; settings</h2>
+
+  <div class="setting">
+    <div>
+      <h3>Reminders</h3>
+      <p class="hint" id="notif-state">Checking…</p>
+    </div>
+    <button class="btn btn-quiet" id="btn-notif">Turn on</button>
+  </div>
+
+  <div class="setting">
+    <div>
+      <h3>Save a backup</h3>
+      <p class="hint">One file with everyone, their records, prayers and photos.</p>
+    </div>
+    <button class="btn btn-quiet" id="btn-export">Download</button>
+  </div>
+
+  <div class="setting">
+    <div>
+      <h3>Restore from backup</h3>
+      <p class="hint">Merges by name — nothing already here is lost.</p>
+    </div>
+    <label class="btn btn-quiet" for="import-input">Choose file</label>
+    <input type="file" id="import-input" accept="application/json,.json" hidden>
+  </div>
+
+  <div class="setting">
+    <div>
+      <h3>Storage</h3>
+      <p class="hint" id="storage-state">—</p>
+    </div>
+  </div>
+
+  <div class="dlg-actions">
+    <span class="spacer"></span>
+    <button class="btn btn-primary" id="btn-settings-close">Done</button>
+  </div>
+</dialog>
+
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<script src="app.js"></script>
+</body>
+</html>
