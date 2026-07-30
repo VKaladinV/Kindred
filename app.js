@@ -1321,7 +1321,7 @@ function nudgeIfDue() {
   try {
     const n = new Notification(landing.length ? 'Something today' : 'Someone is on your mind', {
       body: lines.join(' — '),
-      icon: 'icon.svg',
+      icon: 'icon-192.png',
       tag: 'kindred-daily',
     });
     n.onclick = () => { window.focus(); switchView('today'); };

@@ -192,12 +192,23 @@ you open the `.apk` with.
 | `serve.js` | the small local server for working on it (no dependencies) |
 | `sw.js` | service worker — makes it work offline |
 | `netlify.toml` | how Netlify serves it |
-| `manifest.webmanifest`, `icon*.png`, `icon.svg` | what lets it install as an app |
-| `tools/make-icons.js` | regenerates the PNG icons from the artwork |
+| `manifest.webmanifest`, `icon*.png` | what lets it install as an app |
+| `logo-mark.png` | the logo as used inside the app (transparent) |
+| `tools/logo-source.png` | the original logo artwork |
+| `tools/make-icons.js` | rebuilds every icon from that artwork |
 
 No build step, no npm install, no frameworks. Edit a file, refresh the page.
 
 Two easy things to change: the app name sits in `index.html` (the `<h1>`) and
-`manifest.webmanifest`; the colours are the variables at the top of `styles.css`. If you
-change the icon artwork, run `node tools/make-icons.js` to rebuild the PNGs — Android and
-iOS both refuse SVG icons, which is why the PNGs exist.
+`manifest.webmanifest`; the colours are the variables at the top of `styles.css`.
+
+To change the logo, drop a new PNG at `tools/logo-source.png` and run:
+
+```bash
+node tools/make-icons.js
+```
+
+It trims the artwork, squares it up and rebuilds every size — the favicon, the app
+icons Android and iOS need, a maskable variant with the padding Android requires, and
+the transparent mark used in the side menu. Android and iOS both refuse SVG icons,
+which is why these are PNGs.

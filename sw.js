@@ -1,13 +1,14 @@
 /* Kindred service worker — makes the app work offline once loaded.
    Bump CACHE when you change any of the shell files. */
 
-const CACHE = 'kindred-v3';
+const CACHE = 'kindred-v4';
 const SHELL = [
   './',
   'index.html',
   'styles.css',
   'app.js',
-  'icon.svg',
+  'logo-mark.png',
+  'icon-32.png',
   'icon-192.png',
   'icon-512.png',
   'icon-512-maskable.png',
