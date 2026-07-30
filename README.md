@@ -135,6 +135,53 @@ every so often.** It's the only copy.
 
 ---
 
+## Putting it online (Netlify)
+
+The site is static files, so there is no build step. Netlify just serves the folder,
+as set in `netlify.toml`.
+
+**First time:**
+
+1. Create a **private** repo on github.com — don't tick "add a README"
+2. Point this folder at it and push:
+
+```bash
+git remote add origin https://github.com/YOUR-USERNAME/kindred.git
+git push -u origin main
+```
+
+3. On netlify.com: *Add new site → Import an existing project → GitHub → pick the repo*.
+   Leave the build command empty and the publish directory as `.`
+
+After that, every `git push` deploys itself, and Netlify's *Deploys* tab lets you roll
+back to any earlier version if something breaks.
+
+Once it's live, open the HTTPS URL on your phone and use *Add to Home Screen*. It then
+behaves like an installed app.
+
+**Deploying does not move your data anywhere.** The site is only the code — your people,
+photos, records and prayers stay in browser storage on whichever device you entered them
+on. The phone and the PC each keep their own separate copy until the Supabase sync is
+built; backup/restore is the bridge between them in the meantime.
+
+## Turning it into an Android app (.apk)
+
+Once the Netlify URL is live, [pwabuilder.com](https://www.pwabuilder.com) will wrap it
+as a Trusted Web Activity and hand back a signed `.apk` for sideloading plus an `.aab`
+for the Play Store. The app is a window onto the live URL, so updating the site updates
+the app — no rebuild.
+
+Two things to know before you do it:
+
+- It needs `/.well-known/assetlinks.json` on the Netlify site containing your signing
+  key's fingerprint. Without it the app opens with a browser URL bar across the top.
+  PWABuilder gives you the file contents to add.
+- **Keep the signing key it generates.** Losing it means never being able to update
+  that installed app again.
+
+On a Xiaomi, installing the file needs *Install unknown apps* enabled for whatever app
+you open the `.apk` with.
+
 ## The files
 
 | File | What it is |
@@ -142,11 +189,15 @@ every so often.** It's the only copy.
 | `index.html` | the page structure |
 | `styles.css` | all the visual design |
 | `app.js` | all the behaviour and storage |
-| `serve.js` | the small local server (no dependencies) |
+| `serve.js` | the small local server for working on it (no dependencies) |
 | `sw.js` | service worker — makes it work offline |
-| `manifest.webmanifest`, `icon.svg` | what lets it install as an app |
+| `netlify.toml` | how Netlify serves it |
+| `manifest.webmanifest`, `icon*.png`, `icon.svg` | what lets it install as an app |
+| `tools/make-icons.js` | regenerates the PNG icons from the artwork |
 
 No build step, no npm install, no frameworks. Edit a file, refresh the page.
 
 Two easy things to change: the app name sits in `index.html` (the `<h1>`) and
-`manifest.webmanifest`; the colours are the variables at the top of `styles.css`.
+`manifest.webmanifest`; the colours are the variables at the top of `styles.css`. If you
+change the icon artwork, run `node tools/make-icons.js` to rebuild the PNGs — Android and
+iOS both refuse SVG icons, which is why the PNGs exist.
