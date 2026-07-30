@@ -266,6 +266,18 @@
 
   <div class="setting">
     <div>
+      <h3>Account &amp; sync</h3>
+      <p class="hint" id="account-line">Sign in to sync this device with your phone.</p>
+      <p class="sync-state" id="sync-state" data-state="off">Not signed in — this device only</p>
+    </div>
+    <div class="setting-actions">
+      <button class="btn btn-quiet btn-tiny" id="btn-sync-now">Sync now</button>
+      <button class="btn btn-quiet" id="btn-auth">Sign in</button>
+    </div>
+  </div>
+
+  <div class="setting">
+    <div>
       <h3>Reminders</h3>
       <p class="hint" id="notif-state">Checking…</p>
     </div>
@@ -302,8 +314,35 @@
   </div>
 </dialog>
 
+<!-- ─────────── SIGN IN ─────────── -->
+<dialog class="dlg" id="dlg-auth">
+  <form id="form-auth" method="dialog">
+    <h2 class="dlg-title">Sign in</h2>
+    <p class="dlg-lede">So this device and your phone hold the same circle. Your people stay on the device either way — signing in just keeps them in step.</p>
+
+    <label class="field">
+      <span>Email</span>
+      <input type="email" id="auth-email" autocomplete="username" required>
+    </label>
+    <label class="field">
+      <span>Password</span>
+      <input type="password" id="auth-password" autocomplete="current-password" required>
+    </label>
+
+    <p class="auth-error" id="auth-error" role="alert"></p>
+
+    <div class="dlg-actions">
+      <span class="spacer"></span>
+      <button type="button" class="btn btn-quiet" id="auth-cancel">Cancel</button>
+      <button type="submit" class="btn btn-primary" id="auth-submit">Sign in</button>
+    </div>
+  </form>
+</dialog>
+
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
+<script src="config.js"></script>
 <script src="app.js"></script>
+<script src="sync.js"></script>
 </body>
 </html>

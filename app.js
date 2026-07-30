@@ -138,7 +138,7 @@ function hashCode(str) {
 
 const Store = (() => {
   let db = null, mode = 'memory';
-  const mem = { people: null, photos: {} };
+  const mem = { people: null, photos: {}, snapshot: null };
 
   function openDb() {
     return new Promise(resolve => {
@@ -236,6 +236,30 @@ const Store = (() => {
       delete mem.photos[id];
     },
 
+    /* what the sync layer last agreed with the server — see sync.js */
+    async loadSnapshot() {
+      if (mode === 'indexeddb') return (await idb('kv', s => s.get('syncSnapshot'))) || null;
+      if (mode === 'localstorage') {
+        try { return JSON.parse(localStorage.getItem('kindred:snapshot') || 'null'); }
+        catch { return null; }
+      }
+      return mem.snapshot || null;
+    },
+
+    async saveSnapshot(snap) {
+      if (mode === 'indexeddb') {
+        return snap === null
+          ? idb('kv', s => s.delete('syncSnapshot'), true)
+          : idb('kv', s => s.put(snap, 'syncSnapshot'), true);
+      }
+      if (mode === 'localstorage') {
+        return snap === null
+          ? localStorage.removeItem('kindred:snapshot')
+          : localStorage.setItem('kindred:snapshot', JSON.stringify(snap));
+      }
+      mem.snapshot = snap;
+    },
+
     getPref(k, d = null) {
       try { return localStorage.getItem('kindred:' + k) ?? d; } catch { return d; }
     },
@@ -256,12 +280,20 @@ let saveTimer = null;
 
 const byId = id => people.find(p => p.id === id);
 
+/* sync.js listens here so it never has to trust each mutation site to
+   announce itself — everything that changes data ends up in one of these. */
+const mutateHooks = [];
+function notifyMutate() {
+  for (const fn of mutateHooks) { try { fn(); } catch (e) { console.error(e); } }
+}
+
 function queueSave() {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => Store.savePeople(people).catch(e => {
     toast('Could not save — storage may be full');
     console.error(e);
   }), 350);
+  notifyMutate();
 }
 
 /* Records written before types existed become history, unless their date
@@ -1119,6 +1151,7 @@ async function savePerson(e) {
   }
 
   await Store.savePeople(people);
+  notifyMutate();
   $('#dlg-person').close();
   renderAll();
   // a person's page opens only when their photo is tapped
@@ -1272,6 +1305,7 @@ async function importAll(file) {
     }
   }
   await Store.savePeople(people);
+  notifyMutate();
   renderAll();
   toast(`${added} added, ${merged} merged`);
 }
@@ -1402,6 +1436,7 @@ function wire() {
     delete photos[p.id];
     await Store.deletePhoto(p.id);
     await Store.savePeople(people);
+    notifyMutate();
     $('#dlg-person').close();
     closeSheet();
     renderAll();
@@ -1477,6 +1512,20 @@ async function boot() {
     navigator.serviceWorker.register('sw.js').catch(() => {});
   }
 }
+
+/* The only surface sync.js touches. Keeping it this narrow means the sync
+   layer can be removed entirely and the app still runs, unchanged. */
+window.Kindred = {
+  get people() { return people; },
+  set people(v) { people = v; },
+  get photos() { return photos; },
+  set photos(v) { photos = v; },
+  Store,
+  normalise,
+  toast,
+  render: () => renderAll(),
+  onMutate: fn => mutateHooks.push(fn),
+};
 
 boot();
 })();

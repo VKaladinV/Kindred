@@ -883,8 +883,32 @@ button.thumb:focus-visible { outline: 2px solid var(--green); outline-offset: 2p
 .hint { margin: 0; font-size: .74rem; color: var(--ink-faint); line-height: 1.4; }
 
 .setting { display: flex; align-items: center; gap: 1rem; padding: .95rem 0; border-top: 1px solid var(--rule-soft); }
-.setting > div:first-child { flex: 1; }
+.setting > div:first-child { flex: 1; min-width: 0; }
 .setting h3 { margin: 0 0 .15rem; font-size: .92rem; font-weight: 600; }
+.setting-actions { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; justify-content: flex-end; }
+
+.sync-state {
+  margin: .3rem 0 0;
+  font-size: .72rem; letter-spacing: .06em; font-weight: 600;
+  display: flex; align-items: center; gap: .4rem;
+  color: var(--ink-faint);
+}
+.sync-state::before {
+  content: ""; width: .45rem; height: .45rem; border-radius: 50%;
+  background: var(--ash); flex: 0 0 auto;
+}
+.sync-state[data-state="ok"]      { color: var(--sage-ink); }
+.sync-state[data-state="ok"]::before      { background: var(--sage); }
+.sync-state[data-state="syncing"] { color: var(--green); }
+.sync-state[data-state="syncing"]::before { background: var(--green); animation: breathe 1.4s ease-in-out infinite; }
+.sync-state[data-state="error"]   { color: var(--alert); }
+.sync-state[data-state="error"]::before   { background: var(--alert); }
+.sync-state[data-state="offline"]::before { background: var(--gold); }
+
+.auth-error {
+  margin: -.4rem 0 0; min-height: 1.2em;
+  font-size: .82rem; color: var(--alert); font-weight: 600;
+}
 
 /* ── toast ──────────────────────────────────────────────────── */
 
