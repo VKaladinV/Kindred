@@ -331,6 +331,18 @@
   </form>
 </dialog>
 
+<!-- ─────────── HOW YOU CONNECTED ─────────── -->
+<dialog class="dlg" id="dlg-how">
+  <h2 class="dlg-title" id="dlg-how-title">How did you connect?</h2>
+  <p class="hint" id="how-hint">WhatsApp and a call will take you straight there.</p>
+  <div class="type-pick how-pick" id="how-pick" role="group" aria-label="How you connected"></div>
+  <div class="dlg-actions">
+    <button type="button" class="link-btn" id="btn-how-plain">just note it</button>
+    <span class="spacer"></span>
+    <button class="btn btn-quiet" id="btn-how-cancel">Cancel</button>
+  </div>
+</dialog>
+
 <!-- ─────────── WHO TO SHOW (phone) ─────────── -->
 <dialog class="dlg" id="dlg-filter">
   <h2 class="dlg-title">Who to show</h2>
@@ -356,6 +368,17 @@
       <button class="btn btn-quiet btn-tiny" id="btn-sync-now">Sync now</button>
       <button class="btn btn-quiet" id="btn-auth">Sign in</button>
     </div>
+  </div>
+
+  <div class="setting">
+    <div>
+      <h3>Country code</h3>
+      <p class="hint">Added to numbers saved the local way, like <em>082 …</em>, so WhatsApp can find them. Numbers you saved starting with <em>+</em> are left alone.</p>
+    </div>
+    <label class="cc-field">
+      <span aria-hidden="true">+</span>
+      <input type="text" id="country-code" inputmode="numeric" maxlength="4" value="27" aria-label="Country code">
+    </label>
   </div>
 
   <div class="setting">

@@ -69,6 +69,10 @@ means they're in a season right now. Anyone overdue also appears in the
 is a proportion of that one number, so the ring, the two marks and the initials all
 hold their places at whatever size you land on.
 
+**Settings → Country code** is what lets WhatsApp find someone whose number you
+saved the local way, as *082 …* rather than *+27 82 …*. It starts at **27**.
+Numbers you already saved with a **+** carry their own and are left alone.
+
 On a phone it decides something else as well: how many fit across. The circle
 tessellates there — rows of three, then two sitting in the gaps of the row above,
 the way a honeycomb packs. So making the faces smaller fits four across, and larger
@@ -104,11 +108,27 @@ person leaves you on your circle rather than jumping into their page.
 
 Inside:
 
-- **Connected today** — one tap to record that you spoke. This resets their ring
-  and adds a bead to their little history. Tapped it by mistake? The note that
-  appears offers **Undo** for a few seconds, and an **undo** link stays beside the
-  button for the rest of the day. Only today's can be taken back — an older
-  check-in has become history rather than a slip you just made.
+- **Connected today** — asks how: **WhatsApp**, **phone call**, **coffee** or
+  **visit**, or *just note it* if none of them fit. This resets their ring and adds
+  a bead to their little history, carrying the mark of how it happened. Choosing
+  WhatsApp or a call also takes you straight there — the note is made before you
+  leave, so it survives whether or not you come back.
+
+  One check-in a day, and the last word wins: saying *coffee* in the evening
+  corrects this morning's *WhatsApp* rather than adding a second bead. Tap the
+  button again any time that day to change your mind.
+
+  Tapped it by mistake? The note that appears offers **Undo** for a few seconds,
+  and an **undo** link stays beside the button for the rest of the day. Only
+  today's can be taken back — an older check-in has become history rather than a
+  slip you just made.
+
+  The tick in **Today** stays one tap and records without asking, so the quick
+  path stays quick.
+- **Their number** — tap it to ring them, without recording anything. Sometimes
+  you're calling to arrange the visit, not reporting on it. It only becomes
+  tappable if what you saved actually looks like a number; a handle or an email
+  address stays plain text.
 - **Right now** — the seasons they're walking through. See below.
 - **Who they are** — a free-text summary that saves as you type. Meant for what's
   true *right now*: what they're carrying, what to ask about next time.

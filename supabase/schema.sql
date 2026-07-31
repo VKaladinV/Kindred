@@ -109,6 +109,12 @@ create table if not exists public.touches (
   deleted_at timestamptz
 );
 
+-- How the check-in happened: whatsapp, call, coffee, visit, or '' for the
+-- ones recorded before this existed. Left unconstrained on purpose, the way
+-- records.kind is — a device running older code should be able to write a
+-- kind this database has never heard of rather than be refused.
+alter table public.touches add column if not exists kind text not null default '';
+
 -- ── indexes: the sync reads "everything changed since X" ─────────────
 create index if not exists people_user_updated  on public.people  (user_id, updated_at);
 create index if not exists records_user_updated on public.records (user_id, updated_at);

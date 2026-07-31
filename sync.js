@@ -196,8 +196,14 @@ function flatten(people, photos) {
       };
     }
     for (const t of p.touches) {
-      const id = `${p.id}:${t}`;           // deterministic, so two devices agree
-      rows.touches[id] = { id, person_id: p.id, touched_on: t };
+      /* Person and date, exactly as before a check-in learned how it happened
+         — so every row already on the server keeps the id it was written
+         under, and none of that history looks deleted on the next sync. */
+      const id = `${p.id}:${t.date}`;      // deterministic, so two devices agree
+      /* Key order follows the table's columns: kind was added last, and same()
+         compares these stringified, so a different order here would re-push
+         every check-in on every sync. */
+      rows.touches[id] = { id, person_id: p.id, touched_on: t.date, kind: t.kind || '' };
     }
     if (photos[p.id]) photoLens[p.id] = photoMark(photos[p.id]);
   }
@@ -237,7 +243,7 @@ function nest(rows) {
   }
   for (const r of Object.values(rows.touches)) {
     const p = byId[r.person_id]; if (!p) continue;
-    p.touches.push(r.touched_on);
+    p.touches.push({ date: r.touched_on, kind: r.kind || '' });
   }
   for (const r of Object.values(rows.health || {})) {
     const p = byId[r.person_id]; if (!p) continue;
@@ -245,7 +251,7 @@ function nest(rows) {
       id: r.id, name: r.name || '', detail: r.detail || '', addedAt: r.added_on || '',
     });
   }
-  for (const p of people) p.touches.sort();
+  for (const p of people) p.touches.sort((a, b) => a.date.localeCompare(b.date));
   return people;
 }
 

@@ -705,6 +705,14 @@ button.thumb:focus-visible { outline: 2px solid var(--green); outline-offset: 2p
 .person-facts { margin: .7rem 0 0; display: flex; flex-wrap: wrap; gap: .4rem .9rem; }
 .fact { font-size: .78rem; color: var(--ink-soft); display: flex; align-items: center; gap: .35rem; }
 .fact b { font-weight: 600; color: var(--ink); }
+/* A number you can ring. Reads as the fact it already was, until you touch it. */
+.fact-link {
+  font-weight: 600; color: var(--ink); text-decoration: none;
+  border-bottom: 1px solid color-mix(in oklab, var(--green) 40%, transparent);
+  transition: color .2s, border-color .2s;
+}
+.fact-link:hover { color: var(--green); border-color: var(--green); }
+.fact-link:focus-visible { outline: 2px solid var(--green); outline-offset: 3px; }
 
 .season-pills { display: flex; flex-wrap: wrap; gap: .35rem; margin: .7rem 0 0; }
 .pill {
@@ -742,8 +750,19 @@ button.thumb:focus-visible { outline: 2px solid var(--green); outline-offset: 2p
   display: block;
 }
 .touch-status .sub { font-size: .72rem; color: var(--ink-faint); letter-spacing: .06em; }
-.beads { display: flex; gap: .22rem; margin-top: .45rem; }
-.bead { width: .34rem; height: .34rem; border-radius: 50%; background: var(--sage); opacity: .35; }
+/* Both kinds of bead are the same size, so a run of check-ins stays one level
+   line whether or not each one remembers how it happened. */
+.beads { display: flex; align-items: center; gap: .28rem; margin-top: .45rem; min-height: .8rem; }
+.bead {
+  width: .8rem; height: .8rem; border-radius: 50%;
+  display: grid; place-items: center;
+  font-size: .62rem; line-height: 1;
+  color: var(--sage-ink); opacity: .35;
+}
+.bead:not(.has-kind)::before {
+  content: ""; width: .34rem; height: .34rem; border-radius: 50%; background: var(--sage);
+}
+.bead.has-kind { background: color-mix(in oklab, var(--sage) 22%, transparent); }
 .bead.on { opacity: .9; }
 
 .sheet-block { margin-bottom: 2.4rem; }
@@ -1004,6 +1023,12 @@ button.thumb:focus-visible { outline: 2px solid var(--green); outline-offset: 2p
 .type-opt:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
 .type-hint { margin: 0 0 1.3rem; min-height: 2.1em; }
 
+/* Four ways to have connected, two by two — bigger targets than a row of
+   four, which matters when this is mostly tapped with a thumb. */
+.how-pick { grid-template-columns: repeat(2, 1fr); margin-top: 1rem; }
+.how-pick .type-opt { padding: .8rem .4rem; font-size: .78rem; }
+.how-pick .glyph { font-size: 1.15rem; }
+
 .dlg-actions { display: flex; align-items: center; gap: .5rem; margin-top: 1.6rem; flex-wrap: wrap; }
 .dlg-actions .spacer { flex: 1; }
 
@@ -1052,6 +1077,20 @@ button.thumb:focus-visible { outline: 2px solid var(--green); outline-offset: 2p
   box-shadow: 0 0 0 9999px color-mix(in oklab, var(--paper) 74%, transparent);
   border: 1px solid color-mix(in oklab, var(--green) 45%, transparent);
   pointer-events: none;
+}
+
+.cc-field {
+  display: flex; align-items: center; gap: .15rem;
+  border: 1px solid var(--rule); border-radius: 8px;
+  padding: .4rem .6rem; background: var(--paper-raise);
+  color: var(--ink-faint); font-size: .9rem;
+  transition: border-color .2s;
+}
+.cc-field:focus-within { border-color: var(--green); }
+.cc-field input {
+  width: 2.6rem; border: 0; background: none; outline: none;
+  font-family: var(--body); font-size: .9rem; color: var(--ink);
+  font-variant-numeric: tabular-nums;
 }
 
 /* Sits inside a settings row rather than a .field, so there is no input box

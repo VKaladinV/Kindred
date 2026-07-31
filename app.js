@@ -47,6 +47,17 @@ const KINDS = {
   other:     { label: 'Other',     glyph: '•' },
 };
 
+/* How a check-in happened. An empty kind is a real state, not a gap: every
+   check-in made before this existed has none, and the tick in Today still
+   makes them that way. */
+const TOUCH_KINDS = {
+  whatsapp: { label: 'WhatsApp',   glyph: '✆' },
+  call:     { label: 'Phone call', glyph: '☏' },
+  coffee:   { label: 'Coffee',     glyph: '◒' },
+  visit:    { label: 'Visit',      glyph: '⌂' },
+};
+const MAX_TOUCHES = 60;
+
 const TYPES = {
   history: {
     label: 'Happened', glyph: '✧',
@@ -394,6 +405,18 @@ function normaliseHealth(h) {
   };
 }
 
+/* A check-in used to be a bare date. Reading both shapes here means the change
+   lands on old data by itself — normalise() runs on every load, every import
+   and every sync — and running twice changes nothing. Nothing reads the backup
+   file's version number, so this is the only place that tolerance can live. */
+function normaliseTouch(t) {
+  if (typeof t === 'string') return { date: t, kind: '' };
+  return {
+    date: t?.date || today(),
+    kind: TOUCH_KINDS[t?.kind] ? t.kind : '',   // a kind from a newer device is dropped, not thrown at
+  };
+}
+
 function normalise(p) {
   return {
     id: p.id || uid(),
@@ -404,7 +427,7 @@ function normalise(p) {
     contact: (p.contact || '').trim(),
     summary: p.summary || '',
     cadenceDays: Number(p.cadenceDays) || 0,
-    touches: Array.isArray(p.touches) ? p.touches.slice(-60) : [],
+    touches: Array.isArray(p.touches) ? p.touches.map(normaliseTouch).slice(-MAX_TOUCHES) : [],
     events: Array.isArray(p.events) ? p.events.map(normaliseRecord) : [],
     prayers: Array.isArray(p.prayers) ? p.prayers : [],
     medications: Array.isArray(p.medications) ? p.medications.map(normaliseHealth) : [],
@@ -418,9 +441,11 @@ const isMedical = p => p.groups.includes(MEDICAL);
 /* ─────────────────────────── status logic ──────────────────── */
 
 const lastTouch = p => (p.touches.length ? p.touches[p.touches.length - 1] : null);
+const lastTouchDate = p => lastTouch(p)?.date || null;
+const touchOn = (p, date) => p.touches.find(t => t.date === date) || null;
 
 function statusOf(p) {
-  const last = lastTouch(p);
+  const last = lastTouchDate(p);
   const days = last ? daysBetween(last, today()) : null;
   if (!p.cadenceDays) return { state: 'none', days, ratio: 0 };
   if (days === null) return { state: 'due', days: null, ratio: 99 };
@@ -1070,7 +1095,7 @@ function renderSheet() {
   const root = $('#sheet-scroll');
   root.textContent = '';
   const s = statusOf(p);
-  const last = lastTouch(p);
+  const last = lastTouchDate(p);
 
   /* ── identity ── */
   const head = el('div', 'person-head');
@@ -1089,7 +1114,13 @@ function renderSheet() {
   }
   if (p.contact) {
     const f = el('div', 'fact');
-    f.append(document.createTextNode('☏ '), el('b', null, p.contact));
+    const dial = dialNumber(p.contact);
+    /* A way to ring someone without recording anything — sometimes you are
+       calling to arrange the visit, not reporting on it. */
+    const value = dial ? el('a', 'fact-link') : el('b');
+    value.textContent = p.contact;
+    if (dial) { value.href = telLink(dial); value.setAttribute('aria-label', `Call ${p.name}`); }
+    f.append(document.createTextNode('☏ '), value);
     facts.append(f);
   }
   idBox.append(facts);
@@ -1135,16 +1166,25 @@ function renderSheet() {
 
   if (p.touches.length) {
     const beads = el('div', 'beads');
-    p.touches.slice(-14).forEach(() => beads.append(el('span', 'bead on')));
+    p.touches.slice(-14).forEach(t => {
+      const k = TOUCH_KINDS[t.kind];
+      const b = el('span', 'bead on' + (k ? ' has-kind' : ''), k ? k.glyph : '');
+      b.title = k ? `${prettyDate(t.date)} — ${k.label}` : prettyDate(t.date);
+      beads.append(b);
+    });
     st.append(beads);
   }
   bar.append(st);
 
-  const connectedToday = last === today();
-  const btnTouch = el('button', 'btn btn-sage', connectedToday ? '✓ Connected today' : 'Connected today');
+  /* Still live once you have connected, because how it happened can be
+     corrected — the label says what is recorded, the tap changes it. */
+  const todayTouch = touchOn(p, today());
+  const connectedToday = !!todayTouch;
+  const kind = TOUCH_KINDS[todayTouch?.kind];
+  const btnTouch = el('button', 'btn btn-sage',
+    connectedToday ? `✓ Connected today${kind ? ' · ' + kind.label : ''}` : 'Connected today');
   btnTouch.type = 'button';
-  btnTouch.disabled = connectedToday;
-  btnTouch.onclick = () => markConnected(p.id);
+  btnTouch.onclick = () => howDialog(p.id);
   bar.append(btnTouch);
 
   /* The toast's offer is gone in a few seconds. This one stays as long as the
@@ -1329,15 +1369,27 @@ function renderSheet() {
 
 /* ─────────────────────────── mutations ─────────────────────── */
 
-function markConnected(id) {
+/* One check-in a day, and the last word on how it happened wins — saying
+   coffee this evening corrects this morning's WhatsApp rather than adding to
+   it. That keeps a day to one row, which is what the sync's person-and-date
+   key has always assumed. */
+function markConnected(id, kind = '') {
   const p = byId(id);
   if (!p) return;
-  if (lastTouch(p) === today()) return;
-  p.touches.push(today());
-  if (p.touches.length > 60) p.touches = p.touches.slice(-60);
+
+  const existing = touchOn(p, today());
+  if (existing) {
+    if (existing.kind === kind) return;
+    existing.kind = kind;
+  } else {
+    p.touches.push({ date: today(), kind });
+    if (p.touches.length > MAX_TOUCHES) p.touches = p.touches.slice(-MAX_TOUCHES);
+  }
+
   queueSave();
   renderAll();
-  toast(`Noted — you connected with ${p.name.split(' ')[0]} today`,
+  const how = TOUCH_KINDS[kind] ? ` by ${TOUCH_KINDS[kind].label.toLowerCase()}` : '';
+  toast(`Noted — you connected with ${p.name.split(' ')[0]} today${how}`,
     { label: 'Undo', run: () => undoConnected(id) });
 }
 
@@ -1346,11 +1398,66 @@ function markConnected(id) {
    of a moment ago, and quietly dropping one would be a different thing. */
 function undoConnected(id) {
   const p = byId(id);
-  if (!p || lastTouch(p) !== today()) return;
-  p.touches = p.touches.filter(t => t !== today());
+  if (!p || lastTouchDate(p) !== today()) return;
+  p.touches = p.touches.filter(t => t.date !== today());
   queueSave();
   renderAll();
   toast(`Taken back — nothing noted with ${p.name.split(' ')[0]} today`);
+}
+
+/* ── how you connected ─────────────────────────────────────────── */
+
+let howPersonId = null;
+
+function howDialog(id) {
+  const p = byId(id);
+  if (!p) return;
+  howPersonId = id;
+
+  const current = touchOn(p, today())?.kind || '';
+  $('#dlg-how-title').textContent = `How did you connect with ${p.name.split(' ')[0]}?`;
+  /* Every option records either way. Only the jumping-off part needs a
+     number, so that is the only part the hint promises. */
+  $('#how-hint').textContent = dialNumber(p.contact)
+    ? 'WhatsApp and a call will take you straight there.'
+    : 'No number saved for them, so these only make a note.';
+
+  const pick = $('#how-pick');
+  pick.textContent = '';
+  Object.entries(TOUCH_KINDS).forEach(([key, v]) => {
+    const b = el('button', 'type-opt' + (key === current ? ' is-on' : ''));
+    b.type = 'button';
+    b.setAttribute('aria-pressed', String(key === current));
+    b.append(el('span', 'glyph', v.glyph), el('span', null, v.label));
+    b.onclick = () => chooseHow(key);
+    pick.append(b);
+  });
+
+  $('#dlg-how').showModal();
+}
+
+/* The note is made before leaving, so it survives whether or not you come
+   back — the app cannot watch you send the message, and waiting to be told
+   would mean losing the check-in every time you got distracted. */
+function chooseHow(kind) {
+  const p = byId(howPersonId);
+  if (!p) return;
+  const dial = dialNumber(p.contact);
+  markConnected(p.id, kind);
+  $('#dlg-how').close();
+  if (kind === 'whatsapp' && dial) openOut(waLink(dial));
+  if (kind === 'call' && dial) openOut(telLink(dial));
+}
+
+function openOut(href) {
+  const a = el('a');
+  a.href = href;
+  /* tel: is handed to the phone and never yields a window to secure. wa.me is
+     a real navigation, so it leaves in its own tab. */
+  if (href.startsWith('http')) { a.target = '_blank'; a.rel = 'noopener'; }
+  document.body.append(a);
+  a.click();
+  a.remove();
 }
 
 function endSeason(personId, recId) {
@@ -1449,6 +1556,28 @@ const canPickContacts = () => 'contacts' in navigator && 'ContactsManager' in wi
    codes, and an address in the contact field reduces to nothing rather
    than matching everyone else who left theirs blank. */
 const telKey = s => (s || '').replace(/\D/g, '').slice(-9);
+
+/* telKey compares two numbers. This one has to be able to ring one, which
+   means keeping the country code telKey throws away on purpose — so they
+   cannot be the same function. The field is labelled "phone or handle", and
+   most of the work here is deciding that what is in it is not a number. */
+const countryCode = () => (Store.getPref('countryCode', '27').replace(/\D/g, '') || '27');
+
+function dialNumber(contact) {
+  const raw = (contact || '').trim();
+  if (!raw || raw.includes('@')) return '';       // an address, not a number
+  const digits = raw.replace(/\D/g, '');
+  if (digits.length < 7) return '';               // a handle, or too little to ring
+  if (raw.startsWith('+')) return digits;         // already carries its country code
+  if (digits.startsWith('0')) return countryCode() + digits.slice(1);
+  return digits;
+}
+
+/* wa.me rather than whatsapp:// — WhatsApp claims it, so inside the Android
+   app it opens the chat, and on a machine without WhatsApp it is still a page
+   that works rather than a link that quietly does nothing. */
+const waLink = n => `https://wa.me/${n}`;
+const telLink = n => `tel:+${n}`;
 
 function matchExisting(name, tel) {
   const key = telKey(tel);
@@ -1923,7 +2052,14 @@ async function importAll(file) {
         const ids = new Set(existing[key].map(x => x.id));
         incoming[key].forEach(x => { if (!ids.has(x.id)) existing[key].push(x); });
       }
-      existing.touches = [...new Set([...existing.touches, ...incoming.touches])].sort().slice(-60);
+      /* One check-in a day, so a day already here wins and the incoming one
+         is dropped rather than added — deduping these by value the way a Set
+         would means two objects for the same day, and the cap then quietly
+         drops the oldest real ones off the far end. */
+      const days = new Set(existing.touches.map(t => t.date));
+      incoming.touches.forEach(t => { if (!days.has(t.date)) { days.add(t.date); existing.touches.push(t); } });
+      existing.touches.sort((a, b) => a.date.localeCompare(b.date));
+      existing.touches = existing.touches.slice(-MAX_TOUCHES);
       if (data.photos?.[raw.id] && !photos[existing.id]) {
         photos[existing.id] = data.photos[raw.id];
         await Store.savePhoto(existing.id, data.photos[raw.id]);
@@ -2118,6 +2254,9 @@ function wire() {
   $('#form-answer').onsubmit = saveAnswer;
   $('#btn-answer-cancel').onclick = () => $('#dlg-answer').close();
 
+  $('#btn-how-plain').onclick = () => { chooseHow(''); };
+  $('#btn-how-cancel').onclick = () => $('#dlg-how').close();
+
   $('#btn-filter').onclick = () => { fillGroupChips($('#filter-chips')); $('#dlg-filter').showModal(); };
   $('#btn-filter-done').onclick = () => $('#dlg-filter').close();
 
@@ -2142,6 +2281,15 @@ function wire() {
     clearTimeout(searchTimer);
     const v = e.target.value;
     searchTimer = setTimeout(() => { query = v; renderCircle(); }, 120);
+  };
+
+  const cc = $('#country-code');
+  cc.value = countryCode();
+  cc.oninput = e => {
+    const v = e.target.value.replace(/\D/g, '').slice(0, 4);
+    e.target.value = v;
+    Store.setPref('countryCode', v || '27');
+    if (openId) renderSheet();   // the contact line may have just become dialable
   };
 
   const size = $('#badge-size');
