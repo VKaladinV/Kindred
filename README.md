@@ -86,6 +86,12 @@ grid. They add up rather than replace each other: turn on *Family* and *Medical*
 and you see everyone in either. **Everyone** clears them again. Nobody has to be
 in a group at all — untagged people simply live under *Everyone*.
 
+On a phone that row would cost three lines of the screen before you had seen a
+single face, so it folds into one **Filter** button that opens the same toggles
+in a panel. The button carries a number when any are on, and stays lit so you
+can tell at a glance that you are looking at a part of your circle rather than
+all of it.
+
 **Medical** does one thing more: it puts **Medications** and **Conditions** on
 that person's page. Each entry is a name and one line of detail — *Metformin —
 500 mg, twice daily*, *Type 2 diabetes — since 2019*. Untick Medical and the

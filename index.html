@@ -83,6 +83,12 @@
 
     <div class="toolbar">
       <div class="chips" id="chips"></div>
+      <!-- Stands in for the chips on a phone, where the row costs three lines
+           of the screen before you have seen a single face. -->
+      <button type="button" class="chip filter-btn" id="btn-filter" aria-haspopup="dialog" hidden>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4"/></svg>
+        Filter<span class="n" id="filter-n"></span>
+      </button>
       <label class="search">
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>
         <input type="search" id="search" placeholder="Find someone" aria-label="Find someone">
@@ -323,6 +329,17 @@
       <button type="submit" class="btn btn-primary">Mark answered</button>
     </div>
   </form>
+</dialog>
+
+<!-- ─────────── WHO TO SHOW (phone) ─────────── -->
+<dialog class="dlg" id="dlg-filter">
+  <h2 class="dlg-title">Who to show</h2>
+  <p class="hint">Groups add up — <em>Family</em> and <em>Medical</em> together is everyone in either.</p>
+  <div class="chip-pick" id="filter-chips"></div>
+  <div class="dlg-actions">
+    <span class="spacer"></span>
+    <button class="btn btn-primary" id="btn-filter-done">Done</button>
+  </div>
 </dialog>
 
 <!-- ─────────── SETTINGS ─────────── -->

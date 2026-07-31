@@ -303,6 +303,20 @@ main { padding-bottom: 1rem; }
 /* the same chips, used to tag rather than to filter */
 .chip-pick { display: flex; flex-wrap: wrap; gap: .4rem; }
 
+/* On a phone the whole row folds into this one button, and the chips move
+   into the popup it opens. A computer has the width to show them outright. */
+.filter-btn { display: none; align-items: center; gap: .42rem; }
+.filter-btn svg {
+  width: .85rem; height: .85rem;
+  fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round;
+}
+.filter-btn .n:empty { display: none; }
+@media (max-width: 899px) {
+  .toolbar .chips { display: none; }
+  .filter-btn { display: inline-flex; }
+}
+#filter-chips { margin-top: .95rem; }
+
 .search {
   margin-left: auto;
   display: flex; align-items: center; gap: .5rem;

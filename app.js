@@ -689,6 +689,57 @@ function layoutHex(grid, list) {
   return per;
 }
 
+/* ── choosing who to show ───────────────────────────────────────
+   One builder, two homes: the row above the circle on a computer, and the
+   popup a phone opens from the filter button. The row costs three lines of
+   a small screen before you have seen anybody, which is what the button is
+   for — the chips inside it are the same chips, doing the same thing. */
+
+function fillGroupChips(box) {
+  box.textContent = '';
+  const counts = {};
+  people.forEach(p => p.groups.forEach(g => { counts[g] = (counts[g] || 0) + 1; }));
+
+  const everyone = el('button', 'chip' + (filterGroups.size ? '' : ' is-on'));
+  everyone.type = 'button';
+  everyone.setAttribute('aria-pressed', String(!filterGroups.size));
+  everyone.append(document.createTextNode('Everyone'), el('span', 'n', people.length));
+  everyone.onclick = () => { filterGroups.clear(); afterFilterChange(); };
+  box.append(everyone);
+
+  GROUPS.forEach(g => {
+    const on = filterGroups.has(g);
+    if (!counts[g] && !on) return;   // but a group you have chosen always stays visible
+    const c = el('button', 'chip' + (on ? ' is-on' : ''));
+    c.type = 'button';
+    c.setAttribute('aria-pressed', String(on));
+    c.append(document.createTextNode(g), el('span', 'n', counts[g] || 0));
+    /* groups add up rather than replace each other — Family and Medical
+       together is everyone in either, which is how you actually look */
+    c.onclick = () => {
+      if (!filterGroups.delete(g)) filterGroups.add(g);
+      afterFilterChange();
+    };
+    box.append(c);
+  });
+}
+
+/* renderCircle rebuilds the row and the grid on its own. The popup's chips
+   are outside it, so they are repainted here — but only while the popup is
+   the thing being looked at. */
+function afterFilterChange() {
+  renderCircle();
+  if ($('#dlg-filter').open) fillGroupChips($('#filter-chips'));
+}
+
+function paintFilterCount() {
+  const n = filterGroups.size;
+  const b = $('#btn-filter');
+  b.classList.toggle('is-on', n > 0);
+  $('#filter-n').textContent = n || '';
+  b.setAttribute('aria-label', n ? `Choose who to show — ${n} chosen` : 'Choose who to show');
+}
+
 function renderCircle() {
   const grid = $('#grid');
   grid.textContent = '';
@@ -713,33 +764,13 @@ function renderCircle() {
 
   const chips = $('#chips');
   chips.textContent = '';
-  if (people.length > 3) {
-    const counts = {};
-    people.forEach(p => p.groups.forEach(g => { counts[g] = (counts[g] || 0) + 1; }));
+  const canFilter = people.length > 3;
+  if (canFilter) fillGroupChips(chips);
 
-    const everyone = el('button', 'chip' + (filterGroups.size ? '' : ' is-on'));
-    everyone.type = 'button';
-    everyone.setAttribute('aria-pressed', String(!filterGroups.size));
-    everyone.append(document.createTextNode('Everyone'), el('span', 'n', people.length));
-    everyone.onclick = () => { filterGroups.clear(); renderCircle(); };
-    chips.append(everyone);
-
-    GROUPS.forEach(g => {
-      const on = filterGroups.has(g);
-      if (!counts[g] && !on) return;   // but a group you have chosen always stays visible
-      const c = el('button', 'chip' + (on ? ' is-on' : ''));
-      c.type = 'button';
-      c.setAttribute('aria-pressed', String(on));
-      c.append(document.createTextNode(g), el('span', 'n', counts[g] || 0));
-      /* groups add up rather than replace each other — Family and Medical
-         together is everyone in either, which is how you actually look */
-      c.onclick = () => {
-        if (!filterGroups.delete(g)) filterGroups.add(g);
-        renderCircle();
-      };
-      chips.append(c);
-    });
-  }
+  /* The button that stands in for the row on a phone. Hidden on the same
+     terms as the chips: with three people there is nothing to sift. */
+  $('#btn-filter').hidden = !canFilter;
+  paintFilterCount();
 
   const due = dueList().slice(0, 10);
   const nudge = $('#nudge');
@@ -2086,6 +2117,9 @@ function wire() {
 
   $('#form-answer').onsubmit = saveAnswer;
   $('#btn-answer-cancel').onclick = () => $('#dlg-answer').close();
+
+  $('#btn-filter').onclick = () => { fillGroupChips($('#filter-chips')); $('#dlg-filter').showModal(); };
+  $('#btn-filter-done').onclick = () => $('#dlg-filter').close();
 
   $('#btn-settings').onclick = () => { paintNotifState(); $('#dlg-settings').showModal(); };
   $('#btn-settings-close').onclick = () => $('#dlg-settings').close();
