@@ -1957,8 +1957,59 @@ function wire() {
   };
 
   document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) { renderAll(); nudgeIfDue(); }
+    if (!document.hidden) { renderAll(); nudgeIfDue(); checkForUpdate(); }
   });
+}
+
+/* ──────────────── keeping up with the live site ──────────────── */
+
+/* Installed as an Android app, Kindred is a window onto the deployed URL, not
+   a copy of the files — so a change reaches the phone without reinstalling
+   anything. What it does not do is reload. An app picked back up from the
+   task switcher keeps the page it booted with, and can sit for days on last
+   week's version. version.json names the deploy it came from; when that name
+   changes and nothing is half-written, take the new one.
+
+   Watching the service worker instead would miss nearly all of this: the
+   browser decides a worker is new by comparing sw.js byte for byte, and sw.js
+   doesn't change when app.js does. */
+
+let bootBuild = null;
+let lastBuildCheck = 0;
+
+/* Offline, the service worker answers with index.html and parsing that as
+   JSON throws — null either way, which is the honest answer: nothing to
+   compare against. */
+async function readBuild() {
+  try {
+    const res = await fetch('version.json', { cache: 'no-store' });
+    if (!res.ok) return null;
+    return (await res.json()).build || null;
+  } catch { return null; }
+}
+
+/* Reloading out from under a half-typed note would throw it away. Every
+   editor in the app is a native dialog, so one selector covers all of them. */
+function safeToReload() {
+  if ($$('dialog[open]').length) return false;
+  const a = document.activeElement;
+  return !(a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.isContentEditable));
+}
+
+async function checkForUpdate() {
+  if (Date.now() - lastBuildCheck < 60000) return;
+  lastBuildCheck = Date.now();
+
+  const live = await readBuild();
+  if (!live) return;
+
+  /* The first reading it manages is the one it measures against, rather than
+     whatever was true at boot — so a session that started with no connection
+     still arms itself once one arrives. */
+  if (!bootBuild) { bootBuild = live; return; }
+
+  /* Busy right now: let it be. Coming back to the app asks again. */
+  if (live !== bootBuild && safeToReload()) location.reload();
 }
 
 /* ─────────────────────────── boot ─────────────────────────── */
@@ -1987,8 +2038,9 @@ async function boot() {
   paintNotifState();
   nudgeIfDue();
 
-  if (location.protocol.startsWith('http') && 'serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js').catch(() => {});
+  if (location.protocol.startsWith('http')) {
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+    checkForUpdate();
   }
 }
 

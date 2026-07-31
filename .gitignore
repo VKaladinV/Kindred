@@ -10,6 +10,16 @@ desktop.ini
 # Local Netlify state
 .netlify/
 
+# Written by tools/stamp.js, different on every deploy — Netlify makes its own.
+version.json
+
+# The Android signing key, and the file the packager ships its password in.
+# Losing the key means never being able to update the installed app again, so
+# keep it in a password manager with an offline copy — never in the repo.
+*.keystore
+*.jks
+signing-key-info.txt
+
 # Personal data must never be committed — backups contain real people,
 # their photos, health details and prayers.
 kindred-backup-*.json

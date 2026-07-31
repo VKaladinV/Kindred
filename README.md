@@ -223,18 +223,61 @@ from the badge rather than the full picture.
 
 ## Turning it into an Android app (.apk)
 
-Once the Netlify URL is live, [pwabuilder.com](https://www.pwabuilder.com) will wrap it
-as a Trusted Web Activity and hand back a signed `.apk` for sideloading plus an `.aab`
-for the Play Store. The app is a window onto the live URL, so updating the site updates
-the app — no rebuild.
+[pwabuilder.com](https://www.pwabuilder.com) wraps the live URL as a Trusted Web
+Activity and hands back a signed `.apk` to sideload, plus an `.aab` you can ignore
+unless you ever want the Play Store.
 
-Two things to know before you do it:
+The important part is what it *isn't*: the `.apk` is a window onto the Netlify site,
+not a copy of the files. That shapes everything about updating it.
 
-- It needs `/.well-known/assetlinks.json` on the Netlify site containing your signing
-  key's fingerprint. Without it the app opens with a browser URL bar across the top.
-  PWABuilder gives you the file contents to add.
-- **Keep the signing key it generates.** Losing it means never being able to update
-  that installed app again.
+### Updating it
+
+**Changing the app needs no new .apk.** Edit a file, push, and the phone has it. This
+covers `index.html`, `app.js`, `styles.css`, `sync.js`, `config.js` — every ordinary
+change. Nothing to rebuild, nothing to reinstall, nothing to send anyone.
+
+Two things make that land promptly. `netlify.toml` keeps the page, the service worker
+and `version.json` out of the CDN's cache, and `sw.js` goes to the network first so a
+new file always beats the stored one when there's a connection.
+
+The awkward case is an app you never really close. Resumed from the task switcher it
+keeps the page it booted with and would happily stay a fortnight behind. So each deploy
+writes `version.json` naming the commit it came from, and whenever you return to the
+app it compares. If the site has moved on it reloads itself — unless a dialog is open
+or you're typing, in which case it waits and asks again next time. Nothing half-written
+is ever lost to it.
+
+**A new .apk is only needed if the shell changes** — the app name, the icons, the
+manifest, or an Android version bump years from now. Then rebuild with the *same
+signing key* and a higher `versionCode`, and tap the file on the phone to install over
+the top.
+
+Reinstalling doesn't touch your data. A TWA runs in Chrome, so everything lives in
+Chrome's storage for the site rather than inside the app — uninstalling the `.apk`
+wouldn't clear it either. Clearing Chrome's browsing data is what would, which is the
+same warning as further up the page, and the same reason to sign in and keep backups.
+
+### Building it, once
+
+1. Run pwabuilder.com against the live URL and package for Android → Trusted Web
+   Activity. Warnings about screenshots or shortcuts are Play Store polish; ignore them.
+2. **Set the package ID once and never change it.** A different ID is a different app,
+   and the one already on the phone could no longer be updated in place.
+3. Start at `versionCode 1`, `versionName 1.0.0`. Every rebuild after this must raise
+   `versionCode` or Android refuses to install it.
+4. Create a new signing key and download the zip.
+5. Put the `assetlinks.json` it generates at `.well-known/assetlinks.json` here and push.
+   Without it the app opens with a browser URL bar across the top. `netlify.toml`
+   already serves that path with the headers it needs.
+6. **Move the keystore and its password somewhere safe, outside this folder.** The zip
+   holds the key *and* the password in plain text. `.gitignore` covers the usual names,
+   but don't rely on that — put them in a password manager and keep an offline copy.
+   Losing the key means never updating that install again.
+7. If the zip contains `twa-manifest.json`, commit it. It holds the fingerprint, not the
+   key, and lets a later rebuild come out identical via `npx @bubblewrap/cli build`.
+   Otherwise write the package ID and fingerprint down here.
+
+Fill in once done — package ID: `…`  ·  key kept at: `…`
 
 On a Xiaomi, installing the file needs *Install unknown apps* enabled for whatever app
 you open the `.apk` with.
@@ -253,6 +296,7 @@ you open the `.apk` with.
 | `logo-mark.png` | the logo as used inside the app (transparent) |
 | `tools/logo-source.png` | the original logo artwork |
 | `tools/make-icons.js` | rebuilds every icon from that artwork |
+| `tools/stamp.js` | names each deploy in `version.json`, so an installed app knows to refresh |
 
 No build step, no npm install, no frameworks. Edit a file, refresh the page.
 

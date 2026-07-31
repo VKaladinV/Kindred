@@ -1,7 +1,10 @@
-# Kindred is plain static files — nothing to build, publish the folder as-is.
+# Kindred is plain static files — the folder is published as-is. The one
+# command stamps the deploy into version.json, which is how an already
+# installed app tells that the site has moved on without it.
 
 [build]
   publish = "."
+  command = "node tools/stamp.js"
 
 # The service worker and the page itself must never be served stale from the
 # CDN, or an update to the app would not reach a device that already has it.
@@ -14,6 +17,14 @@
   for = "/index.html"
   [headers.values]
     Cache-Control = "no-cache"
+
+# Rewritten on every deploy. Served from cache it would tell an app it is up
+# to date at exactly the moment it stopped being true.
+[[headers]]
+  for = "/version.json"
+  [headers.values]
+    Content-Type = "application/json"
+    Cache-Control = "no-cache, no-store, must-revalidate"
 
 [[headers]]
   for = "/manifest.webmanifest"
