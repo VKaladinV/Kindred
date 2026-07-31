@@ -573,15 +573,25 @@ function avatar(p, cls, clickable = false) {
 /* ─────────────────────────── toast ─────────────────────────── */
 
 let toastTimer = null;
-function toast(msg) {
+
+/* An optional { label, run } puts one action in the toast — for the moment
+   right after a tap, when taking it back should cost no hunting. */
+function toast(msg, action) {
   const t = $('#toast');
   t.textContent = msg;
+  if (action) {
+    const b = el('button', 'toast-do', action.label);
+    b.type = 'button';
+    b.onclick = () => { clearTimeout(toastTimer); t.hidden = true; action.run(); };
+    t.append(b);
+  }
   t.hidden = false;
   t.style.animation = 'none';
   void t.offsetWidth;
   t.style.animation = '';
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { t.hidden = true; }, 2800);
+  /* Something to read and reach for needs longer than something to notice. */
+  toastTimer = setTimeout(() => { t.hidden = true; }, action ? 6000 : 2800);
 }
 
 /* ═══════════════════════════ RENDER: CIRCLE ════════════════ */
@@ -1099,11 +1109,22 @@ function renderSheet() {
   }
   bar.append(st);
 
-  const btnTouch = el('button', 'btn btn-sage', last === today() ? '✓ Connected today' : 'Connected today');
+  const connectedToday = last === today();
+  const btnTouch = el('button', 'btn btn-sage', connectedToday ? '✓ Connected today' : 'Connected today');
   btnTouch.type = 'button';
-  btnTouch.disabled = last === today();
+  btnTouch.disabled = connectedToday;
   btnTouch.onclick = () => markConnected(p.id);
   bar.append(btnTouch);
+
+  /* The toast's offer is gone in a few seconds. This one stays as long as the
+     check-in is still today's, for the mistake noticed later in the evening. */
+  if (connectedToday) {
+    const undo = el('button', 'link-btn', 'undo');
+    undo.type = 'button';
+    undo.setAttribute('aria-label', `Undo today's check-in with ${p.name}`);
+    undo.onclick = () => undoConnected(p.id);
+    bar.append(undo);
+  }
   root.append(bar);
 
   /* ── medical: only for the people you are carrying that way ── */
@@ -1285,7 +1306,20 @@ function markConnected(id) {
   if (p.touches.length > 60) p.touches = p.touches.slice(-60);
   queueSave();
   renderAll();
-  toast(`Noted — you connected with ${p.name.split(' ')[0]} today`);
+  toast(`Noted — you connected with ${p.name.split(' ')[0]} today`,
+    { label: 'Undo', run: () => undoConnected(id) });
+}
+
+/* The other half of it, for the tap you did not mean. Only today's is taken
+   back: an older check-in has become part of the history rather than a slip
+   of a moment ago, and quietly dropping one would be a different thing. */
+function undoConnected(id) {
+  const p = byId(id);
+  if (!p || lastTouch(p) !== today()) return;
+  p.touches = p.touches.filter(t => t !== today());
+  queueSave();
+  renderAll();
+  toast(`Taken back — nothing noted with ${p.name.split(' ')[0]} today`);
 }
 
 function endSeason(personId, recId) {

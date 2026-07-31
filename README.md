@@ -99,7 +99,10 @@ person leaves you on your circle rather than jumping into their page.
 Inside:
 
 - **Connected today** — one tap to record that you spoke. This resets their ring
-  and adds a bead to their little history.
+  and adds a bead to their little history. Tapped it by mistake? The note that
+  appears offers **Undo** for a few seconds, and an **undo** link stays beside the
+  button for the rest of the day. Only today's can be taken back — an older
+  check-in has become history rather than a slip you just made.
 - **Right now** — the seasons they're walking through. See below.
 - **Who they are** — a free-text summary that saves as you type. Meant for what's
   true *right now*: what they're carrying, what to ask about next time.

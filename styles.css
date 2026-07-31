@@ -1098,6 +1098,18 @@ button.thumb:focus-visible { outline: 2px solid var(--green); outline-offset: 2p
   animation: toast-in .35s var(--ease) both;
   max-width: calc(100vw - 2rem); text-align: center;
 }
+.toast-do {
+  margin-left: .75rem; padding: 0;
+  border: 0; background: none; cursor: pointer;
+  font-family: var(--body); font-size: .78rem; font-weight: 700;
+  letter-spacing: .1em; text-transform: uppercase;
+  color: var(--paper);
+  border-bottom: 1px solid color-mix(in oklab, var(--paper) 50%, transparent);
+  transition: border-color .2s;
+}
+.toast-do:hover { border-color: var(--paper); }
+.toast-do:focus-visible { outline: 2px solid var(--paper); outline-offset: 3px; }
+
 @media (min-width: 900px) { .toast { bottom: 1.6rem; left: calc(50% + (var(--rail) / 2)); } }
 @keyframes toast-in { from { opacity: 0; transform: translate(-50%, 14px); } }
 
