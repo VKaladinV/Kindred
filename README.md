@@ -139,6 +139,13 @@ Inside:
 - **edit details** — name, photo, relationship, groups, birthday, and how often
   you want to be nudged.
 
+On a phone, the **back button closes their page** and puts you back in your circle
+instead of closing Kindred. Back inside a dialog closes just that dialog, so an
+*edit details* opened over someone takes two presses to unwind — one for each thing
+covering the circle. Only when nothing is covering it does back leave the app, which
+is where it should. The tabs stay out of this deliberately: back is a way out, not a
+walk back through everywhere you have been.
+
 ### Adding someone from your contacts
 On an Android phone, *Someone new* offers **fill from a contact**. It opens
 Android's own chooser, and only whoever you tap comes back — Kindred never sees
@@ -201,6 +208,55 @@ What it can't do: wake your phone up on its own while closed. A true scheduled p
 notification needs a server sending it, and this app deliberately has no server —
 that's the trade for your data never leaving your device. In practice, put the icon
 on your home screen where you'll see it, and let the *Today* tab do the work.
+
+## Locking it
+
+**Settings → Lock with a PIN** puts four to eight digits in front of your circle. It
+asks when Kindred starts, and again when you come back more than a couple of minutes
+after leaving. Glancing at a message and coming straight back doesn't ask again.
+
+Where the phone has a fingerprint or face reader — or the PC has Windows Hello —
+**Fingerprint or face** appears underneath it, and the lock screen offers that first
+with the PIN waiting behind. It only appears once a PIN exists, because a finger that
+won't read on a cold morning needs something to fall back to.
+
+The lock belongs to the device rather than to you: it is not part of your account, is
+never synced, and is not in a backup. Setting one on the phone leaves the PC as it
+was, which is usually what you want — the phone is the one that gets left on tables.
+
+Locking never costs you anything half-written. If Kindred locks while you were partway
+through adding someone, the lock sits over the top of it, and everything you had typed
+is still there when you come back.
+
+### What it is, and what it isn't
+
+A lock on the door, not a safe. Kindred has no server to check a PIN against, so the
+checking happens here: the PIN is kept as a PBKDF2 hash rather than as itself, and the
+fingerprint is the device telling Kindred it recognised you. Someone determined, with
+your phone already unlocked and developer tools open, could still reach the browser
+storage underneath.
+
+What it stops is the person who picks up your phone. Given what is in here — diagnoses,
+medications, what someone told you in confidence last week — that is the risk worth
+covering.
+
+### If you forget it
+
+**forgotten your PIN?** on the lock screen takes the email and password of the account
+this device syncs with, and lifts the lock. It has to be *this* device's account: any
+Kindred account opening any phone would be no lock at all.
+
+If this device was never signed in, there is nobody to ask, and the lock screen says so
+plainly. The only way past is then to clear Kindred's data in your browser settings —
+which erases the circle on that device — and restore from a backup. One more reason to
+keep one.
+
+### Where it works
+
+The PIN needs the app over **https**, or opened straight off the disk. The
+`http://192.168.…` address cannot hash one safely — the same reason it has no offline
+mode — so there the setting explains itself and stays out of the way. The fingerprint
+needs https proper, so a file opened off the disk can have a PIN but not a finger.
 
 ## Backups
 

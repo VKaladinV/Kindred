@@ -1029,10 +1029,94 @@ function renderToday() {
   badgeEl.textContent = count;
 }
 
+/* ═══════════════════════════ THE BACK BUTTON ═════════════
+   Nothing in Kindred is a separate page — the person sheet and every
+   dialog are elements that get unhidden — so on a phone the back button
+   had nothing to go back through and closed the whole app instead, even
+   with someone's page open over the top.
+
+   So anything that covers the app registers itself here as it opens.
+   One history entry stands for "something is covering the app", and back
+   peels the topmost thing off it. Back on the circle itself still leaves,
+   which is what it should do — the tabs deliberately stay out of this, or
+   leaving would become a walk back through everywhere you had been.
+
+   Chrome on Android has begun closing modal dialogs on back by itself,
+   without moving through history. Watching each dialog's own close event
+   rather than assuming we caused it is what keeps the two accounts of
+   what is open from drifting apart. */
+
+const layers = [];     // what is covering the app, innermost last
+let guarded = false;   // our one history entry is on the stack
+let winding = false;   // a history.back() of our own, still in flight
+
+function guard() {
+  if (guarded) return;
+  guarded = true;
+  /* No URL is passed: the address never changes, so moving across this
+     entry is always same-document and can never become a reload. The
+     person rides along so a reload can put their page back — see boot. */
+  try { history.pushState({ kindredLayer: true, person: openId }, ''); }
+  catch { guarded = false; }
+}
+
+function unguard() {
+  if (!guarded) return;
+  guarded = false;
+  winding = true;
+  try { history.back(); } catch { winding = false; }
+}
+
+function openLayer(close) {
+  const layer = { close };
+  layers.push(layer);
+  guard();
+  return layer;
+}
+
+/* A layer closed by its own button, or closed for us by the browser.
+   Doing nothing when it has already gone is the whole trick: the back
+   press takes it off the list first, so this becomes a no-op instead of
+   winding the history entry off a second time. */
+function closeLayer(layer) {
+  const i = layers.indexOf(layer);
+  if (i < 0) return;
+  layers.splice(i, 1);
+  if (!layers.length) unguard();
+}
+
+window.addEventListener('popstate', () => {
+  if (winding) { winding = false; return; }
+  guarded = false;
+  const layer = layers.pop();
+  if (layer) layer.close();
+  if (layers.length) guard();   // still covered — arm the next press
+});
+
+/* Every editor in the app is a native dialog, so one pass covers the lot,
+   including the sign-in dialog that sync.js owns and this file never
+   mentions. The lock screen is pointedly not among them: back must never
+   be a way through it. */
+function wireDialogLayers() {
+  const held = new WeakMap();
+  const obs = new MutationObserver(list => list.forEach(m => {
+    const d = m.target;
+    if (d.open && !held.has(d)) held.set(d, openLayer(() => d.close()));
+    else if (!d.open && held.has(d)) { closeLayer(held.get(d)); held.delete(d); }
+  }));
+  $$('dialog.dlg').forEach(d => obs.observe(d, { attributes: true, attributeFilter: ['open'] }));
+}
+
 /* ═══════════════════════════ PERSON SHEET ════════════════ */
+
+let sheetLayer = null;
 
 function openSheet(id) {
   openId = id;
+  /* Registered before anything is painted, because renderSheet closes the
+     sheet again if the person has gone — and that has to find a layer to
+     take away rather than leave one standing for a sheet that never opened. */
+  sheetLayer = openLayer(closeSheet);
   $('#scrim').hidden = false;
   $('#sheet').hidden = false;
   document.body.classList.add('is-locked');
@@ -1046,6 +1130,11 @@ function closeSheet() {
   $('#scrim').hidden = true;
   $('#sheet').hidden = true;
   document.body.classList.remove('is-locked');
+  /* Every way of closing the sheet already comes through here — the X, the
+     scrim, Escape, removing the person, renderSheet finding nobody — so
+     this one line covers all of them. */
+  closeLayer(sheetLayer);
+  sheetLayer = null;
 }
 
 function blockHead(title, addLabel, onAdd) {
@@ -2133,6 +2222,384 @@ function nudgeIfDue() {
   } catch { /* some browsers require a service worker */ }
 }
 
+/* ═══════════════════════════ THE LOCK ════════════════════
+   A PIN in front of the circle, and this device's fingerprint or face
+   in front of the PIN where there is one.
+
+   What it is, honestly: a lock on the door, not encryption of what is
+   behind it. There is no server to check anything against, so the PIN is
+   hashed and compared here, and the fingerprint is the device telling us
+   it verified the person standing in front of it. Someone determined,
+   with the phone already unlocked and developer tools open, can still
+   reach the browser's storage. What this stops is the person who picks
+   up your phone — which is the risk that actually exists for a circle
+   holding diagnoses, prayers and life histories.
+
+   All of it stays on the device: the lock is not part of your account,
+   is never synced, and is not in a backup. Locking the phone does not
+   lock the PC. */
+
+const LOCK_GRACE = 2 * 60 * 1000;   // away longer than this and it asks again
+const PIN_MIN = 4;
+const PIN_MAX = 8;
+const PIN_ITER = 150000;
+const LOCK_TRIES = 5;               // wrong PINs before it makes you wait
+const LOCK_PAUSE = 30000;
+
+/* PBKDF2 needs crypto.subtle, which needs a secure context: the live site,
+   the installed app, localhost and a file opened straight off the disk all
+   qualify. The http://192.168… address does not — the same reason it has no
+   service worker. Saying so is better than offering a lock that cannot hash. */
+const canLock = () => !!(window.isSecureContext && window.crypto?.subtle);
+
+/* WebAuthn is stricter still and wants a real https origin, so a file opened
+   off the disk can have a PIN but not a fingerprint. */
+const bioOrigin = () =>
+  canLock() && !!window.PublicKeyCredential &&
+  (location.protocol === 'https:' || ['localhost', '127.0.0.1'].includes(location.hostname));
+
+const b64 = buf => btoa(String.fromCharCode(...new Uint8Array(buf)))
+  .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+const unb64 = s => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
+
+const lockRecord = () => {
+  try { return JSON.parse(Store.getPref('lock', 'null')); } catch { return null; }
+};
+const hasPin = () => !!lockRecord();
+const bioCredential = () => Store.getPref('lockBio', '');
+
+/* sync.js is optional — the app runs unchanged without it — so never
+   assume it is there. */
+const syncEmail = () => {
+  try { return window.KindredSync?.Session?.user?.email || null; } catch { return null; }
+};
+
+let bioReady = false;   // this device can actually verify a person
+async function checkBio() {
+  if (!bioOrigin()) return (bioReady = false);
+  try { bioReady = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable(); }
+  catch { bioReady = false; }
+  return bioReady;
+}
+
+async function pinHash(pin, salt, iter = PIN_ITER) {
+  const key = await crypto.subtle.importKey(
+    'raw', new TextEncoder().encode(pin), 'PBKDF2', false, ['deriveBits']);
+  const bits = await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', salt, iterations: iter, hash: 'SHA-256' }, key, 256);
+  return b64(bits);
+}
+
+async function setPin(pin) {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  Store.setPref('lock', JSON.stringify({
+    v: 1,
+    salt: b64(salt),
+    hash: await pinHash(pin, salt),
+    iter: PIN_ITER,
+    /* How many digits, so the lock screen can let itself in as the last one
+       lands. A PIN's length is not a secret worth an extra tap. */
+    len: pin.length,
+    email: syncEmail(),
+  }));
+}
+
+async function pinMatches(pin) {
+  const rec = lockRecord();
+  if (!rec || !canLock()) return false;
+  try { return (await pinHash(pin, unb64(rec.salt), rec.iter)) === rec.hash; }
+  catch { return false; }
+}
+
+function clearLock() {
+  Store.setPref('lock', 'null');
+  Store.setPref('lockBio', '');
+}
+
+/* ── the fingerprint ── */
+
+async function enrolBio() {
+  const cred = await navigator.credentials.create({
+    publicKey: {
+      challenge: crypto.getRandomValues(new Uint8Array(32)),
+      rp: { name: 'Kindred', id: location.hostname },
+      user: {
+        id: crypto.getRandomValues(new Uint8Array(16)),
+        name: syncEmail() || 'kindred',
+        displayName: 'Kindred',
+      },
+      pubKeyCredParams: [{ type: 'public-key', alg: -7 }, { type: 'public-key', alg: -257 }],
+      authenticatorSelection: {
+        authenticatorAttachment: 'platform',   // this device's own sensor, never a key on a fob
+        userVerification: 'required',
+        residentKey: 'discouraged',
+      },
+      timeout: 60000,
+      attestation: 'none',
+    },
+  });
+  if (!cred) throw new Error('nothing registered');
+  Store.setPref('lockBio', b64(cred.rawId));
+}
+
+async function askBio() {
+  const id = bioCredential();
+  if (!id) return false;
+  const got = await navigator.credentials.get({
+    publicKey: {
+      challenge: crypto.getRandomValues(new Uint8Array(32)),
+      allowCredentials: [{ type: 'public-key', id: unb64(id), transports: ['internal'] }],
+      userVerification: 'required',
+      timeout: 60000,
+    },
+  });
+  return !!got;
+}
+
+/* ── the lock screen ── */
+
+let locked = false;
+let hiddenAt = Date.now();
+let wrongTries = 0;
+let pauseUntil = 0;
+let pauseTimer = null;
+let bioAsked = false;
+
+function showLock() {
+  if (locked || !hasPin()) return;
+  locked = true;
+  wrongTries = 0;
+  pauseUntil = 0;
+  bioAsked = false;
+
+  $('#lock-pin').value = '';
+  $('#lock-error').textContent = '';
+  $('#lock-forgot-panel').hidden = true;
+  $('#lock-bio').hidden = !bioCredential();
+  paintLockPause();
+
+  const dlg = $('#lock');
+  if (!dlg.open) dlg.showModal();
+
+  /* The fingerprint sheet and the keyboard both want the screen, so
+     whichever is about to happen gets it to itself. */
+  if (bioCredential()) tryBio(true);
+  else setTimeout(() => $('#lock-pin').focus(), 60);
+}
+
+function unlock() {
+  locked = false;
+  clearTimeout(pauseTimer);
+  hiddenAt = Date.now();
+  $('#lock-pin').value = '';
+  $('#lock-forgot-password').value = '';
+  const dlg = $('#lock');
+  if (dlg.open) dlg.close();
+  renderAll();
+  nudgeIfDue();   // held back while locked, so it lands now instead
+}
+
+async function tryBio(auto = false) {
+  if (auto && bioAsked) return;
+  bioAsked = true;
+  try {
+    if (await askBio()) return unlock();
+  } catch { /* dismissed, or the browser wanted a tap of its own first */ }
+  if (auto) setTimeout(() => $('#lock-pin').focus(), 60);
+}
+
+/* Five wrong and it pauses for half a minute. The count lives in memory
+   only — this is a lock on a door, and pretending otherwise by hardening
+   it against a patient attacker would be dressing up what it is. */
+function paintLockPause() {
+  clearTimeout(pauseTimer);
+  const left = Math.max(0, Math.ceil((pauseUntil - Date.now()) / 1000));
+  $('#lock-pin').disabled = left > 0;
+  $('#lock-unlock').disabled = left > 0;
+  if (left) {
+    $('#lock-error').textContent = `Too many tries — ${left}s`;
+    pauseTimer = setTimeout(paintLockPause, 1000);
+  } else if (pauseUntil) {
+    pauseUntil = 0;
+    $('#lock-error').textContent = '';
+    $('#lock-pin').focus();
+  }
+}
+
+async function submitPin() {
+  if (pauseUntil || !locked) return;
+  const pin = $('#lock-pin').value;
+  if (pin.length < PIN_MIN) return;
+
+  if (await pinMatches(pin)) return unlock();
+
+  $('#lock-pin').value = '';
+  if (++wrongTries >= LOCK_TRIES) {
+    wrongTries = 0;
+    pauseUntil = Date.now() + LOCK_PAUSE;
+    paintLockPause();
+  } else {
+    $('#lock-error').textContent = 'That is not the PIN';
+  }
+  const card = $('#lock-card');
+  card.classList.remove('is-wrong');
+  void card.offsetWidth;            // let the shake start again from nothing
+  card.classList.add('is-wrong');
+}
+
+/* Signing in is the way back — but only as the account this device already
+   belongs to. Any Kindred account opening any phone would be no lock at all. */
+function knownAccount() {
+  return (syncEmail() || lockRecord()?.email || '').toLowerCase();
+}
+
+function paintForgot() {
+  const can = !!(window.KindredSync && knownAccount());
+  $('#form-lock-forgot').hidden = !can;
+  $('#lock-forgot-none').hidden = can;
+  if (can) $('#lock-forgot-email').value = knownAccount();
+}
+
+async function forgotSubmit(e) {
+  e.preventDefault();
+  const err = $('#lock-forgot-error');
+  const known = knownAccount();
+  const email = $('#lock-forgot-email').value.trim().toLowerCase();
+  if (!known || email !== known) {
+    err.textContent = 'That is not the account this device belongs to';
+    return;
+  }
+  err.textContent = 'Checking…';
+  try {
+    await window.KindredSync.signIn(email, $('#lock-forgot-password').value);
+    err.textContent = '';
+    clearLock();
+    unlock();
+    toast('Lock removed — set a new PIN in settings');
+  } catch (ex) {
+    err.textContent = ex.message || 'Could not sign in';
+  }
+}
+
+/* Wired on its own, before the rest of the app is awake, so a PIN typed
+   in the first moments cannot fall through to a page navigation. */
+function wireLock() {
+  /* Cancel is what both Escape and the phone's back button arrive as.
+     Refusing it is what makes this a lock rather than a curtain. */
+  $('#lock').addEventListener('cancel', e => e.preventDefault());
+
+  $('#form-lock').onsubmit = e => { e.preventDefault(); submitPin(); };
+  $('#lock-pin').oninput = e => {
+    e.target.value = e.target.value.replace(/\D/g, '');
+    $('#lock-error').textContent = '';
+    if (e.target.value.length === lockRecord()?.len) submitPin();
+  };
+  $('#lock-bio').onclick = () => tryBio();
+  $('#lock-forgot').onclick = () => {
+    const panel = $('#lock-forgot-panel');
+    panel.hidden = !panel.hidden;
+    if (!panel.hidden) { paintForgot(); $('#lock-forgot-password').focus(); }
+  };
+  $('#form-lock-forgot').onsubmit = forgotSubmit;
+}
+
+/* ── setting it up ── */
+
+let pinMode = 'set';   // set · change · off
+
+function paintLockState() {
+  const on = hasPin();
+  const able = canLock();
+
+  $('#lock-hint').textContent = !able
+    ? 'A PIN needs Kindred opened over https, or straight off the disk. This address cannot hash one safely, so it is not offered here.'
+    : on
+      ? 'On. Kindred asks when it starts, and again when you come back after a couple of minutes away.'
+      : 'Ask for a PIN before your circle is shown. It stays on this device — not in your account, and not in your backup.';
+
+  $('#btn-pin').hidden = !able || on;
+  $('#btn-pin-change').hidden = !able || !on;
+  $('#btn-pin-off').hidden = !able || !on;
+
+  const bioOn = !!bioCredential();
+  $('#setting-bio').hidden = !(able && on && bioReady);
+  $('#btn-bio').textContent = bioOn ? 'Turn off' : 'Turn on';
+  $('#bio-hint').textContent = bioOn
+    ? 'On. The lock screen offers it first, with the PIN waiting behind it.'
+    : 'Use this device’s own fingerprint, face or Windows Hello instead of typing the PIN.';
+}
+
+function pinDialog(mode) {
+  pinMode = mode;
+  const need = hasPin();
+
+  $('#dlg-pin-title').textContent =
+    mode === 'off' ? 'Turn the lock off' : mode === 'change' ? 'Change your PIN' : 'Set a PIN';
+  $('#pin-lede').textContent = mode === 'off'
+    ? 'Enter it once more and Kindred will stop asking. Any fingerprint you set up is forgotten with it.'
+    : 'Four to eight digits, kept on this device alone. If you lose it, signing in to your Kindred account is the way back.';
+
+  $('#pin-current-wrap').hidden = !need;
+  $('#pin-new-wrap').hidden = mode === 'off';
+  $('#pin-confirm-wrap').hidden = mode === 'off';
+  $('#btn-pin-save').textContent = mode === 'off' ? 'Turn it off' : 'Save';
+  ['#pin-current', '#pin-new', '#pin-confirm'].forEach(s => { $(s).value = ''; });
+  $('#pin-error').textContent = '';
+
+  $('#dlg-pin').showModal();
+  setTimeout(() => $(need ? '#pin-current' : '#pin-new').focus(), 60);
+}
+
+async function savePin(e) {
+  e.preventDefault();
+  const err = $('#pin-error');
+  err.textContent = '';
+
+  if (hasPin() && !(await pinMatches($('#pin-current').value))) {
+    err.textContent = 'That is not your PIN';
+    return;
+  }
+
+  if (pinMode === 'off') {
+    clearLock();
+    $('#dlg-pin').close();
+    paintLockState();
+    return toast('Lock turned off');
+  }
+
+  const pin = $('#pin-new').value;
+  if (!/^\d+$/.test(pin) || pin.length < PIN_MIN || pin.length > PIN_MAX) {
+    err.textContent = `Between ${PIN_MIN} and ${PIN_MAX} digits`;
+    return;
+  }
+  if (pin !== $('#pin-confirm').value) {
+    err.textContent = 'The two do not match';
+    return;
+  }
+
+  await setPin(pin);
+  $('#dlg-pin').close();
+  paintLockState();
+  toast(pinMode === 'change' ? 'PIN changed' : 'PIN set — Kindred will ask next time it opens');
+}
+
+async function toggleBio() {
+  if (bioCredential()) {
+    Store.setPref('lockBio', '');
+    paintLockState();
+    return toast('Fingerprint unlock turned off');
+  }
+  try {
+    await enrolBio();
+    paintLockState();
+    toast('Fingerprint unlock is on');
+  } catch (ex) {
+    toast(ex?.name === 'NotAllowedError'
+      ? 'Nothing was registered, so nothing changed'
+      : 'This device would not register a fingerprint');
+  }
+}
+
 /* ─────────────────────────── views ─────────────────────────── */
 
 function switchView(name) {
@@ -2260,8 +2727,22 @@ function wire() {
   $('#btn-filter').onclick = () => { fillGroupChips($('#filter-chips')); $('#dlg-filter').showModal(); };
   $('#btn-filter-done').onclick = () => $('#dlg-filter').close();
 
-  $('#btn-settings').onclick = () => { paintNotifState(); $('#dlg-settings').showModal(); };
+  $('#btn-settings').onclick = () => {
+    paintNotifState();
+    /* Whether the device can verify a person may have changed since boot —
+       a fingerprint enrolled in Android's own settings, say. */
+    checkBio().then(paintLockState);
+    paintLockState();
+    $('#dlg-settings').showModal();
+  };
   $('#btn-settings-close').onclick = () => $('#dlg-settings').close();
+
+  $('#btn-pin').onclick = () => pinDialog('set');
+  $('#btn-pin-change').onclick = () => pinDialog('change');
+  $('#btn-pin-off').onclick = () => pinDialog('off');
+  $('#btn-pin-cancel').onclick = () => $('#dlg-pin').close();
+  $('#form-pin').onsubmit = savePin;
+  $('#btn-bio').onclick = toggleBio;
   $('#btn-notif').onclick = enableNotifications;
   $('#btn-export').onclick = exportAll;
   $('#import-input').onchange = e => {
@@ -2327,8 +2808,16 @@ function wire() {
   }
 
   document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) { renderAll(); nudgeIfDue(); checkForUpdate(); }
+    if (document.hidden) { hiddenAt = Date.now(); return; }
+    /* Glancing at a message and coming straight back should not ask again;
+       leaving the phone on the table should. */
+    if (Date.now() - hiddenAt > LOCK_GRACE) showLock();
+    renderAll();
+    if (!locked) nudgeIfDue();
+    checkForUpdate();
   });
+
+  wireDialogLayers();
 }
 
 /* ──────────────── keeping up with the live site ──────────────── */
@@ -2385,12 +2874,18 @@ async function checkForUpdate() {
 /* ─────────────────────────── boot ─────────────────────────── */
 
 async function boot() {
+  /* Before anything else. Reading the lock is synchronous, so the screen is
+     up ahead of the first paint and no face is ever drawn uncovered. */
+  wireLock();
+  showLock();
+
   await Store.init();
   people = (await Store.loadPeople()).map(normalise);
   photos = await Store.loadPhotos();
 
   fillSelects();
   wire();
+  checkBio().then(paintLockState);
 
   $('#storage-state').textContent = Store.blocked
     ? 'Kindred is open in another tab and holding the database. Close it and reload — nothing here will save until you do.'
@@ -2410,7 +2905,17 @@ async function boot() {
 
   renderAll();
   paintNotifState();
-  nudgeIfDue();
+  paintLockState();
+  if (!locked) nudgeIfDue();
+
+  /* A reload with someone open — the app taking an update, usually — comes
+     back standing on the guard entry, and their page is still what the back
+     button is in front of. Take the entry as ours and put them back. */
+  if (history.state?.kindredLayer) {
+    guarded = true;
+    const held = history.state.person;
+    if (held && byId(held)) openSheet(held);
+  }
 
   if (location.protocol.startsWith('http')) {
     if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});

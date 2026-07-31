@@ -372,6 +372,28 @@
 
   <div class="setting">
     <div>
+      <h3>Lock with a PIN</h3>
+      <p class="hint" id="lock-hint">—</p>
+    </div>
+    <div class="setting-actions">
+      <button class="btn btn-quiet" id="btn-pin" hidden>Set a PIN</button>
+      <button class="btn btn-quiet btn-tiny" id="btn-pin-change" hidden>Change</button>
+      <button class="btn btn-quiet btn-tiny" id="btn-pin-off" hidden>Turn off</button>
+    </div>
+  </div>
+
+  <!-- Only where the device can actually verify a person, and only once
+       there is a PIN for it to stand in front of. -->
+  <div class="setting" id="setting-bio" hidden>
+    <div>
+      <h3>Fingerprint or face</h3>
+      <p class="hint" id="bio-hint">—</p>
+    </div>
+    <button class="btn btn-quiet" id="btn-bio">Turn on</button>
+  </div>
+
+  <div class="setting">
+    <div>
       <h3>Country code</h3>
       <p class="hint">Added to numbers saved the local way, like <em>082 …</em>, so WhatsApp can find them. Numbers you saved starting with <em>+</em> are left alone.</p>
     </div>
@@ -425,6 +447,88 @@
   <div class="dlg-actions">
     <span class="spacer"></span>
     <button class="btn btn-primary" id="btn-settings-close">Done</button>
+  </div>
+</dialog>
+
+<!-- ─────────── SETTING A PIN ─────────── -->
+<dialog class="dlg" id="dlg-pin">
+  <!-- Not method="dialog": saving is async and can fail its own checks, so
+       the dialog closes when the work is done rather than on the click. -->
+  <form id="form-pin">
+    <h2 class="dlg-title" id="dlg-pin-title">Set a PIN</h2>
+    <p class="dlg-lede" id="pin-lede"></p>
+
+    <label class="field" id="pin-current-wrap" hidden>
+      <span>Your PIN now</span>
+      <input type="password" id="pin-current" inputmode="numeric" autocomplete="current-password" maxlength="8">
+    </label>
+    <label class="field" id="pin-new-wrap">
+      <span>New PIN <em>four to eight digits</em></span>
+      <input type="password" id="pin-new" inputmode="numeric" autocomplete="new-password" maxlength="8">
+    </label>
+    <label class="field" id="pin-confirm-wrap">
+      <span>Once more</span>
+      <input type="password" id="pin-confirm" inputmode="numeric" autocomplete="new-password" maxlength="8">
+    </label>
+
+    <p class="auth-error" id="pin-error" role="alert"></p>
+
+    <div class="dlg-actions">
+      <span class="spacer"></span>
+      <button type="button" class="btn btn-quiet" id="btn-pin-cancel">Cancel</button>
+      <button type="submit" class="btn btn-primary" id="btn-pin-save">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- ─────────── THE LOCK ───────────
+     A dialog rather than a plain overlay, so it sits in the top layer above
+     any editor left open underneath — locking never throws away something
+     half-typed. Its cancel event is refused in app.js, which is what stops
+     Escape and the phone's back button dismissing it. It carries no .dlg
+     class on purpose: that is what the back button watches. -->
+<dialog class="lock" id="lock" aria-label="Kindred is locked">
+  <div class="lock-card" id="lock-card">
+    <img class="lock-mark" src="logo-mark.png" alt="" width="256" height="256">
+    <h2>Kindred</h2>
+    <p class="lock-sub">Your circle is behind your PIN.</p>
+
+    <form id="form-lock">
+      <input class="lock-pin" id="lock-pin" type="password" inputmode="numeric"
+             autocomplete="off" maxlength="8" aria-label="PIN">
+      <p class="lock-error" id="lock-error" role="alert"></p>
+      <div class="lock-actions">
+        <button type="submit" class="btn btn-primary" id="lock-unlock">Unlock</button>
+        <button type="button" class="btn btn-quiet" id="lock-bio" hidden>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 10.5v4.2M8.6 9.2a3.8 3.8 0 0 1 6.8 2.4v3.1M5.6 8a7 7 0 0 1 12.8 3.6v3.1M9.3 17.2c.5 1 .8 2 .8 2.9M14.9 17.9c-.2.9-.3 1.6-.3 2.2"/></svg>
+          Use fingerprint
+        </button>
+      </div>
+    </form>
+
+    <button type="button" class="link-btn lock-forgot" id="lock-forgot">forgotten your PIN?</button>
+
+    <div class="lock-panel" id="lock-forgot-panel" hidden>
+      <form id="form-lock-forgot" hidden>
+        <p class="hint">Signing in as the account this device belongs to takes the lock off.</p>
+        <label class="field">
+          <span>Email</span>
+          <input type="email" id="lock-forgot-email" autocomplete="username">
+        </label>
+        <label class="field">
+          <span>Password</span>
+          <input type="password" id="lock-forgot-password" autocomplete="current-password">
+        </label>
+        <p class="lock-error" id="lock-forgot-error" role="alert"></p>
+        <button type="submit" class="btn btn-quiet">Sign in and unlock</button>
+      </form>
+      <p class="hint" id="lock-forgot-none" hidden>
+        This device has never been signed in, and everything in Kindred is here
+        and nowhere else — so there is nobody to ask. The only way past is to
+        clear Kindred’s data in your browser settings, which erases your circle,
+        and then restore it from a backup.
+      </p>
+    </div>
   </div>
 </dialog>
 
