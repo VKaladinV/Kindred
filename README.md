@@ -193,10 +193,25 @@ a device you haven't signed in on keeps everything in its own browser storage.
 Signing in is what joins them up. In **Backup & settings → Account & sync**, sign in on
 the PC and again on the phone, and from then on everyone in your circle, their history
 and coming-up dates, seasons, prayers, check-ins, medications and conditions, and their
-photos travel between both — edit in one place and it turns up in the other. It stays
-local-first either way: everything keeps working with no signal, and the devices
-reconcile when you reconnect. Signing out leaves that device's copy exactly where it is;
-it just stops syncing.
+photos travel between both. Netlify isn't the go-between — the devices reconcile against
+Supabase directly, not through the site.
+
+**When it syncs.** Not continuously. It catches up at these moments:
+
+- when you open the app, if you're already signed in
+- a couple of seconds after you change something
+- the moment a device reconnects after being offline
+- when you come back to the app, or to its browser tab, after being elsewhere
+- whenever you press *Sync now*
+
+So it isn't live the way a shared document is. A PC left open and untouched won't show
+what you just added on the phone until you click back to it or press *Sync now*.
+
+Being offline loses nothing. Rather than stamping every edit as you make it, the app
+keeps a snapshot of what it last agreed with the server and compares against that, so
+whatever changed in the meantime goes up on the next sync that succeeds. If the same
+person was edited on both devices in between, the device that syncs last wins. Signing
+out leaves that device's copy exactly where it is; it just stops syncing.
 
 That makes backup/restore a safety net rather than the only bridge between devices — a
 file you keep somewhere else, rather than the only way data crosses from PC to phone.
