@@ -60,6 +60,22 @@ A small **✜** at the top of a badge means open prayers; a mark at the bottom-l
 means they're in a season right now. Anyone overdue also appears in the
 *It's been a while* strip at the top.
 
+### Groups
+There are five, and a person can be in as many as fit — someone from church who
+is also family, a colleague you're also tracking medically:
+
+**Community/Discipleship · Work · Family · Friends · Medical**
+
+Once you have more than three people, the groups appear as toggles above the
+grid. They add up rather than replace each other: turn on *Family* and *Medical*
+and you see everyone in either. **Everyone** clears them again. Nobody has to be
+in a group at all — untagged people simply live under *Everyone*.
+
+**Medical** does one thing more: it puts **Medications** and **Conditions** on
+that person's page. Each entry is a name and one line of detail — *Metformin —
+500 mg, twice daily*, *Type 2 diabetes — since 2019*. Untick Medical and the
+lists are hidden, not deleted; tick it again and they're still there.
+
 ### Opening someone
 **Tap their photo** — that is the only thing that opens a person's page. Their name
 underneath is just a label, so you can't open someone by accident, and adding a new
@@ -75,8 +91,20 @@ Inside:
 - **Prayer list** — add anything; tick it to mark it answered (you can note how it
   was answered). Answered items tuck away underneath but are never deleted.
 - **Coming up** and **History** — see below.
-- **edit details** — name, photo, relationship, circle, birthday, and how often
+- **Medications** and **Conditions** — only for people in the Medical group.
+- **edit details** — name, photo, relationship, groups, birthday, and how often
   you want to be nudged.
+
+### Photos, and what they look at
+When you choose a photo you also choose what the circle centres on: drag the
+picture to move it, and zoom in to single one person out of a group shot. The
+circle you see in that dialog is the badge — there is no surprise afterwards.
+
+The crop is cut from the picture at full size, so zooming onto a distant face
+still has detail to work with. Kindred keeps a copy of the uncropped picture on
+that device, so **adjust focus** can reopen it later exactly where you left it,
+without hunting for the file again. That copy never leaves the device: it isn't
+synced and isn't in your backup.
 
 ### Three ways to record something
 
@@ -159,10 +187,24 @@ back to any earlier version if something breaks.
 Once it's live, open the HTTPS URL on your phone and use *Add to Home Screen*. It then
 behaves like an installed app.
 
-**Deploying does not move your data anywhere.** The site is only the code — your people,
-photos, records and prayers stay in browser storage on whichever device you entered them
-on. The phone and the PC each keep their own separate copy until the Supabase sync is
-built; backup/restore is the bridge between them in the meantime.
+**Deploying does not move your data anywhere by itself.** The site is only the code, and
+a device you haven't signed in on keeps everything in its own browser storage.
+
+Signing in is what joins them up. In **Backup & settings → Account & sync**, sign in on
+the PC and again on the phone, and from then on everyone in your circle, their history
+and coming-up dates, seasons, prayers, check-ins, medications and conditions, and their
+photos travel between both — edit in one place and it turns up in the other. It stays
+local-first either way: everything keeps working with no signal, and the devices
+reconcile when you reconnect. Signing out leaves that device's copy exactly where it is;
+it just stops syncing.
+
+That makes backup/restore a safety net rather than the only bridge between devices — a
+file you keep somewhere else, rather than the only way data crosses from PC to phone.
+
+One thing deliberately stays behind: the uncropped original of each photo — the copy that
+**adjust focus** reopens — never leaves the device it was chosen on. It isn't synced and
+isn't in a backup, so on a second device the badge arrives, but re-cropping there starts
+from the badge rather than the full picture.
 
 ## Turning it into an Android app (.apk)
 

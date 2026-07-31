@@ -1,7 +1,10 @@
 /* ══════════════════════════════════════════════════════════════
    Kindred — all data lives on this device.
-   people  → IndexedDB "kv" store (or localStorage fallback)
-   photos  → IndexedDB "photos" store, keyed by person id
+   people    → IndexedDB "kv" store (or localStorage fallback)
+   photos    → IndexedDB "photos" store, keyed by person id
+   originals → IndexedDB "originals" store, keyed by person id:
+               the picked image before cropping, so the focus can be
+               nudged later. Never synced, never exported.
 
    A person's `events` array holds three kinds of record:
      history  — it already happened
@@ -14,7 +17,14 @@
 
 /* ─────────────────────────── constants ─────────────────────── */
 
-const GROUPS = ['Family', 'Friends', 'Church', 'Work', 'Other'];
+/* A person belongs to as many of these as fit — nobody is only one thing. */
+const GROUPS = ['Community/Discipleship', 'Work', 'Family', 'Friends', 'Medical'];
+
+const MEDICAL = 'Medical';
+
+/* The circles as they were before groups became plural. Church is the same
+   people under a truer name; Other never meant anything, so it becomes none. */
+const LEGACY_GROUPS = { Church: 'Community/Discipleship', Other: null };
 
 const CADENCES = [
   [0,   'never — no nudges'],
@@ -61,6 +71,25 @@ const TYPES = {
     dateLabel: 'When it began',
     hint: 'A stretch of life, not a single day — grief, treatment, a new baby, job hunting. It stays on their page until you mark it ended.',
     placeholder: 'Chemotherapy',
+  },
+};
+
+/* The two lists a person in the Medical group carries. Same shape, same
+   renderer, same dialog — only the words around them differ. */
+const HEALTH = {
+  medications: {
+    title: 'Medications', addLabel: '+ add a medication',
+    newTitle: 'Add a medication', editTitle: 'Edit this medication',
+    nameLabel: 'Medication', namePlaceholder: 'Metformin',
+    detailLabel: 'Dose and how often', detailPlaceholder: '500 mg, twice daily',
+    empty: 'Nothing listed — what they take, and how much.',
+  },
+  conditions: {
+    title: 'Conditions', addLabel: '+ add a condition',
+    newTitle: 'Add a condition', editTitle: 'Edit this condition',
+    nameLabel: 'Condition', namePlaceholder: 'Type 2 diabetes',
+    detailLabel: 'Anything worth remembering', detailPlaceholder: 'since 2019, well controlled',
+    empty: 'Nothing listed — diagnoses, allergies, what to watch for.',
   },
 };
 
@@ -137,22 +166,25 @@ function hashCode(str) {
 /* ─────────────────────────── storage ───────────────────────── */
 
 const Store = (() => {
-  let db = null, mode = 'memory';
+  let db = null, mode = 'memory', blocked = false;
   const mem = { people: null, photos: {}, snapshot: null };
 
   function openDb() {
     return new Promise(resolve => {
       let req;
-      try { req = indexedDB.open('kindred', 1); }
+      try { req = indexedDB.open('kindred', 2); }
       catch { return resolve(null); }
       req.onupgradeneeded = () => {
         const d = req.result;
         if (!d.objectStoreNames.contains('kv')) d.createObjectStore('kv');
         if (!d.objectStoreNames.contains('photos')) d.createObjectStore('photos');
+        if (!d.objectStoreNames.contains('originals')) d.createObjectStore('originals');
       };
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => resolve(null);
-      req.onblocked = () => resolve(null);
+      /* another tab still holds the old version open — it is not that the
+         database is unusable, only that it is busy. See init(). */
+      req.onblocked = () => { blocked = true; resolve(null); };
       setTimeout(() => resolve(req.result || null), 2500);
     });
   }
@@ -166,6 +198,7 @@ const Store = (() => {
 
   return {
     get mode() { return mode; },
+    get blocked() { return blocked; },
 
     async init() {
       db = await openDb();
@@ -173,6 +206,10 @@ const Store = (() => {
         try { await idb('kv', s => s.get('people')); mode = 'indexeddb'; return; }
         catch { db = null; }
       }
+      /* The real data is in a database we could not open, not in localStorage.
+         Writing there would quietly start a second, divergent copy, so stay
+         in memory and say so — closing the other tab fixes it. */
+      if (blocked) { mode = 'memory'; return; }
       try {
         localStorage.setItem('kindred:probe', '1');
         localStorage.removeItem('kindred:probe');
@@ -236,6 +273,27 @@ const Store = (() => {
       delete mem.photos[id];
     },
 
+    /* The uncropped picture, kept only so the focus can be moved again.
+       IndexedDB only — a full-size image per person would fill the
+       localStorage budget several times over, and the crop still works
+       without one, just starting from the square. */
+    async loadOriginal(id) {
+      if (mode !== 'indexeddb') return null;
+      try { return (await idb('originals', s => s.get(id))) || null; }
+      catch { return null; }
+    },
+
+    async saveOriginal(id, dataUrl) {
+      if (mode !== 'indexeddb') return;
+      try { await idb('originals', s => s.put(dataUrl, id), true); }
+      catch { /* out of room — the crop itself is already saved */ }
+    },
+
+    async deleteOriginal(id) {
+      if (mode !== 'indexeddb') return;
+      try { await idb('originals', s => s.delete(id), true); } catch { /* gone already */ }
+    },
+
     /* what the sync layer last agreed with the server — see sync.js */
     async loadSnapshot() {
       if (mode === 'indexeddb') return (await idb('kv', s => s.get('syncSnapshot'))) || null;
@@ -274,7 +332,7 @@ const Store = (() => {
 let people = [];
 let photos = {};
 let openId = null;
-let filterGroup = 'all';
+const filterGroups = new Set();   // empty means everyone
 let query = '';
 let saveTimer = null;
 
@@ -313,12 +371,35 @@ function normaliseRecord(r) {
   };
 }
 
+/* Groups were once a single circle. Reading both shapes here means the
+   change lands on old data by itself — normalise() runs on every load,
+   every import and every sync — and running twice changes nothing. */
+function normaliseGroups(p) {
+  const raw = Array.isArray(p.groups) ? p.groups
+    : (p.groups ? [p.groups] : (p.group ? [p.group] : []));
+  const keep = new Set();
+  for (const g of raw) {
+    const name = Object.prototype.hasOwnProperty.call(LEGACY_GROUPS, g) ? LEGACY_GROUPS[g] : g;
+    if (GROUPS.includes(name)) keep.add(name);
+  }
+  return GROUPS.filter(g => keep.has(g));   // always in the order they are shown
+}
+
+function normaliseHealth(h) {
+  return {
+    id: h.id || uid(),
+    name: (h.name || '').trim() || 'Untitled',
+    detail: (h.detail || '').trim(),
+    addedAt: h.addedAt || today(),
+  };
+}
+
 function normalise(p) {
   return {
     id: p.id || uid(),
     name: (p.name || 'Unnamed').trim(),
     relationship: (p.relationship || '').trim(),
-    group: GROUPS.includes(p.group) ? p.group : 'Other',
+    groups: normaliseGroups(p),
     birthday: p.birthday || '',
     contact: (p.contact || '').trim(),
     summary: p.summary || '',
@@ -326,9 +407,13 @@ function normalise(p) {
     touches: Array.isArray(p.touches) ? p.touches.slice(-60) : [],
     events: Array.isArray(p.events) ? p.events.map(normaliseRecord) : [],
     prayers: Array.isArray(p.prayers) ? p.prayers : [],
+    medications: Array.isArray(p.medications) ? p.medications.map(normaliseHealth) : [],
+    conditions: Array.isArray(p.conditions) ? p.conditions.map(normaliseHealth) : [],
     createdAt: p.createdAt || today(),
   };
 }
+
+const isMedical = p => p.groups.includes(MEDICAL);
 
 /* ─────────────────────────── status logic ──────────────────── */
 
@@ -407,28 +492,62 @@ function datesAhead(withinDays = 45) {
 
 /* ─────────────────────────── photo handling ───────────────── */
 
-function processPhoto(file) {
-  const big = Store.mode === 'localstorage' ? 360 : 512;
-  const quality = Store.mode === 'localstorage' ? 0.76 : 0.86;
+const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, n));
+
+/* how much of a person's photo the badge shows: the centre of the crop in
+   fractions of the picture, and how far in it is zoomed. 1 is the widest
+   square that fits, which is exactly where every older photo already sits. */
+const DEFAULT_VIEW = { cx: 0.5, cy: 0.5, scale: 1 };
+const MAX_ZOOM = 6;
+const ORIGINAL_EDGE = 1600;
+
+function readImage(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onerror = () => reject(new Error('Could not read that file'));
-    reader.onload = () => {
-      const img = new Image();
-      img.onerror = () => reject(new Error('That does not look like an image'));
-      img.onload = () => {
-        const side = Math.min(img.width, img.height);
-        const c = document.createElement('canvas');
-        c.width = c.height = big;
-        const ctx = c.getContext('2d');
-        ctx.imageSmoothingQuality = 'high';
-        ctx.drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side, 0, 0, big, big);
-        resolve(c.toDataURL('image/jpeg', quality));
-      };
-      img.src = reader.result;
-    };
+    reader.onload = () => resolve(reader.result);
     reader.readAsDataURL(file);
   });
+}
+
+function loadImage(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onerror = () => reject(new Error('That does not look like an image'));
+    img.onload = () => resolve(img);
+    img.src = src;
+  });
+}
+
+/* Kept whole, only made smaller — this is what the crop is taken from, so
+   zooming onto one face in a crowd still has pixels to work with. */
+function downscale(img, maxEdge = ORIGINAL_EDGE, quality = 0.82) {
+  const w = img.naturalWidth, h = img.naturalHeight;
+  const f = Math.min(1, maxEdge / Math.max(w, h));
+  if (f === 1) return img.src;
+  const c = document.createElement('canvas');
+  c.width = Math.round(w * f);
+  c.height = Math.round(h * f);
+  const ctx = c.getContext('2d');
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(img, 0, 0, c.width, c.height);
+  return c.toDataURL('image/jpeg', quality);
+}
+
+function renderCrop(img, view = DEFAULT_VIEW) {
+  const big = Store.mode === 'localstorage' ? 360 : 512;
+  const quality = Store.mode === 'localstorage' ? 0.76 : 0.86;
+  const w = img.naturalWidth, h = img.naturalHeight;
+  const side = Math.min(w, h) / clamp(view.scale, 1, MAX_ZOOM);
+  const sx = clamp(view.cx * w - side / 2, 0, w - side);
+  const sy = clamp(view.cy * h - side / 2, 0, h - side);
+
+  const c = document.createElement('canvas');
+  c.width = c.height = big;
+  const ctx = c.getContext('2d');
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(img, sx, sy, side, side, 0, 0, big, big);
+  return c.toDataURL('image/jpeg', quality);
 }
 
 /* A photo is the only way into a person's page, so the avatar is the button. */
@@ -509,8 +628,8 @@ function renderCircle() {
 
   const q = query.trim().toLowerCase();
   const list = people
-    .filter(p => filterGroup === 'all' || p.group === filterGroup)
-    .filter(p => !q || (p.name + ' ' + p.relationship + ' ' + p.summary).toLowerCase().includes(q))
+    .filter(p => !filterGroups.size || p.groups.some(g => filterGroups.has(g)))
+    .filter(p => !q || (p.name + ' ' + p.relationship + ' ' + p.summary + ' ' + p.groups.join(' ')).toLowerCase().includes(q))
     .sort((a, b) => a.name.localeCompare(b.name));
 
   list.forEach((p, i) => grid.append(badge(p, i)));
@@ -526,13 +645,29 @@ function renderCircle() {
   const chips = $('#chips');
   chips.textContent = '';
   if (people.length > 3) {
-    const counts = { all: people.length };
-    people.forEach(p => { counts[p.group] = (counts[p.group] || 0) + 1; });
-    [['all', 'Everyone'], ...GROUPS.map(g => [g, g])].forEach(([key, label]) => {
-      if (!counts[key]) return;
-      const c = el('button', 'chip' + (filterGroup === key ? ' is-on' : ''));
-      c.append(document.createTextNode(label), el('span', 'n', counts[key]));
-      c.onclick = () => { filterGroup = key; renderCircle(); };
+    const counts = {};
+    people.forEach(p => p.groups.forEach(g => { counts[g] = (counts[g] || 0) + 1; }));
+
+    const everyone = el('button', 'chip' + (filterGroups.size ? '' : ' is-on'));
+    everyone.type = 'button';
+    everyone.setAttribute('aria-pressed', String(!filterGroups.size));
+    everyone.append(document.createTextNode('Everyone'), el('span', 'n', people.length));
+    everyone.onclick = () => { filterGroups.clear(); renderCircle(); };
+    chips.append(everyone);
+
+    GROUPS.forEach(g => {
+      const on = filterGroups.has(g);
+      if (!counts[g] && !on) return;   // but a group you have chosen always stays visible
+      const c = el('button', 'chip' + (on ? ' is-on' : ''));
+      c.type = 'button';
+      c.setAttribute('aria-pressed', String(on));
+      c.append(document.createTextNode(g), el('span', 'n', counts[g] || 0));
+      /* groups add up rather than replace each other — Family and Medical
+         together is everyone in either, which is how you actually look */
+      c.onclick = () => {
+        if (!filterGroups.delete(g)) filterGroups.add(g);
+        renderCircle();
+      };
       chips.append(c);
     });
   }
@@ -646,7 +781,7 @@ function todayRow(p, { when = '', calm = false, sub = '', action = false } = {})
 
   const who = el('div', 'who');
   who.append(el('strong', null, p.name));
-  who.append(el('small', null, sub || p.relationship || p.group));
+  who.append(el('small', null, sub || p.relationship || p.groups.join(' · ')));
   row.append(who);
 
   if (when) row.append(el('span', 'when' + (calm ? ' calm' : ''), when));
@@ -800,6 +935,34 @@ function blockHead(title, addLabel, onAdd) {
   return head;
 }
 
+function healthBlock(p, key) {
+  const meta = HEALTH[key];
+  const block = el('div', 'sheet-block');
+  block.append(blockHead(meta.title, meta.addLabel, () => healthDialog(p.id, key, null)));
+
+  if (!p[key].length) {
+    block.append(el('p', 'quiet-note', meta.empty));
+    return block;
+  }
+
+  const list = el('div', 'health-list');
+  p[key].forEach(h => {
+    const row = el('button', 'health-row');
+    row.type = 'button';
+    row.title = 'Edit this';
+    row.onclick = () => healthDialog(p.id, key, h.id);
+    row.append(el('span', 'health-glyph', KINDS.health.glyph));
+
+    const body = el('span', 'health-body');
+    body.append(el('span', 'health-name', h.name));
+    if (h.detail) body.append(el('span', 'health-detail', h.detail));
+    row.append(body);
+    list.append(row);
+  });
+  block.append(list);
+  return block;
+}
+
 function renderSheet() {
   const p = byId(openId);
   if (!p) return closeSheet();
@@ -829,8 +992,17 @@ function renderSheet() {
     f.append(document.createTextNode('☏ '), el('b', null, p.contact));
     facts.append(f);
   }
-  facts.append(el('div', 'fact', '◈ ' + p.group));
   idBox.append(facts);
+
+  if (p.groups.length) {
+    const tags = el('div', 'group-pills');
+    p.groups.forEach(g => {
+      const pill = el('span', 'pill pill-group');
+      pill.append(el('span', 'glyph', '◈'), document.createTextNode(g));
+      tags.append(pill);
+    });
+    idBox.append(tags);
+  }
 
   const seasons = activeSeasons(p);
   if (seasons.length) {
@@ -874,6 +1046,11 @@ function renderSheet() {
   btnTouch.onclick = () => markConnected(p.id);
   bar.append(btnTouch);
   root.append(bar);
+
+  /* ── medical: only for the people you are carrying that way ── */
+  if (isMedical(p)) {
+    root.append(healthBlock(p, 'medications'), healthBlock(p, 'conditions'));
+  }
 
   /* ── right now: seasons ── */
   const snBlock = el('div', 'sheet-block');
@@ -1082,16 +1259,18 @@ function unanswerPrayer(personId, prayerId) {
 /* ─────────────────────────── dialogs ───────────────────────── */
 
 let editingPersonId = null;
-let pendingPhoto = undefined; // undefined = untouched, null = cleared, string = new
+let pendingPhoto = undefined;    // undefined = untouched, null = cleared, string = new
+let pendingOriginal = undefined; // the same three states, for the uncropped picture
 
 function personDialog(p) {
   editingPersonId = p ? p.id : null;
   pendingPhoto = undefined;
+  pendingOriginal = undefined;
 
   $('#dlg-person-title').textContent = p ? 'Edit details' : 'Someone new';
   $('#f-name').value = p?.name || '';
   $('#f-relationship').value = p?.relationship || '';
-  $('#f-group').value = p?.group || 'Friends';
+  paintGroupPick(p?.groups || []);
   $('#f-birthday').value = p?.birthday || '';
   $('#f-contact').value = p?.contact || '';
   $('#f-cadence').value = String(p ? p.cadenceDays : 30);
@@ -1103,6 +1282,17 @@ function personDialog(p) {
   setTimeout(() => $('#f-name').focus(), 60);
 }
 
+function paintGroupPick(groups) {
+  $$('#f-groups .chip').forEach(b => {
+    const on = groups.includes(b.dataset.group);
+    b.classList.toggle('is-on', on);
+    b.setAttribute('aria-pressed', String(on));
+  });
+}
+
+const readGroupPick = () =>
+  $$('#f-groups .chip').filter(b => b.getAttribute('aria-pressed') === 'true').map(b => b.dataset.group);
+
 function paintPhotoPreview(dataUrl, name) {
   const box = $('#photo-preview');
   box.textContent = '';
@@ -1111,11 +1301,218 @@ function paintPhotoPreview(dataUrl, name) {
     img.src = dataUrl;
     img.alt = '';
     box.append(img);
-    $('#photo-clear').hidden = false;
   } else {
     box.append(el('span', null, initialsOf(name)));
-    $('#photo-clear').hidden = true;
   }
+  $('#photo-clear').hidden = !dataUrl;
+  $('#photo-adjust').hidden = !dataUrl;
+}
+
+/* ─────────────────────────── the cropper ───────────────────────
+   The stage is a square window onto the picture. The picture is sized so
+   that at zoom 1 its shorter edge exactly fills the stage, then slid
+   behind it. What the window frames is what renderCrop() cuts out, so
+   the circle in the dialog is not a preview of the badge — it is the badge.
+   ──────────────────────────────────────────────────────────────── */
+
+let cropping = null;   // { img, view, onDone }
+
+function cropGeometry() {
+  const { img, view } = cropping;
+  const stage = $('#crop-stage');
+  const S = stage.clientWidth;
+  const base = S / Math.min(img.naturalWidth, img.naturalHeight);
+  const z = clamp(view.scale, 1, MAX_ZOOM);
+  const dispW = img.naturalWidth * base * z;
+  const dispH = img.naturalHeight * base * z;
+  return {
+    S, dispW, dispH, z,
+    tx: clamp(S / 2 - view.cx * dispW, S - dispW, 0),
+    ty: clamp(S / 2 - view.cy * dispH, S - dispH, 0),
+  };
+}
+
+function paintCrop() {
+  if (!cropping) return;
+  const g = cropGeometry();
+  if (!g.S) return;
+
+  /* fold the clamping back into the view, so dragging into a corner and
+     then zooming does not spring the picture somewhere unexpected */
+  cropping.view.scale = g.z;
+  cropping.view.cx = (g.S / 2 - g.tx) / g.dispW;
+  cropping.view.cy = (g.S / 2 - g.ty) / g.dispH;
+
+  const img = $('#crop-img');
+  img.style.width = g.dispW + 'px';
+  img.style.height = g.dispH + 'px';
+  img.style.transform = `translate(${g.tx}px, ${g.ty}px)`;
+  $('#crop-zoom').value = String(Math.round(g.z * 100));
+}
+
+/* zoom while holding whatever is under (px, py) still — so you can put a
+   face under your finger and grow it, rather than chasing it off-screen */
+function zoomCropAt(nextScale, px, py) {
+  const g = cropGeometry();
+  const fx = (px - g.tx) / g.dispW;
+  const fy = (py - g.ty) / g.dispH;
+  const z = clamp(nextScale, 1, MAX_ZOOM);
+  const ratio = z / g.z;
+  cropping.view.scale = z;
+  cropping.view.cx = fx + (g.S / 2 - px) / (g.dispW * ratio);
+  cropping.view.cy = fy + (g.S / 2 - py) / (g.dispH * ratio);
+  paintCrop();
+}
+
+async function openCropper(src, view, onDone) {
+  let img;
+  try { img = await loadImage(src); }
+  catch (err) { return toast(err.message || 'Could not use that image'); }
+
+  cropping = { img, view: { ...DEFAULT_VIEW, ...view }, onDone };
+  $('#crop-img').src = src;
+  $('#dlg-crop').showModal();
+  paintCrop();   // the stage only has a width once it is open, and now it is
+}
+
+function closeCropper() {
+  cropping = null;
+  $('#crop-img').removeAttribute('src');
+  $('#dlg-crop').close();
+}
+
+function wireCropper() {
+  const stage = $('#crop-stage');
+  const pointers = new Map();
+  let pinchFrom = null;
+
+  const stagePoint = e => {
+    const r = stage.getBoundingClientRect();
+    return { x: e.clientX - r.left, y: e.clientY - r.top };
+  };
+  const spread = () => {
+    const [a, b] = [...pointers.values()];
+    return { dist: Math.hypot(a.x - b.x, a.y - b.y), mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 } };
+  };
+
+  stage.addEventListener('pointerdown', e => {
+    if (!cropping) return;
+    stage.setPointerCapture(e.pointerId);
+    pointers.set(e.pointerId, stagePoint(e));
+    if (pointers.size === 2) pinchFrom = { ...spread(), scale: cropping.view.scale };
+  });
+
+  stage.addEventListener('pointermove', e => {
+    if (!cropping || !pointers.has(e.pointerId)) return;
+    const was = pointers.get(e.pointerId);
+    const now = stagePoint(e);
+    pointers.set(e.pointerId, now);
+
+    if (pointers.size === 2 && pinchFrom) {
+      const { dist, mid } = spread();
+      if (pinchFrom.dist > 0) zoomCropAt(pinchFrom.scale * (dist / pinchFrom.dist), mid.x, mid.y);
+      return;
+    }
+    const g = cropGeometry();
+    cropping.view.cx -= (now.x - was.x) / g.dispW;
+    cropping.view.cy -= (now.y - was.y) / g.dispH;
+    paintCrop();
+  });
+
+  const release = e => {
+    pointers.delete(e.pointerId);
+    if (pointers.size < 2) pinchFrom = null;
+  };
+  stage.addEventListener('pointerup', release);
+  stage.addEventListener('pointercancel', release);
+
+  /* the same nudge, without a pointer — and +/- to zoom, since the slider
+     is a tab away */
+  const KEYS = { ArrowLeft: [1, 0], ArrowRight: [-1, 0], ArrowUp: [0, 1], ArrowDown: [0, -1] };
+  stage.addEventListener('keydown', e => {
+    if (!cropping) return;
+    if (e.key === '+' || e.key === '=' || e.key === '-') {
+      e.preventDefault();
+      const g = cropGeometry();
+      zoomCropAt(cropping.view.scale * (e.key === '-' ? 1 / 1.12 : 1.12), g.S / 2, g.S / 2);
+      return;
+    }
+    const step = KEYS[e.key];
+    if (!step) return;
+    e.preventDefault();
+    const g = cropGeometry();
+    const by = e.shiftKey ? 40 : 12;
+    cropping.view.cx -= (step[0] * by) / g.dispW;
+    cropping.view.cy -= (step[1] * by) / g.dispH;
+    paintCrop();
+  });
+
+  stage.addEventListener('wheel', e => {
+    if (!cropping) return;
+    e.preventDefault();
+    const p = stagePoint(e);
+    zoomCropAt(cropping.view.scale * (e.deltaY < 0 ? 1.12 : 1 / 1.12), p.x, p.y);
+  }, { passive: false });
+
+  $('#crop-zoom').oninput = e => {
+    if (!cropping) return;
+    const g = cropGeometry();
+    zoomCropAt(Number(e.target.value) / 100, g.S / 2, g.S / 2);
+  };
+
+  $('#btn-crop-reset').onclick = () => {
+    if (!cropping) return;
+    cropping.view = { ...DEFAULT_VIEW };
+    paintCrop();
+  };
+
+  $('#btn-crop-cancel').onclick = closeCropper;
+  $('#dlg-crop').addEventListener('close', () => { cropping = null; });
+
+  $('#form-crop').onsubmit = e => {
+    e.preventDefault();
+    if (!cropping) return;
+    const { img, view, onDone } = cropping;
+    const cropped = renderCrop(img, view);
+    closeCropper();
+    onDone(cropped, { ...view });
+  };
+
+  window.addEventListener('resize', () => { if (cropping) paintCrop(); });
+}
+
+/* Picking a photo and moving an existing one land in the same place: crop,
+   then hold on to the uncropped picture so the focus can be moved again. */
+async function pickPhoto(file) {
+  try {
+    const img = await loadImage(await readImage(file));
+    const src = downscale(img);
+    openCropper(src, DEFAULT_VIEW, (cropped, view) => {
+      pendingPhoto = cropped;
+      pendingOriginal = { src, view };
+      paintPhotoPreview(cropped, $('#f-name').value);
+    });
+  } catch (err) {
+    toast(err.message || 'Could not use that image');
+  }
+}
+
+async function adjustPhoto() {
+  const stored = pendingOriginal !== undefined
+    ? pendingOriginal
+    : (editingPersonId ? await Store.loadOriginal(editingPersonId) : null);
+
+  /* No original kept — photos from before this existed, or a browser with
+     no room for them. The square is still worth cropping into. */
+  const shown = $('#photo-preview img')?.src;
+  const src = stored?.src || shown;
+  if (!src) return;
+
+  openCropper(src, stored?.src ? stored.view : DEFAULT_VIEW, (cropped, view) => {
+    pendingPhoto = cropped;
+    pendingOriginal = { src, view };
+    paintPhotoPreview(cropped, $('#f-name').value);
+  });
 }
 
 async function savePerson(e) {
@@ -1126,7 +1523,7 @@ async function savePerson(e) {
   const data = {
     name,
     relationship: $('#f-relationship').value,
-    group: $('#f-group').value,
+    groups: readGroupPick(),
     birthday: $('#f-birthday').value,
     contact: $('#f-contact').value,
     cadenceDays: Number($('#f-cadence').value),
@@ -1145,9 +1542,11 @@ async function savePerson(e) {
   if (pendingPhoto === null) {
     delete photos[target.id];
     await Store.deletePhoto(target.id);
+    await Store.deleteOriginal(target.id);
   } else if (typeof pendingPhoto === 'string') {
     photos[target.id] = pendingPhoto;
     await Store.savePhoto(target.id, pendingPhoto);
+    if (pendingOriginal) await Store.saveOriginal(target.id, pendingOriginal);
   }
 
   await Store.savePeople(people);
@@ -1227,6 +1626,52 @@ function saveEvent(e) {
   renderAll();
 }
 
+/* one dialog, two lists */
+let editingHealth = { personId: null, key: 'medications', id: null };
+
+function healthDialog(personId, key, id) {
+  const meta = HEALTH[key];
+  const item = id ? byId(personId)?.[key].find(x => x.id === id) : null;
+  editingHealth = { personId, key, id };
+
+  $('#dlg-health-title').textContent = item ? meta.editTitle : meta.newTitle;
+  $('#h-name-label').textContent = meta.nameLabel;
+
+  const detailLabel = $('#h-detail-label');
+  detailLabel.textContent = meta.detailLabel + ' ';
+  detailLabel.append(el('em', null, 'optional'));
+
+  $('#h-name').value = item?.name || '';
+  $('#h-name').placeholder = meta.namePlaceholder;
+  $('#h-detail').value = item?.detail || '';
+  $('#h-detail').placeholder = meta.detailPlaceholder;
+  $('#btn-delete-health').hidden = !item;
+
+  $('#dlg-health').showModal();
+  setTimeout(() => $('#h-name').focus(), 60);
+}
+
+function saveHealth(e) {
+  e.preventDefault();
+  const { personId, key, id } = editingHealth;
+  const p = byId(personId);
+  if (!p) return;
+
+  const name = $('#h-name').value.trim();
+  if (!name) return;
+  const detail = $('#h-detail').value.trim();
+
+  if (id) {
+    const item = p[key].find(x => x.id === id);
+    if (item) Object.assign(item, normaliseHealth({ ...item, name, detail }));
+  } else {
+    p[key].push(normaliseHealth({ name, detail }));
+  }
+  queueSave();
+  $('#dlg-health').close();
+  renderAll();
+}
+
 let answering = { personId: null, prayerId: null };
 
 function askAnswer(personId, prayerId, text) {
@@ -1255,7 +1700,7 @@ function saveAnswer(e) {
 async function exportAll() {
   const payload = {
     app: 'kindred',
-    version: 2,
+    version: 3,
     exportedAt: new Date().toISOString(),
     people,
     photos: await Store.loadPhotos(),
@@ -1285,10 +1730,15 @@ async function importAll(file) {
       existing.birthday = existing.birthday || incoming.birthday;
       existing.contact = existing.contact || incoming.contact;
       existing.cadenceDays = existing.cadenceDays || incoming.cadenceDays;
+      existing.groups = normaliseGroups({ groups: [...existing.groups, ...incoming.groups] });
       const evIds = new Set(existing.events.map(x => x.id));
       incoming.events.forEach(x => { if (!evIds.has(x.id)) existing.events.push(x); });
       const prIds = new Set(existing.prayers.map(x => x.id));
       incoming.prayers.forEach(x => { if (!prIds.has(x.id)) existing.prayers.push(x); });
+      for (const key of ['medications', 'conditions']) {
+        const ids = new Set(existing[key].map(x => x.id));
+        incoming[key].forEach(x => { if (!ids.has(x.id)) existing[key].push(x); });
+      }
       existing.touches = [...new Set([...existing.touches, ...incoming.touches])].sort().slice(-60);
       if (data.photos?.[raw.id] && !photos[existing.id]) {
         photos[existing.id] = data.photos[raw.id];
@@ -1387,8 +1837,21 @@ function renderAll() {
 /* ─────────────────────────── wiring ───────────────────────── */
 
 function fillSelects() {
-  const g = $('#f-group');
-  GROUPS.forEach(x => g.append(new Option(x, x)));
+  const gp = $('#f-groups');
+  GROUPS.forEach(g => {
+    const b = el('button', 'chip');
+    b.type = 'button';
+    b.dataset.group = g;
+    b.setAttribute('aria-pressed', 'false');
+    b.textContent = g;
+    b.onclick = () => {
+      const on = b.getAttribute('aria-pressed') !== 'true';
+      b.setAttribute('aria-pressed', String(on));
+      b.classList.toggle('is-on', on);
+    };
+    gp.append(b);
+  });
+
   const c = $('#f-cadence');
   CADENCES.forEach(([days, label]) => c.append(new Option(label, String(days))));
   const k = $('#e-kind');
@@ -1414,19 +1877,19 @@ function wire() {
   $('#form-person').onsubmit = savePerson;
   $('#btn-person-cancel').onclick = () => $('#dlg-person').close();
 
-  $('#photo-input').onchange = async e => {
+  $('#photo-input').onchange = e => {
     const file = e.target.files?.[0];
-    if (!file) return;
-    try {
-      pendingPhoto = await processPhoto(file);
-      paintPhotoPreview(pendingPhoto, $('#f-name').value);
-    } catch (err) { toast(err.message || 'Could not use that image'); }
+    if (file) pickPhoto(file);
+    e.target.value = '';   // so choosing the same file twice still fires
   };
+  $('#photo-adjust').onclick = adjustPhoto;
   $('#photo-clear').onclick = () => {
     pendingPhoto = null;
+    pendingOriginal = null;
     paintPhotoPreview(null, $('#f-name').value);
     $('#photo-input').value = '';
   };
+  wireCropper();
 
   $('#btn-delete-person').onclick = async () => {
     const p = byId(editingPersonId);
@@ -1435,6 +1898,7 @@ function wire() {
     people = people.filter(x => x.id !== p.id);
     delete photos[p.id];
     await Store.deletePhoto(p.id);
+    await Store.deleteOriginal(p.id);
     await Store.savePeople(people);
     notifyMutate();
     $('#dlg-person').close();
@@ -1451,6 +1915,18 @@ function wire() {
     p.events = p.events.filter(x => x.id !== editingEvent.eventId);
     queueSave();
     $('#dlg-event').close();
+    renderAll();
+  };
+
+  $('#form-health').onsubmit = saveHealth;
+  $('#btn-health-cancel').onclick = () => $('#dlg-health').close();
+  $('#btn-delete-health').onclick = () => {
+    const { personId, key, id } = editingHealth;
+    const p = byId(personId);
+    if (!p) return;
+    p[key] = p[key].filter(x => x.id !== id);
+    queueSave();
+    $('#dlg-health').close();
     renderAll();
   };
 
@@ -1495,11 +1971,14 @@ async function boot() {
   fillSelects();
   wire();
 
-  $('#storage-state').textContent = ({
-    indexeddb: 'Saved in this browser’s database on this device.',
-    localstorage: 'Saved in browser storage (limited room for photos). Run it from a local server for more space.',
-    memory: 'Nothing can be saved in this browser mode — export a backup before closing.',
-  })[Store.mode];
+  $('#storage-state').textContent = Store.blocked
+    ? 'Kindred is open in another tab and holding the database. Close it and reload — nothing here will save until you do.'
+    : ({
+      indexeddb: 'Saved in this browser’s database on this device.',
+      localstorage: 'Saved in browser storage (limited room for photos). Run it from a local server for more space.',
+      memory: 'Nothing can be saved in this browser mode — export a backup before closing.',
+    })[Store.mode];
+  if (Store.blocked) toast('Close Kindred’s other tab and reload');
 
   const startView = Store.getPref('view', 'circle');
   if (['circle', 'prayers', 'today'].includes(startView)) switchView(startView);

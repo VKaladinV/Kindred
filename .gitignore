@@ -13,3 +13,7 @@ desktop.ini
 # Personal data must never be committed — backups contain real people,
 # their photos, health details and prayers.
 kindred-backup-*.json
+
+# Demo data: invented people and drawn photos, rebuilt whenever you want
+# with `node tools/make-demo.js`. Kept out so it never reaches the live site.
+tools/demo/

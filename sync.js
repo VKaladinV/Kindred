@@ -156,15 +156,32 @@ async function upsert(table, rows) {
 
 const d = v => (v ? v : null);            // '' means "not set", which is null in SQL
 
+/* A photo is a data URL, and comparing two of them in full on every sync is
+   wasteful — but length alone calls two different crops of the same picture
+   identical often enough to matter, and the changed one never uploads. */
+const photoMark = s => {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+  return s.length + ':' + (h >>> 0).toString(36);
+};
+
 function flatten(people, photos) {
-  const rows = { people: {}, records: {}, prayers: {}, touches: {} };
+  const rows = { people: {}, records: {}, prayers: {}, touches: {}, health: {} };
   const photoLens = {};
   for (const p of people) {
     rows.people[p.id] = {
-      id: p.id, name: p.name, relationship: p.relationship, circle: p.group,
+      id: p.id, name: p.name, relationship: p.relationship, circles: p.groups,
       birthday: d(p.birthday), contact: p.contact, summary: p.summary,
       cadence_days: p.cadenceDays, created_on: d(p.createdAt),
     };
+    for (const [key, type] of [['medications', 'medication'], ['conditions', 'condition']]) {
+      for (const h of p[key]) {
+        rows.health[h.id] = {
+          id: h.id, person_id: p.id, type,
+          name: h.name, detail: h.detail, added_on: d(h.addedAt),
+        };
+      }
+    }
     for (const r of p.events) {
       rows.records[r.id] = {
         id: r.id, person_id: p.id, type: r.type, starts_on: r.date,
@@ -182,7 +199,7 @@ function flatten(people, photos) {
       const id = `${p.id}:${t}`;           // deterministic, so two devices agree
       rows.touches[id] = { id, person_id: p.id, touched_on: t };
     }
-    if (photos[p.id]) photoLens[p.id] = photos[p.id].length;
+    if (photos[p.id]) photoLens[p.id] = photoMark(photos[p.id]);
   }
   return { rows, photoLens };
 }
@@ -192,10 +209,14 @@ function nest(rows) {
   const byId = {};
   const people = Object.values(rows.people).map(r => {
     const p = {
+      /* circle is what the server called a single group before there could
+         be several — reading it here migrates rows already up there */
+      groups: r.circles?.length ? r.circles : (r.circle ? [r.circle] : []),
       id: r.id, name: r.name || 'Unnamed', relationship: r.relationship || '',
-      group: r.circle || 'Other', birthday: r.birthday || '', contact: r.contact || '',
+      birthday: r.birthday || '', contact: r.contact || '',
       summary: r.summary || '', cadenceDays: r.cadence_days || 0,
       createdAt: r.created_on || '', touches: [], events: [], prayers: [],
+      medications: [], conditions: [],
     };
     byId[r.id] = p;
     return p;
@@ -217,6 +238,12 @@ function nest(rows) {
   for (const r of Object.values(rows.touches)) {
     const p = byId[r.person_id]; if (!p) continue;
     p.touches.push(r.touched_on);
+  }
+  for (const r of Object.values(rows.health || {})) {
+    const p = byId[r.person_id]; if (!p) continue;
+    p[r.type === 'condition' ? 'conditions' : 'medications'].push({
+      id: r.id, name: r.name || '', detail: r.detail || '', addedAt: r.added_on || '',
+    });
   }
   for (const p of people) p.touches.sort();
   return people;
@@ -323,7 +350,7 @@ async function deletePhoto(uid, id) {
 
 /* ─────────────────────────── the sync ─────────────────────────── */
 
-const TABLES = ['people', 'records', 'prayers', 'touches'];
+const TABLES = ['people', 'records', 'prayers', 'touches', 'health'];
 
 let syncing = false;
 let queued = false;
@@ -380,7 +407,7 @@ async function sync({ manual = false } = {}) {
     const remoteSet = await listRemotePhotos(uid);
     if (remoteSet) {
       for (const id of Object.keys(merged.people)) {
-        const localLen = photos[id]?.length;
+        const localLen = photos[id] && photoMark(photos[id]);
         const snapLen = snap.photoLens[id];
         if (localLen && localLen !== snapLen) {
           await uploadPhoto(uid, id, photos[id]);              // new or changed here

@@ -149,8 +149,11 @@
       <div class="photo-pick-text">
         <label class="btn btn-quiet" for="photo-input">Choose a photo</label>
         <input type="file" id="photo-input" accept="image/*" hidden>
-        <button type="button" class="link-btn" id="photo-clear" hidden>remove photo</button>
-        <p class="hint">Square-cropped and kept on this device.</p>
+        <div class="photo-pick-links">
+          <button type="button" class="link-btn" id="photo-adjust" hidden>adjust focus</button>
+          <button type="button" class="link-btn" id="photo-clear" hidden>remove photo</button>
+        </div>
+        <p class="hint">You choose what the circle centres on. Kept on this device.</p>
       </div>
     </div>
 
@@ -165,9 +168,14 @@
         <input type="text" id="f-relationship" maxlength="40" autocomplete="off" placeholder="grandmother">
       </label>
       <label class="field">
-        <span>Circle</span>
-        <select id="f-group"></select>
+        <span>Phone or handle <em>optional</em></span>
+        <input type="text" id="f-contact" maxlength="80" autocomplete="off" placeholder="+27 …">
       </label>
+    </div>
+
+    <div class="field">
+      <span>Groups <em>as many as fit</em></span>
+      <div class="chip-pick" id="f-groups" role="group" aria-label="Groups"></div>
     </div>
 
     <div class="field-row">
@@ -181,16 +189,60 @@
       </label>
     </div>
 
-    <label class="field">
-      <span>Phone or handle <em>optional</em></span>
-      <input type="text" id="f-contact" maxlength="80" autocomplete="off" placeholder="+27 …">
-    </label>
-
     <div class="dlg-actions">
       <button type="button" class="btn btn-danger-quiet" id="btn-delete-person" hidden>Remove</button>
       <span class="spacer"></span>
       <button type="button" class="btn btn-quiet" id="btn-person-cancel">Cancel</button>
       <button type="submit" class="btn btn-primary" id="btn-person-save">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- ─────────── WHERE THE PHOTO LOOKS ─────────── -->
+<dialog class="dlg dlg-crop" id="dlg-crop">
+  <form id="form-crop" method="dialog">
+    <h2 class="dlg-title">Where should it look?</h2>
+    <p class="hint">Drag the picture to move it, and zoom in to single someone out. The circle is exactly what you will see.</p>
+
+    <div class="crop-stage" id="crop-stage" tabindex="0" role="group" aria-label="Move the picture with the arrow keys">
+      <img id="crop-img" alt="" draggable="false">
+      <div class="crop-mask" aria-hidden="true"></div>
+    </div>
+
+    <label class="field crop-zoom">
+      <span>Zoom</span>
+      <input type="range" id="crop-zoom" min="100" max="600" step="1" value="100">
+    </label>
+
+    <div class="dlg-actions">
+      <button type="button" class="btn btn-quiet btn-tiny" id="btn-crop-reset">Reset</button>
+      <span class="spacer"></span>
+      <button type="button" class="btn btn-quiet" id="btn-crop-cancel">Cancel</button>
+      <button type="submit" class="btn btn-primary" id="btn-crop-save">Use this</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- ─────────── A MEDICATION OR A CONDITION ─────────── -->
+<dialog class="dlg" id="dlg-health">
+  <form id="form-health" method="dialog">
+    <h2 class="dlg-title" id="dlg-health-title">Add a medication</h2>
+
+    <label class="field">
+      <span id="h-name-label">Medication</span>
+      <input type="text" id="h-name" required maxlength="80" autocomplete="off" placeholder="Metformin">
+    </label>
+
+    <label class="field">
+      <span id="h-detail-label">Dose and how often <em>optional</em></span>
+      <input type="text" id="h-detail" maxlength="120" autocomplete="off" placeholder="500 mg, twice daily">
+    </label>
+
+    <div class="dlg-actions">
+      <button type="button" class="btn btn-danger-quiet" id="btn-delete-health" hidden>Remove</button>
+      <span class="spacer"></span>
+      <button type="button" class="btn btn-quiet" id="btn-health-cancel">Cancel</button>
+      <button type="submit" class="btn btn-primary">Save</button>
     </div>
   </form>
 </dialog>
