@@ -97,6 +97,12 @@ create table if not exists public.prayers (
   deleted_at  timestamptz
 );
 
+-- The last day you ticked a prayer as prayed for, and the day you stopped
+-- carrying it. Released is not answered: some things are let go, and deleting
+-- them was the only way to say so before these existed.
+alter table public.prayers add column if not exists prayed_on date;
+alter table public.prayers add column if not exists released_on date;
+
 -- ── check-ins ────────────────────────────────────────────────────────
 -- id is derived from person + date on the client, so the same check-in
 -- recorded on two devices collapses to one row instead of colliding.

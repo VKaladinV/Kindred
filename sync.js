@@ -190,9 +190,13 @@ function flatten(people, photos) {
       };
     }
     for (const pr of p.prayers) {
+      /* Key order follows the table's columns — prayed_on and released_on were
+         added last — because same() compares these stringified, and a different
+         order here would re-push every prayer on every sync. */
       rows.prayers[pr.id] = {
         id: pr.id, person_id: p.id, body: pr.text, created_on: d(pr.createdAt),
         answered_on: d(pr.answeredAt), answer_note: pr.answerNote || '',
+        prayed_on: d(pr.prayedAt), released_on: d(pr.releasedAt),
       };
     }
     for (const t of p.touches) {
@@ -239,6 +243,7 @@ function nest(rows) {
     p.prayers.push({
       id: r.id, text: r.body, createdAt: r.created_on || '',
       answeredAt: r.answered_on || null, answerNote: r.answer_note || '',
+      prayedAt: r.prayed_on || '', releasedAt: r.released_on || '',
     });
   }
   for (const r of Object.values(rows.touches)) {

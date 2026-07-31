@@ -60,9 +60,19 @@ you how the check-in is going:
 | **Clay** (soft red-brown) | overdue — you asked to be reminded and the time has passed |
 | **Grey** | no reminder set for this person |
 
+**The people who need you sit first.** The circle is ordered by how the check-in
+is going rather than by name: whoever is furthest past the time you asked to be
+reminded at the top, then the ones getting close, then everyone who is fine, and
+last the people you asked for no nudges about. So the top of your circle is the
+answer to *who should I call*, and you never have to go looking for it.
+
+**How long since you last spoke** sits on the bottom edge of every face — `3d`,
+`2w`, `5m`, `1y`, or `—` if you have not recorded a check-in yet. It always
+rounds down, so it never claims more time has passed than has. Hover it for the
+exact count.
+
 A small **✜** at the top of a badge means open prayers; a mark at the bottom-left
-means they're in a season right now. Anyone overdue also appears in the
-*It's been a while* strip at the top.
+means they're in a season right now.
 
 ### How big they are, and how they sit
 **Settings → Size of the faces** decides how big everyone is. Every part of a badge
@@ -132,8 +142,8 @@ Inside:
 - **Right now** — the seasons they're walking through. See below.
 - **Who they are** — a free-text summary that saves as you type. Meant for what's
   true *right now*: what they're carrying, what to ask about next time.
-- **Prayer list** — add anything; tick it to mark it answered (you can note how it
-  was answered). Answered items tuck away underneath but are never deleted.
+- **Prayer list** — add anything; tick it on the days you pray for it, and press
+  the **×** when you are ready to stop carrying it. See *Prayers* below.
 - **Coming up** and **History** — see below.
 - **Medications** and **Conditions** — only for people in the Medical group.
 - **edit details** — name, photo, relationship, groups, birthday, and how often
@@ -176,38 +186,83 @@ share one form — you can switch the kind at the top of it at any time.
 | | What it's for | Where it shows up |
 |---|---|---|
 | **History** | Something already behind them — a birth, a diagnosis, a move, a loss, a win | A dated timeline, newest first |
-| **A date** | Something with a date on it — surgery, a court date, an anniversary | *Dates ahead* in Today as the day approaches. Tick *happens again every year* for anniversaries and annual scans |
-| **Season** | A stretch of life, not a single day — grief, treatment, a new baby, job hunting | Sits at the top of their page and in Today's *Walking through*, until you press **this has ended** |
+| **A date** | Something with a date on it — surgery, a court date, an anniversary, a baby due | *Today* and the *Calendar* as the day approaches. Tick *happens again every year* for anniversaries and annual scans |
+| **Season** | A stretch of life, not a single day — grief, treatment, job hunting | Sits at the top of their page until you press **this has ended** |
 
 When a season ends it isn't lost — it moves into their history as a span
 (*Jun 2026 – Oct 2026*), marked as having been a season. A date that has passed
 offers **move to history** in the same way.
 
-Every record can be given a kind — joy, hard time, milestone, health, faith — which
-colours its dot on the timeline. Tap any record's title to edit or delete it.
+Every record can be given a kind — joy, hard time, milestone, health, faith, baby —
+which colours its dot on the timeline and in the calendar. Tap any record's title
+to edit or delete it.
+
+#### A baby on the way
+Choose **A date** and set its kind to **Baby on the way**. The date then becomes a
+**due date**, and a second field appears underneath it: **how far along they are
+now**, in weeks and days.
+
+Fill in either one and the other works itself out. If someone tells you *twenty-four
+weeks and three days*, type that and the due date appears; if they give you the date,
+the weeks appear. Only the due date is kept, because a stored week count is wrong by
+the next morning and a due date never is.
+
+From then on the record reads as *32w 4d · due in 6 weeks*, and it stays in **Today**
+for the whole pregnancy rather than waiting for the usual month and a half — it is
+the one date worth having in sight from the day you hear about it. Kindred also
+nudges you as it nears: a month out, then closing in, then every day inside the last
+week. Once the baby arrives, edit the record into their **history**.
 
 ### Prayers
 Every open prayer in one place, grouped by person, with how long it's been carried.
-Below it, an *answered* section — worth re-reading.
+
+**Tick one on the days you pray for it.** The tick fills in, the line says *prayed
+today*, and tomorrow it reads *last prayed 1d ago* — so you can see at a glance what
+you have been faithful with and what has been sitting there untouched for a month.
+One tick a day, and tapping it again takes it back. Ticking never reorders the list,
+so nothing jumps away from your finger.
+
+**The × is how you stop carrying something**, and it asks which of three things you
+mean:
+
+| | What it means |
+|---|---|
+| **Answered** | It happened. You can note how, and it keeps that note |
+| **Let it go** | You are no longer carrying it, and it was never answered — a situation that moved on, a thing that stopped being yours to hold |
+| **remove it entirely** | You typed it by mistake. The only one that loses anything, which is why it asks again |
+
+Answered and let-go items tuck away into their own sections at the bottom, and
+neither is ever deleted. The tick in either one puts a prayer straight back on the
+list.
 
 ### Today
-What actually needs you, in order: overdue check-ins, **dates ahead** (birthdays and
-your dated records together, nearest first), **walking through** (everyone in a
-season), check-ins coming due soon, and three people to pray for (rotates daily).
-The tick button on a row marks a connection without opening them.
+Only what is coming up: birthdays and your dated records together, in **Today**,
+**This week** and **Later**. Nothing about who you owe a call — the circle answers
+that by putting them first, and asking the same question in two places only ever
+made both easier to stop reading.
+
+### Calendar
+The same dates as a month, so you can see the shape of one — which week is crowded,
+how far off the next thing is. Each day carries a coloured dot per thing landing on
+it, in the same colours the history timeline uses. Tap a day to list just that day,
+and tap it again to go back to the whole month. **‹** and **›** move between months
+and **Today** brings you home. Tapping anyone's photo opens their page.
 
 ---
 
 ## Reminders — the honest version
 
 Turn them on in **Settings → Reminders**. What you get: **when you open Kindred, it
-notifies you once a day** if anyone is overdue, or if a birthday or one of your
-dated records falls today.
+notifies you once a day** if anyone is overdue, if a birthday or one of your dated
+records falls today, or if a baby is due soon — a month out, then at three weeks,
+two, ten days, and every day inside the last week.
 
 What it can't do: wake your phone up on its own while closed. A true scheduled push
 notification needs a server sending it, and this app deliberately has no server —
-that's the trade for your data never leaving your device. In practice, put the icon
-on your home screen where you'll see it, and let the *Today* tab do the work.
+that's the trade for your data never leaving your device. **This applies to the due
+date too**: Kindred cannot count down to it at you, it can only tell you where things
+stand the next time you open the app. In practice, put the icon on your home screen
+where you'll see it, and let the *Today* tab do the work.
 
 ## Locking it
 

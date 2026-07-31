@@ -44,6 +44,10 @@
     <span>Today</span>
     <em class="nav-count" id="tab-count" hidden></em>
   </button>
+  <button class="nav-item" data-view="calendar">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5.5" width="17" height="15" rx="2.5"/><path d="M3.5 10.5h17M8 3.5v4M16 3.5v4M7.5 14h2M14.5 14h2M7.5 17.5h2M14.5 17.5h2"/></svg>
+    <span>Calendar</span>
+  </button>
 
   <span class="nav-gap"></span>
 
@@ -75,11 +79,6 @@
 
   <!-- ─────────── CIRCLE ─────────── -->
   <section class="view is-active" id="view-circle" aria-label="Circle">
-
-    <div class="nudge" id="nudge" hidden>
-      <p class="nudge-label"><span class="dot"></span> It's been a while</p>
-      <div class="nudge-row" id="nudge-row"></div>
-    </div>
 
     <div class="toolbar">
       <div class="chips" id="chips"></div>
@@ -116,6 +115,12 @@
       <summary><span id="answered-count"></span> answered</summary>
       <div id="prayer-answered"></div>
     </details>
+    <!-- Not everything on a prayer list ends by being answered. Letting one go
+         is its own thing, and worth keeping as its own list. -->
+    <details class="answered" id="released-wrap" hidden>
+      <summary><span id="released-count"></span> let go</summary>
+      <div id="prayer-released"></div>
+    </details>
     <div class="blank" id="prayer-blank" hidden>
       <p class="blank-mark">✜</p>
       <h2>The list is empty</h2>
@@ -130,6 +135,22 @@
       <p class="section-sub" id="today-date"></p>
     </div>
     <div id="today-body"></div>
+  </section>
+
+  <!-- ─────────── CALENDAR ─────────── -->
+  <section class="view" id="view-calendar" aria-label="Calendar" hidden>
+    <div class="section-head cal-head">
+      <div>
+        <h2 class="section-title" id="cal-month">—</h2>
+        <p class="section-sub">Birthdays and every date you have noted.</p>
+      </div>
+      <div class="cal-nav">
+        <button type="button" class="btn btn-quiet btn-tiny" id="cal-prev" aria-label="The month before">‹</button>
+        <button type="button" class="btn btn-quiet btn-tiny" id="cal-today">Today</button>
+        <button type="button" class="btn btn-quiet btn-tiny" id="cal-next" aria-label="The month after">›</button>
+      </div>
+    </div>
+    <div id="calendar-body"></div>
   </section>
 
 </main>
@@ -290,6 +311,24 @@
       </label>
     </div>
 
+    <!-- Only for a baby on the way, where the date can be arrived at from
+         either end: you either know the due date, or you know how far along
+         they are today. Filling in one works out the other. -->
+    <div class="field" id="wrap-gestation" hidden>
+      <span>Or how far along they are now</span>
+      <div class="gest-row">
+        <label class="gest-box">
+          <input type="number" id="e-weeks" min="0" max="42" inputmode="numeric" aria-label="Weeks">
+          <span>weeks</span>
+        </label>
+        <label class="gest-box">
+          <input type="number" id="e-days" min="0" max="6" inputmode="numeric" aria-label="Days">
+          <span>days</span>
+        </label>
+        <span class="gest-now" id="gestation-now"></span>
+      </div>
+    </div>
+
     <label class="field" id="wrap-end" hidden>
       <span>When it ended <em>leave empty if it is still going</em></span>
       <input type="date" id="e-end">
@@ -314,19 +353,25 @@
   </form>
 </dialog>
 
-<!-- ─────────── ANSWERED PRAYER ─────────── -->
-<dialog class="dlg" id="dlg-answer">
-  <form id="form-answer" method="dialog">
-    <h2 class="dlg-title">Answered</h2>
-    <p class="dlg-lede" id="answer-lede"></p>
+<!-- ─────────── TAKING A PRAYER OFF THE LIST ───────────
+     Three different things wearing one gesture, so it asks which. Answered
+     keeps the story of how; letting go keeps the fact that you carried it at
+     all; removing is for the one you typed by mistake. Only the last loses
+     anything, which is why it is the quiet one. -->
+<dialog class="dlg" id="dlg-release">
+  <form id="form-release" method="dialog">
+    <h2 class="dlg-title">Stop carrying this</h2>
+    <p class="dlg-lede" id="release-lede"></p>
     <label class="field">
       <span>How it was answered <em>optional</em></span>
       <textarea id="a-note" rows="3" maxlength="600" placeholder="The scan came back clear."></textarea>
     </label>
-    <div class="dlg-actions">
+    <div class="dlg-actions release-actions">
+      <button type="button" class="link-btn" id="btn-release-remove">remove it entirely</button>
       <span class="spacer"></span>
-      <button type="button" class="btn btn-quiet" id="btn-answer-cancel">Cancel</button>
-      <button type="submit" class="btn btn-primary">Mark answered</button>
+      <button type="button" class="btn btn-quiet" id="btn-release-cancel">Cancel</button>
+      <button type="button" class="btn btn-quiet" id="btn-release-go">Let it go</button>
+      <button type="submit" class="btn btn-primary">Answered</button>
     </div>
   </form>
 </dialog>

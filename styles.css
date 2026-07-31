@@ -258,32 +258,6 @@ main { padding-bottom: 1rem; }
 
 @keyframes rise { from { opacity: 0; transform: translateY(10px); } }
 
-/* ── nudge strip ────────────────────────────────────────────── */
-
-.nudge {
-  margin-bottom: 2.4rem;
-  padding: 1.15rem 1.3rem 1.3rem;
-  border: 1px solid var(--rule);
-  border-left: 3px solid var(--alert);
-  border-radius: 3px 14px 14px 3px;
-  background: linear-gradient(105deg, color-mix(in oklab, var(--alert) 7%, var(--paper-raise)), var(--paper-raise) 62%);
-  box-shadow: var(--shadow-lift);
-}
-.nudge-label {
-  margin: 0 0 .9rem;
-  font-size: .68rem; letter-spacing: .24em; text-transform: uppercase;
-  font-weight: 700; color: var(--alert);
-  display: flex; align-items: center; gap: .5rem;
-}
-.nudge-label .dot {
-  width: .5rem; height: .5rem; border-radius: 50%;
-  background: var(--alert);
-  animation: breathe 3.4s ease-in-out infinite;
-}
-@keyframes breathe { 50% { opacity: .28; transform: scale(.7); } }
-.nudge-row { display: flex; gap: 1.4rem; overflow-x: auto; padding-bottom: .3rem; scrollbar-width: none; }
-.nudge-row::-webkit-scrollbar { display: none; }
-
 /* ── toolbar ────────────────────────────────────────────────── */
 
 .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: .8rem 1.2rem; margin-bottom: 2.2rem; }
@@ -413,17 +387,47 @@ main { padding-bottom: 1rem; }
 .badge-flag { top: -3%; right: -3%; color: var(--green); }
 .badge-season { bottom: -3%; left: -3%; color: var(--gold); }
 
-.badge-name { font-size: .84rem; font-weight: 600; letter-spacing: .01em; text-align: center; line-height: 1.25; }
+/* How long since you last spoke, sitting on the bottom edge of the face.
+   Dark in both themes rather than following the paper: it has to hold its
+   own against whatever photograph is behind it, and a disc that inverted
+   with the theme would be legible over one half of the pictures and lost
+   over the other. The hairline ring is what keeps it off a dark jumper. */
+.badge-since {
+  position: absolute;
+  bottom: -5%; left: 50%; transform: translateX(-50%);
+  min-width: 25%; height: 19%;
+  padding: 0 4%;
+  border-radius: 999px;
+  background: #14160f;
+  border: 1px solid color-mix(in oklab, #fdfdfa 34%, transparent);
+  color: #f4f5ee;
+  display: grid; place-items: center;
+  font-size: calc(var(--frame) * .1); font-weight: 700;
+  letter-spacing: .02em; line-height: 1;
+  font-variant-numeric: tabular-nums;
+  box-shadow: 0 2px 7px -2px rgba(10,14,8,.55);
+  z-index: 3;
+}
+/* In the dark theme the disc and the paper behind it are almost the same
+   near-black, so the ring is the only thing saying where one stops. It does
+   that work alone there, and has to be drawn strongly enough to. */
+@media (prefers-color-scheme: dark) {
+  .badge-since {
+    border-color: color-mix(in oklab, #fdfdfa 52%, transparent);
+    box-shadow: 0 2px 8px -2px rgba(0,0,0,.75);
+  }
+}
+
+.badge-name {
+  font-size: .84rem; font-weight: 600; letter-spacing: .01em;
+  text-align: center; line-height: 1.25;
+  margin-top: .2rem;              /* clears the disc hanging off the frame */
+}
 .badge-meta { font-size: .68rem; color: var(--ink-faint); letter-spacing: .04em; text-align: center; margin-top: -.45rem; }
 .badge[data-state="due"]  { --ring: var(--alert); }
 .badge[data-state="soon"] { --ring: var(--gold); }
 .badge[data-state="well"] { --ring: var(--sage); }
 .badge[data-state="none"] { --ring: var(--rule); }
-.badge[data-state="due"] .badge-meta { color: var(--alert); }
-
-/* The strip stays deliberately smaller than the circle, but follows the setting. */
-.nudge-row .badge { flex: 0 0 calc(var(--badge) * .73); }
-.nudge-row .badge-frame { --frame: calc(var(--badge) * .73); }
 
 /* ── the phone tessellation ─────────────────────────────────────
    app.js lays these rows out — long, short, long — because how many fit
@@ -566,8 +570,24 @@ button.thumb:focus-visible { outline: 2px solid var(--green); outline-offset: 2p
 .tick:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
 .prayer-text { flex: 1; font-size: .94rem; }
 .prayer-age { font-size: .7rem; color: var(--ink-faint); letter-spacing: .05em; white-space: nowrap; padding-top: .2rem; }
-.prayer-line.is-answered .prayer-text { color: var(--ink-faint); }
+.prayer-line.is-answered .prayer-text,
+.prayer-line.is-released .prayer-text { color: var(--ink-faint); }
 .prayer-line.is-answered .tick { border-color: var(--sage); color: var(--sage); background: color-mix(in oklab, var(--sage) 18%, transparent); }
+/* Let go rather than resolved, so it reads as closed without reading as won. */
+.prayer-line.is-released .tick { border-color: var(--rule); color: var(--ink-faint); background: color-mix(in oklab, var(--ink-faint) 10%, transparent); }
+
+/* Prayed for today: filled in, and the same green the app uses for a check-in,
+   because it is the same gesture — you did the thing today. */
+.prayer-line.is-prayed .tick {
+  border-color: var(--green); background: var(--green); color: #fff;
+}
+@media (prefers-color-scheme: dark) { .prayer-line.is-prayed .tick { color: #10180f; } }
+.prayed-note {
+  margin: .18rem 0 0;
+  font-size: .7rem; letter-spacing: .05em; color: var(--ink-faint);
+}
+.prayer-line.is-prayed .prayed-note { color: var(--green); font-weight: 600; }
+
 .answer-note {
   margin: .2rem 0 0;
   font-family: var(--display); font-style: italic; font-size: .88rem; color: var(--sage-ink);
@@ -629,6 +649,70 @@ button.thumb:focus-visible { outline: 2px solid var(--green); outline-offset: 2p
   text-align: center; padding: 2.5rem 1rem;
   font-family: var(--display); font-style: italic; font-size: 1.2rem; color: var(--ink-soft);
   font-variation-settings: "SOFT" 50, "WONK" 1, "opsz" 24;
+}
+
+/* ── calendar ───────────────────────────────────────────────────
+   The same dates Today lists, laid out as a month so the shape of one
+   is visible: which week is crowded, how far off the next thing is.
+   A cell is a square whatever the screen, so the grid stays a grid. */
+
+.cal-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.cal-nav { display: flex; gap: .35rem; flex: 0 0 auto; }
+.cal-nav .btn { min-width: 2.2rem; }
+
+.cal-grid {
+  display: grid; grid-template-columns: repeat(7, 1fr);
+  gap: .3rem;
+  margin-bottom: 2.4rem;
+}
+.cal-dow {
+  text-align: center; padding-bottom: .4rem;
+  font-size: .62rem; letter-spacing: .16em; text-transform: uppercase;
+  color: var(--ink-faint); font-weight: 700;
+}
+.cal-pad { aspect-ratio: 1; }
+
+.cal-day {
+  position: relative;
+  aspect-ratio: 1;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: .22rem;
+  border: 1px solid var(--rule); border-radius: 10px;
+  background: var(--paper-raise);
+  color: var(--ink);
+  font-family: var(--body);
+  cursor: pointer;
+  transition: border-color .2s var(--ease), background .2s var(--ease), transform .2s var(--ease);
+}
+.cal-day:hover { border-color: var(--green); transform: translateY(-1px); }
+.cal-day:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+/* A day with nothing on it is still a day — quieter, not missing. */
+.cal-day.is-empty { background: none; border-color: var(--rule-soft); color: var(--ink-faint); }
+.cal-day.is-today { border-color: var(--green); box-shadow: inset 0 0 0 1px var(--green); }
+.cal-day.is-picked { background: var(--green); border-color: var(--green); color: #fff; }
+@media (prefers-color-scheme: dark) { .cal-day.is-picked { color: #10180f; } }
+
+.cal-n { font-size: .82rem; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1; }
+.cal-dots { display: flex; gap: .16rem; min-height: .34rem; }
+.cal-dot {
+  width: .34rem; height: .34rem; border-radius: 50%;
+  background: var(--kind, var(--ash));
+}
+.cal-dot[data-kind="joy"]       { --kind: var(--gold); }
+.cal-dot[data-kind="hard"]      { --kind: var(--alert); }
+.cal-dot[data-kind="milestone"] { --kind: var(--sage); }
+.cal-dot[data-kind="health"]    { --kind: var(--green); }
+.cal-dot[data-kind="faith"]     { --kind: var(--gold); }
+.cal-dot[data-kind="baby"]      { --kind: var(--sage); }
+/* On the chosen day the dots sit on the accent, where their own colours
+   would disappear — white reads against it, and the day is already named
+   in the list underneath. */
+.cal-day.is-picked .cal-dot { background: currentColor; }
+
+@media (max-width: 460px) {
+  .cal-grid { gap: .2rem; }
+  .cal-day { border-radius: 8px; }
+  .cal-n { font-size: .74rem; }
 }
 
 /* ── person sheet ───────────────────────────────────────────── */
@@ -851,6 +935,8 @@ button.thumb:focus-visible { outline: 2px solid var(--green); outline-offset: 2p
 .up-count { font-size: .7rem; letter-spacing: .1em; text-transform: uppercase; font-weight: 600; color: var(--gold-ink); }
 .up-count.is-past { color: var(--ink-faint); }
 .up-repeat { font-size: .7rem; color: var(--ink-faint); letter-spacing: .06em; }
+/* How far along, which on a due date is the thing you read first. */
+.up-gest { font-size: .7rem; letter-spacing: .1em; text-transform: uppercase; font-weight: 700; color: var(--green); }
 
 /* ── medications and conditions ─────────────────────────────── */
 
@@ -890,6 +976,7 @@ button.thumb:focus-visible { outline: 2px solid var(--green); outline-offset: 2p
 .tl-item[data-kind="milestone"] { --kind: var(--sage); }
 .tl-item[data-kind="health"]    { --kind: var(--green); }
 .tl-item[data-kind="faith"]     { --kind: var(--gold); }
+.tl-item[data-kind="baby"]      { --kind: var(--sage); }
 .tl-date {
   font-size: .68rem; letter-spacing: .16em; text-transform: uppercase;
   color: var(--ink-faint); font-weight: 600;
@@ -999,6 +1086,22 @@ button.thumb:focus-visible { outline: 2px solid var(--green); outline-offset: 2p
 }
 .check-field input { width: 1.1rem; height: 1.1rem; margin-top: .15rem; accent-color: var(--green); flex: 0 0 auto; }
 .check-field em { display: block; font-style: normal; font-size: .74rem; color: var(--ink-faint); }
+
+/* how far along, as two small boxes rather than a full-width field */
+.gest-row { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
+.gest-box { display: flex; align-items: center; gap: .35rem; }
+.gest-box input { width: 4rem; }
+.gest-box span { font-size: .78rem; color: var(--ink-faint); }
+.gest-now {
+  font-size: .74rem; font-weight: 600; letter-spacing: .05em;
+  color: var(--green);
+}
+
+/* Four ways out of one dialog. They wrap on a narrow screen rather than
+   squeezing, and "remove" keeps its distance from the two that keep things. */
+.release-actions { row-gap: .7rem; }
+.release-actions .link-btn { color: var(--ink-faint); }
+.release-actions .link-btn:hover { color: var(--alert); }
 
 /* segmented type picker */
 .type-pick {

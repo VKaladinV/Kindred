@@ -10,6 +10,15 @@
      history  — it already happened
      upcoming — it falls on a date ahead (optionally every year)
      season   — a stretch they are walking through, until endDate
+
+   An upcoming record with kind 'baby' is the one the app reads into: its
+   date is a due date, and how far along someone is is worked out from it
+   rather than stored.
+
+   A prayer carries three dates, and they say different things:
+     prayedAt   — the last day you ticked it. Moves.
+     answeredAt — it happened, and answerNote is how
+     releasedAt — you stopped carrying it, unanswered
    ══════════════════════════════════════════════════════════════ */
 
 (() => {
@@ -38,12 +47,18 @@ const CADENCES = [
   [365, 'year'],
 ];
 
+/* A kind is a persisted value, not a label — renaming a key orphans records.
+   `baby` is the one kind the app knows something about: on a date ahead it
+   makes that date a due date, and everything else follows from it. A device
+   still on older code folds it back to `other` in normaliseRecord rather than
+   refusing the record, which is the same tolerance a check-in's kind gets. */
 const KINDS = {
   joy:       { label: 'Joy',       glyph: '✦' },
   hard:      { label: 'Hard time', glyph: '◍' },
   milestone: { label: 'Milestone', glyph: '◆' },
   health:    { label: 'Health',    glyph: '✚' },
   faith:     { label: 'Faith',     glyph: '✜' },
+  baby:      { label: 'Baby on the way', glyph: '☽' },
   other:     { label: 'Other',     glyph: '•' },
 };
 
@@ -146,6 +161,25 @@ function agoWords(dateStr) {
   if (d < 31) return plural(Math.round(d / 7), 'week ago', 'weeks ago');
   if (d < 365) return plural(Math.round(d / 30), 'month ago', 'months ago');
   return plural(Math.max(1, Math.round(d / 365)), 'year ago', 'years ago');
+}
+
+/* A face in the circle has room for one glyph's worth of time, not a sentence.
+   Floored rather than rounded, so the number never claims more than has passed:
+   thirteen days is 1w, not 2w. */
+/* The exact count, for the tooltip behind the short one. */
+function daysSinceWords(dateStr) {
+  const d = daysBetween(dateStr, today());
+  if (d <= 0) return 'today';
+  if (d === 1) return 'yesterday';
+  return `${plural(d, 'day', 'days')} ago`;
+}
+
+function sinceShort(dateStr) {
+  const d = daysBetween(dateStr, today());
+  if (d < 7)   return d + 'd';                 // 0d today, then 1d … 6d
+  if (d < 30)  return Math.floor(d / 7) + 'w';
+  if (d < 365) return Math.floor(d / 30) + 'm';
+  return Math.floor(d / 365) + 'y';
 }
 
 function aheadWords(days) {
@@ -417,6 +451,27 @@ function normaliseTouch(t) {
   };
 }
 
+/* Prayers were the one list with no normaliser, which was fine while nothing
+   was ever added to them. A prayer written before this update has neither of
+   the two new dates, so they are defaulted here — on every load, every import
+   and every sync, and running twice changes nothing.
+
+   The two dates say different things. prayedAt is the last day you ticked it,
+   and moves. releasedAt is the day you stopped carrying it, and is the answer
+   to a question answeredAt cannot answer: some things are let go rather than
+   answered, and deleting them was the only way to say so. */
+function normalisePrayer(pr) {
+  return {
+    id: pr?.id || uid(),
+    text: (pr?.text || '').trim(),
+    createdAt: pr?.createdAt || today(),
+    answeredAt: pr?.answeredAt || null,
+    answerNote: pr?.answerNote || '',
+    prayedAt: pr?.prayedAt || '',
+    releasedAt: pr?.releasedAt || '',
+  };
+}
+
 function normalise(p) {
   return {
     id: p.id || uid(),
@@ -429,7 +484,7 @@ function normalise(p) {
     cadenceDays: Number(p.cadenceDays) || 0,
     touches: Array.isArray(p.touches) ? p.touches.map(normaliseTouch).slice(-MAX_TOUCHES) : [],
     events: Array.isArray(p.events) ? p.events.map(normaliseRecord) : [],
-    prayers: Array.isArray(p.prayers) ? p.prayers : [],
+    prayers: Array.isArray(p.prayers) ? p.prayers.map(normalisePrayer) : [],
     medications: Array.isArray(p.medications) ? p.medications.map(normaliseHealth) : [],
     conditions: Array.isArray(p.conditions) ? p.conditions.map(normaliseHealth) : [],
     createdAt: p.createdAt || today(),
@@ -451,6 +506,33 @@ function statusOf(p) {
   if (days === null) return { state: 'due', days: null, ratio: 99 };
   const ratio = days / p.cadenceDays;
   return { state: ratio >= 1 ? 'due' : ratio >= 0.7 ? 'soon' : 'well', days, ratio };
+}
+
+/* ── a baby on the way ──────────────────────────────────────────
+   Only the due date is kept. How far along someone is today is worked out
+   from it rather than stored, because a stored gestation is wrong by morning
+   and a due date never is. Forty weeks is how a due date is arrived at in the
+   first place, so the two convert into each other exactly. */
+
+const TERM_DAYS = 280;
+
+const isBaby = r => r.type === 'upcoming' && r.kind === 'baby';
+
+function gestationOn(dueDate, on = today()) {
+  const days = TERM_DAYS - daysBetween(on, dueDate);
+  /* Before conception or well past overdue, a week count says nothing useful. */
+  if (days < 0 || days > TERM_DAYS + 42) return null;
+  return { days, weeks: Math.floor(days / 7), rem: days % 7 };
+}
+
+const gestationWords = g => `${g.weeks}w ${g.rem}d`;
+
+/* Built by walking the calendar rather than adding milliseconds, so the hour
+   the clocks change cannot move the answer by a day. */
+function dueFromGestation(weeks, days) {
+  const d = parseYmd(today());
+  d.setDate(d.getDate() + (TERM_DAYS - (weeks * 7 + days)));
+  return ymd(d);
 }
 
 /* the next time an annual date comes round — used for birthdays and
@@ -490,7 +572,12 @@ function upcomingOf(p) {
     });
 }
 
-const openPrayers = p => p.prayers.filter(x => !x.answeredAt);
+/* Open means still being carried. Answered and released both leave the list,
+   and mean different things: one was resolved, the other was let go. */
+const openPrayers = p => p.prayers.filter(x => !x.answeredAt && !x.releasedAt);
+const releasedPrayers = p => p.prayers.filter(x => !x.answeredAt && x.releasedAt);
+const answeredPrayers = p => p.prayers.filter(x => x.answeredAt);
+const prayedToday = p => openPrayers(p).filter(x => x.prayedAt === today());
 
 function dueList() {
   return people
@@ -499,19 +586,107 @@ function dueList() {
     .sort((a, b) => b.s.ratio - a.s.ratio);
 }
 
+/* The circle's order: the people you owe a call first, furthest past their
+   cadence at the top, then the ones getting close, then everyone who is fine.
+   People you asked for no nudges about have no ratio to compare, so they sort
+   by name at the end rather than pretending to a position they never had. */
+const SORT_RANK = { due: 0, soon: 1, well: 2, none: 3 };
+
+function byNeed(a, b) {
+  const sa = statusOf(a), sb = statusOf(b);
+  const ra = SORT_RANK[sa.state], rb = SORT_RANK[sb.state];
+  if (ra !== rb) return ra - rb;
+  if (sa.state !== 'none' && sb.ratio !== sa.ratio) return sb.ratio - sa.ratio;
+  return a.name.localeCompare(b.name);
+}
+
+/* What a record contributes to a list of dates: a baby carries how far along
+   they are, because that is the thing you actually want to read.
+
+   Two forms of the same line. `sub` names the date, for a list that could be
+   any day; `short` leaves it out, for the calendar, where the square or the
+   heading above the list has already said which day this is. */
+function dateEntry(p, r, o) {
+  const g = isBaby(r) ? gestationOn(o.date) : null;
+  const short = g ? `${r.title} · ${gestationWords(g)}` : r.title;
+  return {
+    p, inDays: o.inDays, date: o.date, label: r.title, kind: r.kind, short,
+    sub: g ? `${short} · due ${prettyDate(o.date)}` : `${short} · ${prettyDate(o.date)}`,
+    glyph: (KINDS[r.kind] || KINDS.other).glyph,
+  };
+}
+
+const birthdayEntry = (p, bd) => ({
+  p, inDays: bd.inDays, date: bd.date, label: 'Birthday', kind: 'joy',
+  short: `turning ${bd.turning}`,
+  sub: `turning ${bd.turning} · ${prettyDate(bd.date)}`, glyph: '✦',
+});
+
 /* birthdays and dated records, merged into one list of what is coming */
 function datesAhead(withinDays = 45) {
   const out = [];
   people.forEach(p => {
     const bd = nextBirthday(p);
-    if (bd && bd.inDays <= withinDays) {
-      out.push({ p, inDays: bd.inDays, date: bd.date, label: 'Birthday', sub: `turning ${bd.turning} · ${prettyDate(bd.date)}`, glyph: '✦' });
-    }
+    if (bd && bd.inDays <= withinDays) out.push(birthdayEntry(p, bd));
+
     upcomingOf(p).forEach(({ r, o }) => {
-      if (o.inDays < 0 || o.inDays > withinDays) return;
-      out.push({ p, inDays: o.inDays, date: o.date, label: r.title, sub: `${r.title} · ${prettyDate(o.date)}`, glyph: (KINDS[r.kind] || KINDS.other).glyph });
+      if (o.inDays < 0) return;
+      /* A pregnancy outstays the window on purpose. Forty weeks is longer than
+         any horizon worth setting, and it is the one date you want in sight
+         from the day you hear about it. */
+      if (o.inDays > withinDays && !isBaby(r)) return;
+      out.push(dateEntry(p, r, o));
     });
   });
+  return out.sort((a, b) => a.inDays - b.inDays);
+}
+
+/* Every occurrence that lands inside a range — which is a different question
+   from datesAhead's "when is the next one", and the one a month grid asks. A
+   yearly record appears once per year the range covers. */
+function datesIn(fromYmd, toYmd) {
+  const out = [];
+  const from = parseYmd(fromYmd), to = parseYmd(toYmd);
+  const years = [];
+  for (let y = from.getFullYear(); y <= to.getFullYear(); y++) years.push(y);
+
+  const within = date => date >= fromYmd && date <= toYmd;
+
+  /* the same day-and-month, in each year the range touches */
+  const annualDates = dateStr => {
+    const d = parseYmd(dateStr);
+    return years
+      .map(y => ymd(new Date(y, d.getMonth(), d.getDate())))
+      .filter(within);
+  };
+
+  people.forEach(p => {
+    if (p.birthday) {
+      annualDates(p.birthday).forEach(date => {
+        const turning = parseYmd(date).getFullYear() - parseYmd(p.birthday).getFullYear();
+        out.push({
+          p, date, inDays: daysBetween(today(), date), label: 'Birthday', kind: 'joy',
+          short: `turning ${turning}`, sub: `turning ${turning} · ${prettyDate(date)}`, glyph: '✦',
+        });
+      });
+    }
+    recordsOf(p, 'upcoming').forEach(r => {
+      const dates = r.repeatsYearly ? annualDates(r.date) : (within(r.date) ? [r.date] : []);
+      dates.forEach(date => out.push(dateEntry(p, r, { date, inDays: daysBetween(today(), date), years: 0 })));
+    });
+  });
+  return out.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.p.name.localeCompare(b.p.name)));
+}
+
+/* Pregnancies near enough to say something about. */
+function babiesDue(withinDays = 30) {
+  const out = [];
+  people.forEach(p => recordsOf(p, 'upcoming').forEach(r => {
+    if (!isBaby(r)) return;
+    const inDays = daysBetween(today(), r.date);
+    if (inDays > withinDays || inDays < -21) return;   // past three weeks over, let it be
+    out.push({ p, r, inDays, gestation: gestationOn(r.date) });
+  }));
   return out.sort((a, b) => a.inDays - b.inDays);
 }
 
@@ -648,11 +823,19 @@ function badge(p, i) {
     frame.append(mark);
   }
 
+  /* How long since you last spoke, sitting on the bottom edge of the face.
+     Everyone carries it, not only the overdue — the ring already says whether
+     that is a problem, and this says how long it has been either way. */
+  const last = lastTouchDate(p);
+  const since = el('div', 'badge-since', last ? sinceShort(last) : '—');
+  /* Spelled out in days rather than through agoWords, which rounds where the
+     disc floors — the two would contradict each other on the same face. */
+  since.title = last ? `Last connected ${daysSinceWords(last)}` : 'No check-in yet';
+  frame.append(since);
+
   b.append(frame, el('div', 'badge-name', p.name));
 
-  let meta = p.relationship || '';
-  if (s.state === 'due') meta = s.days === null ? 'no check-in yet' : `${s.days}d since`;
-  if (meta) b.append(el('div', 'badge-meta', meta));
+  if (p.relationship) b.append(el('div', 'badge-meta', p.relationship));
 
   return b;
 }
@@ -773,7 +956,7 @@ function renderCircle() {
   const list = people
     .filter(p => !filterGroups.size || p.groups.some(g => filterGroups.has(g)))
     .filter(p => !q || (p.name + ' ' + p.relationship + ' ' + p.summary + ' ' + p.groups.join(' ')).toLowerCase().includes(q))
-    .sort((a, b) => a.name.localeCompare(b.name));
+    .sort(byNeed);
 
   grid.classList.toggle('is-hex', phone.matches);
   if (phone.matches) hexCols = layoutHex(grid, list);
@@ -797,15 +980,6 @@ function renderCircle() {
   $('#btn-filter').hidden = !canFilter;
   paintFilterCount();
 
-  const due = dueList().slice(0, 10);
-  const nudge = $('#nudge');
-  nudge.hidden = due.length === 0;
-  if (due.length) {
-    const row = $('#nudge-row');
-    row.textContent = '';
-    due.forEach(({ p }, i) => row.append(badge(p, i)));
-  }
-
   const n = people.length;
   $('#footer-count').textContent = n ? plural(n, 'person', 'people') + ' held close' : 'nobody yet';
   $('#tagline').textContent = n ? 'the people I hold, and how they are' : 'a quiet place to begin';
@@ -813,44 +987,84 @@ function renderCircle() {
 
 /* ═══════════════════════════ RENDER: PRAYERS ══════════════ */
 
-function prayerLine(p, pr, answered) {
-  const line = el('div', 'prayer-line' + (answered ? ' is-answered' : ''));
+/* One row, three states. The tick means something different in each: on the
+   list it records that you prayed today, and in either archive it brings the
+   prayer back. Closing a prayer is deliberate and goes through the dialog —
+   a single stray tap used to delete one outright. */
+function prayerLine(p, pr, state = 'open') {
+  const line = el('div', 'prayer-line is-' + state);
+
+  const prayedNow = state === 'open' && pr.prayedAt === today();
+  if (prayedNow) line.classList.add('is-prayed');
 
   const tick = el('button', 'tick');
   tick.type = 'button';
-  tick.title = answered ? 'Move back to the list' : 'Mark as answered';
+  tick.title = state !== 'open' ? 'Put it back on the list'
+    : prayedNow ? 'You prayed for this today — tap to take it back'
+    : 'Prayed for this today';
   tick.setAttribute('aria-label', tick.title);
+  tick.setAttribute('aria-pressed', String(prayedNow));
   tick.innerHTML = '<svg viewBox="0 0 24 24"><path d="M5 13l4.5 4.5L19 7"/></svg>';
-  tick.onclick = () => answered ? unanswerPrayer(p.id, pr.id) : askAnswer(p.id, pr.id, pr.text);
+  tick.onclick = () => state === 'open' ? togglePrayed(p.id, pr.id) : reopenPrayer(p.id, pr.id);
 
   const body = el('div', 'prayer-text');
   body.append(document.createTextNode(pr.text));
-  if (answered && pr.answerNote) body.append(el('p', 'answer-note', '“' + pr.answerNote + '”'));
+  if (state === 'answered' && pr.answerNote) body.append(el('p', 'answer-note', '“' + pr.answerNote + '”'));
+  if (state === 'open' && pr.prayedAt) {
+    body.append(el('p', 'prayed-note', prayedNow ? 'prayed today' : `last prayed ${agoWords(pr.prayedAt)}`));
+  }
 
-  const age = el('span', 'prayer-age', answered ? prettyDate(pr.answeredAt) : agoWords(pr.createdAt));
+  const age = el('span', 'prayer-age',
+    state === 'answered' ? prettyDate(pr.answeredAt)
+    : state === 'released' ? prettyDate(pr.releasedAt)
+    : agoWords(pr.createdAt));
 
-  const x = el('button', 'prayer-x', '×');
-  x.type = 'button';
-  x.title = 'Remove';
-  x.setAttribute('aria-label', 'Remove this prayer');
-  x.onclick = () => {
-    const target = byId(p.id);
-    target.prayers = target.prayers.filter(q => q.id !== pr.id);
-    queueSave(); renderAll();
-  };
+  line.append(tick, body, age);
 
-  line.append(tick, body, age, x);
+  if (state === 'open') {
+    const rel = el('button', 'prayer-x', '×');
+    rel.type = 'button';
+    rel.title = 'Stop carrying this';
+    rel.setAttribute('aria-label', `Stop carrying “${pr.text}”`);
+    rel.onclick = () => askRelease(p.id, pr.id, pr.text);
+    line.append(rel);
+  }
+
   return line;
+}
+
+/* An archive card: the same person's head, and their closed prayers under it.
+   Both archives are built the same way and differ only in what they hold. */
+function archiveCards(box, pick, sortKey, state) {
+  let count = 0;
+  people
+    .filter(p => pick(p).length)
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .forEach(p => {
+      const done = [...pick(p)].sort((a, b) => (a[sortKey] < b[sortKey] ? 1 : -1));
+      count += done.length;
+      const card = el('div', 'pcard');
+      const head = el('div', 'pcard-head');
+      head.append(avatar(p, 'thumb', true));
+      const idBox = el('div');
+      idBox.append(el('h3', null, p.name));
+      head.append(idBox);
+      card.append(head);
+      done.forEach(pr => card.append(prayerLine(p, pr, state)));
+      box.append(card);
+    });
+  return count;
 }
 
 function renderPrayers() {
   const openWrap = $('#prayer-open');
   const ansWrap = $('#prayer-answered');
+  const relWrap = $('#prayer-released');
   openWrap.textContent = '';
   ansWrap.textContent = '';
+  relWrap.textContent = '';
 
   const withOpen = people.filter(p => openPrayers(p).length).sort((a, b) => a.name.localeCompare(b.name));
-  const withAnswered = people.filter(p => p.prayers.some(x => x.answeredAt));
 
   withOpen.forEach((p, i) => {
     const card = el('div', 'pcard');
@@ -864,43 +1078,38 @@ function renderPrayers() {
     head.append(idBox);
     card.append(head);
 
+    /* Oldest first, and ticking one never reorders the list — a line that
+       jumped away from the finger that just tapped it would be its own bug. */
     openPrayers(p)
       .sort((a, b) => (a.createdAt < b.createdAt ? -1 : 1))
-      .forEach(pr => card.append(prayerLine(p, pr, false)));
+      .forEach(pr => card.append(prayerLine(p, pr, 'open')));
 
     openWrap.append(card);
   });
 
-  let answeredCount = 0;
-  withAnswered
-    .sort((a, b) => a.name.localeCompare(b.name))
-    .forEach(p => {
-      const done = p.prayers.filter(x => x.answeredAt).sort((a, b) => (a.answeredAt < b.answeredAt ? 1 : -1));
-      answeredCount += done.length;
-      const card = el('div', 'pcard');
-      const head = el('div', 'pcard-head');
-      head.append(avatar(p, 'thumb', true));
-      const idBox = el('div');
-      idBox.append(el('h3', null, p.name));
-      head.append(idBox);
-      card.append(head);
-      done.forEach(pr => card.append(prayerLine(p, pr, true)));
-      ansWrap.append(card);
-    });
+  const answeredCount = archiveCards(ansWrap, answeredPrayers, 'answeredAt', 'answered');
+  const releasedCount = archiveCards(relWrap, releasedPrayers, 'releasedAt', 'released');
 
   $('#answered-wrap').hidden = answeredCount === 0;
   $('#answered-count').textContent = answeredCount;
+  $('#released-wrap').hidden = releasedCount === 0;
+  $('#released-count').textContent = releasedCount;
 
   const total = withOpen.reduce((n, p) => n + openPrayers(p).length, 0);
+  const prayed = withOpen.reduce((n, p) => n + prayedToday(p).length, 0);
   $('#prayer-sub').textContent = total
     ? `${plural(total, 'thing', 'things')} for ${plural(withOpen.length, 'person', 'people')}`
+      + (prayed ? ` · ${prayed} prayed for today` : '')
     : '';
-  $('#prayer-blank').hidden = total > 0 || answeredCount > 0;
+  $('#prayer-blank').hidden = total > 0 || answeredCount > 0 || releasedCount > 0;
 }
 
 /* ═══════════════════════════ RENDER: TODAY ════════════════ */
 
-function todayRow(p, { when = '', calm = false, sub = '', action = false } = {}) {
+/* Shared by Today and the calendar. The thumb opens the person; the row
+   itself does nothing, because a date is something to know rather than
+   something to action. */
+function todayRow(p, { when = '', calm = false, sub = '' } = {}) {
   const row = el('div', 'today-row');
   row.append(avatar(p, 'thumb', true));
 
@@ -910,16 +1119,6 @@ function todayRow(p, { when = '', calm = false, sub = '', action = false } = {})
   row.append(who);
 
   if (when) row.append(el('span', 'when' + (calm ? ' calm' : ''), when));
-
-  if (action) {
-    const act = el('button', 'tick');
-    act.type = 'button';
-    act.title = 'Mark that you connected today';
-    act.setAttribute('aria-label', `Mark that you connected with ${p.name} today`);
-    act.innerHTML = '<svg viewBox="0 0 24 24"><path d="M5 13l4.5 4.5L19 7"/></svg>';
-    act.onclick = () => markConnected(p.id);
-    row.append(act);
-  }
   return row;
 }
 
@@ -944,89 +1143,131 @@ function renderToday() {
   const seed = hashCode(today());
   body.append(el('p', 'verse', PROMPTS[seed % PROMPTS.length]));
 
-  let anything = false;
-
-  /* overdue check-ins */
-  const due = dueList();
-  if (due.length) {
-    anything = true;
-    const b = block('Reach out', String(due.length));
-    due.forEach(({ p, s }) => b._list.append(todayRow(p, {
-      when: s.days === null ? 'never yet' : `${s.days}d since`,
-      action: true,
-    })));
-    body.append(b);
-  }
-
-  /* birthdays and dated records, together */
+  /* Birthdays and dated records, and nothing else. Who you owe a call is the
+     circle's question, and it answers it by putting them first — asking it
+     twice, in two places, only ever made both easier to stop reading. */
   const ahead = datesAhead(45);
-  if (ahead.length) {
-    anything = true;
-    const b = block('Dates ahead');
-    ahead.forEach(x => b._list.append(todayRow(x.p, {
+
+  const groups = [
+    ['Today',     x => x.inDays === 0],
+    ['This week', x => x.inDays > 0 && x.inDays <= 7],
+    ['Later',     x => x.inDays > 7],
+  ];
+
+  groups.forEach(([title, pick]) => {
+    const rows = ahead.filter(pick);
+    if (!rows.length) return;
+    const b = block(title, title === 'Today' ? String(rows.length) : '');
+    rows.forEach(x => b._list.append(todayRow(x.p, {
       when: x.inDays === 0 ? `${x.glyph} today` : aheadWords(x.inDays),
       calm: x.inDays > 7,
       sub: x.sub,
     })));
     body.append(b);
-  }
+  });
 
-  /* seasons people are in right now */
-  const walking = people.filter(p => activeSeasons(p).length);
-  if (walking.length) {
-    anything = true;
-    const b = block('Walking through');
-    walking.forEach(p => {
-      const seasons = activeSeasons(p);
-      b._list.append(todayRow(p, {
-        sub: seasons.map(s => s.title).join(' · '),
-        when: `since ${monthYear(seasons[0].date)}`,
-        calm: true,
-      }));
-    });
-    body.append(b);
-  }
-
-  /* check-ins coming due */
-  const soon = people.map(p => ({ p, s: statusOf(p) }))
-    .filter(x => x.s.state === 'soon')
-    .sort((a, b) => b.s.ratio - a.s.ratio);
-  if (soon.length) {
-    anything = true;
-    const b = block('Soon');
-    soon.forEach(({ p, s }) => {
-      const left = Math.max(0, p.cadenceDays - s.days);
-      b._list.append(todayRow(p, { when: left === 0 ? 'today' : `in ${left}d`, calm: true, action: true }));
-    });
-    body.append(b);
-  }
-
-  /* a deterministic three for the day */
-  const praying = people.filter(p => openPrayers(p).length);
-  if (praying.length) {
-    anything = true;
-    const picked = [...praying]
-      .sort((a, b) => hashCode(a.id + today()) - hashCode(b.id + today()))
-      .slice(0, 3);
-    const b = block('Pray for');
-    picked.forEach(p => b._list.append(todayRow(p, {
-      sub: openPrayers(p)[0].text,
-      when: String(openPrayers(p).length),
-      calm: true,
-    })));
-    body.append(b);
-  }
-
-  if (!anything) {
+  if (!ahead.length) {
     body.append(el('p', 'all-clear', people.length
-      ? 'Nothing pressing today. Everyone is where you left them.'
+      ? 'Nothing on the calendar. The next birthday is further out than a month and a half.'
       : 'Add someone to your circle and this page will start looking after you.'));
   }
 
-  const count = due.length + ahead.filter(x => x.inDays === 0).length;
+  /* A pregnancy inside its last fortnight counts too — it is the one date
+     worth a pip before the day itself arrives. */
+  const count = ahead.filter(x => x.inDays === 0).length + babiesDue(14).length;
   const badgeEl = $('#tab-count');
   badgeEl.hidden = count === 0;
   badgeEl.textContent = count;
+}
+
+/* ═══════════════════════════ RENDER: CALENDAR ═════════════
+   The same dates Today lists, laid out as a month so you can see the shape
+   of one — which week is crowded, how far off the next thing is. It reads
+   the data and changes none of it. */
+
+let calMonth = null;   // first of the month on show, as a Date
+
+const MONTH_NAMES = 'January February March April May June July August September October November December'.split(' ');
+const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+let calPicked = '';    // the day whose list is open, '' for none
+
+const monthStart = d => new Date(d.getFullYear(), d.getMonth(), 1);
+const monthEnd = d => new Date(d.getFullYear(), d.getMonth() + 1, 0);
+
+function shiftMonth(by) {
+  calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() + by, 1);
+  calPicked = '';
+  renderCalendar();
+}
+
+function renderCalendar() {
+  const body = $('#calendar-body');
+  if (!body) return;
+  if (!calMonth) calMonth = monthStart(new Date());
+  body.textContent = '';
+
+  const first = monthStart(calMonth);
+  const last = monthEnd(calMonth);
+  $('#cal-month').textContent = `${MONTH_NAMES[first.getMonth()]} ${first.getFullYear()}`;
+
+  /* Everything landing in this month, gathered once and looked up per day. */
+  const entries = datesIn(ymd(first), ymd(last));
+  const onDay = {};
+  entries.forEach(x => (onDay[x.date] ||= []).push(x));
+
+  const grid = el('div', 'cal-grid');
+  WEEKDAYS.forEach(w => grid.append(el('div', 'cal-dow', w)));
+
+  /* Monday-first: getDay() calls Sunday 0, so Sunday sits at the end. */
+  const lead = (first.getDay() + 6) % 7;
+  for (let i = 0; i < lead; i++) grid.append(el('div', 'cal-pad'));
+
+  for (let day = 1; day <= last.getDate(); day++) {
+    const date = ymd(new Date(first.getFullYear(), first.getMonth(), day));
+    const list = onDay[date] || [];
+
+    const cell = el('button', 'cal-day');
+    cell.type = 'button';
+    if (date === today()) cell.classList.add('is-today');
+    if (date === calPicked) cell.classList.add('is-picked');
+    if (!list.length) cell.classList.add('is-empty');
+
+    cell.append(el('span', 'cal-n', String(day)));
+
+    const dots = el('span', 'cal-dots');
+    list.slice(0, 3).forEach(x => {
+      const dot = el('span', 'cal-dot');
+      dot.dataset.kind = x.kind || 'other';
+      dots.append(dot);
+    });
+    cell.append(dots);
+
+    cell.setAttribute('aria-label', list.length
+      ? `${prettyDate(date)} — ${plural(list.length, 'thing', 'things')}`
+      : prettyDate(date));
+    cell.onclick = () => { calPicked = calPicked === date ? '' : date; renderCalendar(); };
+
+    grid.append(cell);
+  }
+  body.append(grid);
+
+  /* What the chosen day holds, or the whole month when nothing is chosen. */
+  const shown = calPicked ? (onDay[calPicked] || []) : entries;
+  if (!shown.length) {
+    body.append(el('p', 'quiet-note', calPicked
+      ? 'Nothing on that day.'
+      : 'Nothing this month — birthdays and any date you have noted would show here.'));
+    return;
+  }
+
+  const b = block(calPicked ? prettyDate(calPicked) : 'Everything this month');
+  shown.forEach(x => b._list.append(todayRow(x.p, {
+    when: `${x.glyph} ${calPicked ? '' : parseYmd(x.date).getDate() + ' ' + shortMonth(x.date)}`.trim(),
+    calm: x.date !== today(),
+    sub: x.short,
+  })));
+  body.append(b);
 }
 
 /* ═══════════════════════════ THE BACK BUTTON ═════════════
@@ -1345,7 +1586,7 @@ function renderSheet() {
   prBlock.append(blockHead('Prayer list'));
 
   const open = openPrayers(p).sort((a, b) => (a.createdAt < b.createdAt ? -1 : 1));
-  if (open.length) open.forEach(pr => prBlock.append(prayerLine(p, pr, false)));
+  if (open.length) open.forEach(pr => prBlock.append(prayerLine(p, pr, 'open')));
   else prBlock.append(el('p', 'quiet-note', 'Nothing on the list yet.'));
 
   const addPrayer = el('form', 'add-line');
@@ -1360,7 +1601,7 @@ function renderSheet() {
     e.preventDefault();
     const text = prInput.value.trim();
     if (!text) return;
-    byId(p.id).prayers.push({ id: uid(), text, createdAt: today(), answeredAt: null, answerNote: '' });
+    byId(p.id).prayers.push(normalisePrayer({ text }));
     prInput.value = '';
     queueSave();
     renderAll();
@@ -1368,16 +1609,19 @@ function renderSheet() {
   };
   prBlock.append(addPrayer);
 
-  const answered = p.prayers.filter(x => x.answeredAt);
-  if (answered.length) {
+  /* Both archives, each tucked away and each still reachable. */
+  const archive = (list, sortKey, state, word) => {
+    if (!list.length) return;
     const det = el('details', 'answered');
     const sm = el('summary');
-    sm.append(document.createTextNode(plural(answered.length, 'answered', 'answered')));
+    sm.append(document.createTextNode(`${list.length} ${word}`));
     det.append(sm);
-    answered.sort((a, b) => (a.answeredAt < b.answeredAt ? 1 : -1))
-      .forEach(pr => det.append(prayerLine(p, pr, true)));
+    [...list].sort((a, b) => (a[sortKey] < b[sortKey] ? 1 : -1))
+      .forEach(pr => det.append(prayerLine(p, pr, state)));
     prBlock.append(det);
-  }
+  };
+  archive(answeredPrayers(p), 'answeredAt', 'answered', 'answered');
+  archive(releasedPrayers(p), 'releasedAt', 'released', 'let go');
   root.append(prBlock);
 
   /* ── coming up ── */
@@ -1400,7 +1644,12 @@ function renderSheet() {
       bodyBox.append(h);
 
       const meta = el('div');
-      meta.append(el('span', 'up-count' + (past ? ' is-past' : ''), past ? `was ${agoWords(o.date)}` : aheadWords(o.inDays)));
+      /* A due date is read from the other end: how far along they are now
+         matters more than how many weeks are left. */
+      const g = isBaby(r) ? gestationOn(o.date) : null;
+      if (g) meta.append(el('span', 'up-gest', gestationWords(g) + ' · '));
+      meta.append(el('span', 'up-count' + (past ? ' is-past' : ''),
+        past ? `was ${agoWords(o.date)}` : g ? `due ${aheadWords(o.inDays)}` : aheadWords(o.inDays)));
       if (r.repeatsYearly) meta.append(el('span', 'up-repeat', ' · every year'));
       bodyBox.append(meta);
 
@@ -1567,11 +1816,61 @@ function moveToHistory(personId, recId) {
   renderAll();
 }
 
-function unanswerPrayer(personId, prayerId) {
-  const pr = byId(personId)?.prayers.find(x => x.id === prayerId);
+const prayerBy = (personId, prayerId) => byId(personId)?.prayers.find(x => x.id === prayerId) || null;
+
+/* One tick a day, and tapping it again takes it back — the same shape as a
+   check-in, and for the same reason: the thing being recorded is the day,
+   not the number of times you touched the screen. */
+function togglePrayed(personId, prayerId) {
+  const pr = prayerBy(personId, prayerId);
+  if (!pr) return;
+  pr.prayedAt = pr.prayedAt === today() ? '' : today();
+  queueSave();
+  renderAll();
+}
+
+/* Out of either archive and back onto the list. */
+function reopenPrayer(personId, prayerId) {
+  const pr = prayerBy(personId, prayerId);
   if (!pr) return;
   pr.answeredAt = null;
   pr.answerNote = '';
+  pr.releasedAt = '';
+  queueSave();
+  renderAll();
+}
+
+function answerPrayer(personId, prayerId, note) {
+  const pr = prayerBy(personId, prayerId);
+  if (!pr) return;
+  pr.answeredAt = today();
+  pr.answerNote = note;
+  pr.releasedAt = '';
+  queueSave();
+  renderAll();
+  toast('Marked answered ✧');
+}
+
+/* Let go rather than answered. Nothing is lost — it moves to its own list,
+   the way an answered one does, and the tick there brings it back. */
+function releasePrayer(personId, prayerId) {
+  const pr = prayerBy(personId, prayerId);
+  if (!pr) return;
+  pr.releasedAt = today();
+  pr.answeredAt = null;
+  pr.answerNote = '';
+  queueSave();
+  renderAll();
+  toast('Let go — it is still in your list of released', {
+    label: 'Undo',
+    run: () => reopenPrayer(personId, prayerId),
+  });
+}
+
+function deletePrayer(personId, prayerId) {
+  const target = byId(personId);
+  if (!target) return;
+  target.prayers = target.prayers.filter(x => x.id !== prayerId);
   queueSave();
   renderAll();
 }
@@ -1974,10 +2273,39 @@ function setEventType(type) {
 
   $('#type-hint').textContent = t.hint;
   $('#e-title-label').textContent = t.titleLabel;
-  $('#e-date-label').textContent = t.dateLabel;
   $('#e-title').placeholder = t.placeholder;
   $('#wrap-end').hidden = editingEvent.type !== 'season';
   $('#wrap-repeat').hidden = editingEvent.type !== 'upcoming';
+  paintBabyFields();
+}
+
+/* A due date can be arrived at from either end: you either know the date, or
+   you know how far along they are today. Filling in one works out the other,
+   so whichever the person actually told you is the one you type. The kind can
+   change without the type changing, so this is called from both. */
+function paintBabyFields() {
+  const t = TYPES[editingEvent.type];
+  const baby = editingEvent.type === 'upcoming' && $('#e-kind').value === 'baby';
+
+  $('#wrap-gestation').hidden = !baby;
+  $('#wrap-repeat').hidden = editingEvent.type !== 'upcoming' || baby;
+  $('#e-date-label').textContent = baby ? 'Due date' : t.dateLabel;
+  if (baby) {
+    $('#e-title').placeholder = 'A baby on the way';
+    /* The title is required, and for this one kind there is an obvious answer.
+       Filling it in means a due date alone is enough to save. */
+    if (!$('#e-title').value.trim()) $('#e-title').value = 'A baby on the way';
+    paintGestationFrom($('#e-date').value);
+  }
+}
+
+function paintGestationFrom(dateStr) {
+  const g = dateStr ? gestationOn(dateStr) : null;
+  $('#e-weeks').value = g ? g.weeks : '';
+  $('#e-days').value = g ? g.rem : '';
+  $('#gestation-now').textContent = g
+    ? `${gestationWords(g)} today`
+    : dateStr ? 'outside the forty weeks a due date is counted over' : '';
 }
 
 function eventDialog(personId, eventId, presetType) {
@@ -1993,7 +2321,7 @@ function eventDialog(personId, eventId, presetType) {
   $('#e-repeat').checked = !!rec?.repeatsYearly;
   $('#btn-delete-event').hidden = !rec;
 
-  setEventType(editingEvent.type);
+  setEventType(editingEvent.type);   // paints the gestation fields too
   $('#dlg-event').showModal();
   setTimeout(() => $('#e-title').focus(), 60);
 }
@@ -2074,27 +2402,35 @@ function saveHealth(e) {
   renderAll();
 }
 
-let answering = { personId: null, prayerId: null };
+/* Taking something off the list is three different acts wearing one gesture,
+   so the dialog asks which. Answered keeps the story; let go keeps the fact
+   that you carried it; remove is for the one you typed by mistake. */
+let releasing = { personId: null, prayerId: null };
 
-function askAnswer(personId, prayerId, text) {
-  answering = { personId, prayerId };
-  $('#answer-lede').textContent = '“' + text + '”';
+function askRelease(personId, prayerId, text) {
+  releasing = { personId, prayerId };
+  $('#release-lede').textContent = '“' + text + '”';
   $('#a-note').value = '';
-  $('#dlg-answer').showModal();
+  $('#dlg-release').showModal();
   setTimeout(() => $('#a-note').focus(), 60);
 }
 
-function saveAnswer(e) {
+function saveAnswered(e) {
   e.preventDefault();
-  const pr = byId(answering.personId)?.prayers.find(x => x.id === answering.prayerId);
-  if (pr) {
-    pr.answeredAt = today();
-    pr.answerNote = $('#a-note').value.trim();
-    queueSave();
-  }
-  $('#dlg-answer').close();
-  renderAll();
-  toast('Marked answered ✧');
+  answerPrayer(releasing.personId, releasing.prayerId, $('#a-note').value.trim());
+  $('#dlg-release').close();
+}
+
+function saveReleased() {
+  releasePrayer(releasing.personId, releasing.prayerId);
+  $('#dlg-release').close();
+}
+
+function saveRemoved() {
+  const pr = prayerBy(releasing.personId, releasing.prayerId);
+  if (pr && !confirm(`Remove “${pr.text}” altogether? Letting it go keeps it; this does not.`)) return;
+  deletePrayer(releasing.personId, releasing.prayerId);
+  $('#dlg-release').close();
 }
 
 /* ─────────────────────────── backup ───────────────────────── */
@@ -2182,7 +2518,7 @@ function paintNotifState() {
   const perm = Notification.permission;
   btn.hidden = perm !== 'default';
   txt.textContent = perm === 'granted'
-    ? 'On — when you open Kindred, it will nudge you once a day about anyone overdue and any date landing today.'
+    ? 'On — when you open Kindred, it will nudge you once a day about anyone overdue, any date landing today, and a baby due soon.'
     : perm === 'denied'
       ? 'Blocked in your browser settings. The Today tab still keeps count.'
       : 'Get a nudge when someone is overdue. Fires when you open the app.';
@@ -2196,23 +2532,38 @@ async function enableNotifications() {
   } catch { paintNotifState(); }
 }
 
+/* A pregnancy is worth saying something about more than once, but not every
+   day for nine months. These are the distances that mean something: a month
+   out, then closing, then daily once it is near enough to happen any morning.
+
+   The honest limit is the same as the rest of the reminders — this fires when
+   you open Kindred, not while your phone is in your pocket. */
+const BABY_MARKS = [28, 21, 14, 10];
+
+const babiesSpeakingToday = () =>
+  babiesDue(28).filter(({ inDays }) => inDays <= 7 || BABY_MARKS.includes(inDays));
+
 function nudgeIfDue() {
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
   if (Store.getPref('notified') === today()) return;
 
   const due = dueList();
   const landing = datesAhead(0).filter(x => x.inDays === 0);
-  if (!due.length && !landing.length) return;
+  const babies = babiesSpeakingToday();
+  if (!due.length && !landing.length && !babies.length) return;
 
   const lines = [];
   if (landing.length) lines.push(landing.map(x => `${x.p.name} — ${x.label}`).join(' · '));
+  babies.forEach(({ p, inDays, gestation }) => lines.push(
+    `${p.name}'s baby — ${gestation ? gestationWords(gestation) + ', ' : ''}`
+    + (inDays < 0 ? `${-inDays} days past the due date` : inDays === 0 ? 'due today' : `due in ${plural(inDays, 'day', 'days')}`)));
   if (due.length) {
     const names = due.slice(0, 3).map(x => x.p.name.split(' ')[0]).join(', ');
     lines.push('Overdue: ' + names + (due.length > 3 ? ` and ${due.length - 3} more` : ''));
   }
 
   try {
-    const n = new Notification(landing.length ? 'Something today' : 'Someone is on your mind', {
+    const n = new Notification(landing.length || babies.length ? 'Something today' : 'Someone is on your mind', {
       body: lines.join(' — '),
       icon: 'icon-192.png',
       tag: 'kindred-daily',
@@ -2610,7 +2961,6 @@ function switchView(name) {
     else t.removeAttribute('aria-current');
   });
   $$('.view').forEach(v => { v.hidden = v.id !== 'view-' + name; });
-  Store.setPref('view', name);
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -2618,6 +2968,7 @@ function renderAll() {
   renderCircle();
   renderPrayers();
   renderToday();
+  renderCalendar();
   if (openId) renderSheet();
 }
 
@@ -2697,6 +3048,20 @@ function wire() {
 
   $('#form-event').onsubmit = saveEvent;
   $('#btn-event-cancel').onclick = () => $('#dlg-event').close();
+
+  /* The kind can change without the type changing, and only one kind asks a
+     second question, so the fields follow the select as well as the tabs. */
+  $('#e-kind').onchange = paintBabyFields;
+  $('#e-date').onchange = () => { if (!$('#wrap-gestation').hidden) paintGestationFrom($('#e-date').value); };
+
+  const fromGestation = () => {
+    const w = clamp(Number($('#e-weeks').value) || 0, 0, 42);
+    const d = clamp(Number($('#e-days').value) || 0, 0, 6);
+    $('#e-date').value = dueFromGestation(w, d);
+    $('#gestation-now').textContent = `${w}w ${d}d today`;
+  };
+  $('#e-weeks').oninput = fromGestation;
+  $('#e-days').oninput = fromGestation;
   $('#btn-delete-event').onclick = () => {
     const p = byId(editingEvent.personId);
     if (!p) return;
@@ -2718,8 +3083,18 @@ function wire() {
     renderAll();
   };
 
-  $('#form-answer').onsubmit = saveAnswer;
-  $('#btn-answer-cancel').onclick = () => $('#dlg-answer').close();
+  $('#form-release').onsubmit = saveAnswered;
+  $('#btn-release-go').onclick = saveReleased;
+  $('#btn-release-remove').onclick = saveRemoved;
+  $('#btn-release-cancel').onclick = () => $('#dlg-release').close();
+
+  $('#cal-prev').onclick = () => shiftMonth(-1);
+  $('#cal-next').onclick = () => shiftMonth(1);
+  $('#cal-today').onclick = () => {
+    calMonth = monthStart(new Date());
+    calPicked = today();
+    renderCalendar();
+  };
 
   $('#btn-how-plain').onclick = () => { chooseHow(''); };
   $('#btn-how-cancel').onclick = () => $('#dlg-how').close();
@@ -2896,8 +3271,11 @@ async function boot() {
     })[Store.mode];
   if (Store.blocked) toast('Close Kindred’s other tab and reload');
 
-  const startView = Store.getPref('view', 'circle');
-  if (['circle', 'prayers', 'today'].includes(startView)) switchView(startView);
+  /* Always the circle. Kindred used to reopen on whichever tab you left it on,
+     which meant signing in could land you on a prayer list rather than on the
+     faces — and the faces are the app. Coming back is different from starting:
+     unlocking after a couple of minutes away leaves you where you were. */
+  switchView('circle');
 
   /* Before the first render, so the circle is drawn at the chosen size rather
      than drawn small and then jumping. */
