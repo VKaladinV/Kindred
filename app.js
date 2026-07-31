@@ -1275,6 +1275,9 @@ function personDialog(p) {
   $('#f-contact').value = p?.contact || '';
   $('#f-cadence').value = String(p ? p.cadenceDays : 30);
   $('#btn-delete-person').hidden = !p;
+  /* Only offered for someone new — editing is where you correct a name, not
+     overwrite it from elsewhere. */
+  $('#contact-pick').hidden = !!p || !canPickContacts();
   $('#photo-input').value = '';
 
   paintPhotoPreview(p && photos[p.id] ? photos[p.id] : null, p?.name || '');
@@ -1306,6 +1309,63 @@ function paintPhotoPreview(dataUrl, name) {
   }
   $('#photo-clear').hidden = !dataUrl;
   $('#photo-adjust').hidden = !dataUrl;
+}
+
+/* ─────────────── filling someone in from a contact ──────────────
+   Chrome on Android is the only browser that has a contact picker, and
+   what it offers is narrower than it sounds: Android shows its own
+   chooser, you tap who to share, and only those people come back. There
+   is no reading the address book, which is the right shape here anyway —
+   these are people you add on purpose, not a list to import. */
+
+const canPickContacts = () => 'contacts' in navigator && 'ContactsManager' in window;
+
+/* +27 82 445 1120 and 082 445 1120 are the same phone. Comparing the last
+   nine digits gets that right without pretending to understand dialling
+   codes, and an address in the contact field reduces to nothing rather
+   than matching everyone else who left theirs blank. */
+const telKey = s => (s || '').replace(/\D/g, '').slice(-9);
+
+function matchExisting(name, tel) {
+  const key = telKey(tel);
+  if (key.length >= 7) {
+    const byTel = people.find(p => telKey(p.contact) === key);
+    if (byTel) return { person: byTel, on: 'number' };
+  }
+  const n = name.trim().toLowerCase();
+  const byName = n ? people.find(p => p.name.trim().toLowerCase() === n) : null;
+  return byName ? { person: byName, on: 'name' } : null;
+}
+
+async function fillFromContact() {
+  let picked;
+  /* select() has to be the first thing the tap reaches — anything awaited
+     before it spends the user gesture it needs. */
+  try {
+    [picked] = await navigator.contacts.select(['name', 'tel'], { multiple: false });
+  } catch {
+    toast('Could not open your contacts');
+    return;
+  }
+  if (!picked) return;   // closed the chooser without picking anyone
+
+  const name = (picked.name || []).find(Boolean) || '';
+  const tel = (picked.tel || []).find(Boolean) || '';
+  const hit = matchExisting(name, tel);
+
+  /* The same number is proof it is the same person, so open them instead of
+     starting a second copy. A shared name is only a hint — say so, and leave
+     the judgement where it belongs. */
+  if (hit && hit.on === 'number') {
+    $('#dlg-person').close();
+    personDialog(hit.person);
+    toast(`${hit.person.name.split(' ')[0]} is already in your circle`);
+    return;
+  }
+
+  if (name) $('#f-name').value = name;
+  if (tel) $('#f-contact').value = tel;
+  if (hit) toast(`There is already a ${hit.person.name} in your circle`);
 }
 
 /* ─────────────────────────── the cropper ───────────────────────
@@ -1882,6 +1942,7 @@ function wire() {
     if (file) pickPhoto(file);
     e.target.value = '';   // so choosing the same file twice still fires
   };
+  $('#btn-contact-pick').onclick = fillFromContact;
   $('#photo-adjust').onclick = adjustPhoto;
   $('#photo-clear').onclick = () => {
     pendingPhoto = null;

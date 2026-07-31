@@ -162,6 +162,13 @@
       <input type="text" id="f-name" required maxlength="60" autocomplete="off" placeholder="Ouma Hettie">
     </label>
 
+    <!-- Chrome on Android is the only browser with a contact picker, and it
+         hands back only whoever you tap in Android's own chooser. Hidden
+         everywhere else rather than offered and then failing. -->
+    <p class="field-aside" id="contact-pick" hidden>
+      <button type="button" class="link-btn" id="btn-contact-pick">fill from a contact</button>
+    </p>
+
     <div class="field-row">
       <label class="field">
         <span>How you know them</span>

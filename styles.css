@@ -866,6 +866,10 @@ button.thumb:focus-visible { outline: 2px solid var(--green); outline-offset: 2p
   border-color: var(--green);
   box-shadow: 0 0 0 3px color-mix(in oklab, var(--green) 16%, transparent);
 }
+/* A note or action belonging to the field above it, tucked up into the gap
+   that field already leaves below itself. */
+.field-aside { margin: -.85rem 0 1.1rem; }
+
 .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: .9rem; }
 @media (max-width: 460px) { .field-row { grid-template-columns: 1fr; gap: 0; } }
 

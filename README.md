@@ -95,6 +95,17 @@ Inside:
 - **edit details** — name, photo, relationship, groups, birthday, and how often
   you want to be nudged.
 
+### Adding someone from your contacts
+On an Android phone, *Someone new* offers **fill from a contact**. It opens
+Android's own chooser, and only whoever you tap comes back — Kindred never sees
+the rest of the address book. The button doesn't appear on the PC, because no
+desktop browser has a picker to offer.
+
+If that number already belongs to someone in your circle, it opens them rather
+than starting a second copy: `+27 82 445 1120` and `082 445 1120` count as the
+same phone. A shared name on its own isn't proof of the same person, so there it
+only says so and leaves the choice with you.
+
 ### Photos, and what they look at
 When you choose a photo you also choose what the circle centres on: drag the
 picture to move it, and zoom in to single one person out of a group shot. The
