@@ -38,6 +38,14 @@
   --wrap: 62rem;
   --rail: 15rem;
   --bar: 4.4rem;
+
+  /* How big a face in the circle is. The slider in settings moves the scale;
+     everything about a badge — its ring, its marks, its initials — is a
+     proportion of --badge, so one number moves the lot. --badge-gap is read
+     by app.js as well, to work out how many fit across a phone. */
+  --badge-scale: 1;
+  --badge: calc(7.4rem * var(--badge-scale));
+  --badge-gap: clamp(1rem, 3vw, 1.8rem);
   --ease: cubic-bezier(.22,.68,.24,1);
   --grain-opacity: .38;
   --grain-blend: multiply;
@@ -313,12 +321,18 @@ main { padding-bottom: 1rem; }
 
 .circle-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(5.9rem, 1fr));
-  gap: clamp(1.6rem, 4vw, 2.8rem) clamp(1rem, 3vw, 1.8rem);
+  /* --badge is the size a face wants to be; it may shrink to four-fifths of
+     that to let one more fit across. Without the give, a phone drops from
+     three across to two. */
+  grid-template-columns: repeat(auto-fill, minmax(min(calc(var(--badge) * .8), 100%), 1fr));
+  gap: clamp(1.6rem, 4vw, 2.8rem) var(--badge-gap);
   align-items: start;
 }
-.circle-grid .badge:nth-child(3n+2) { margin-top: clamp(.6rem, 2vw, 1.5rem); }
-.circle-grid .badge:nth-child(5n+4) { margin-top: clamp(.3rem, 1vw, .8rem); }
+/* A little scatter, so the grid reads as a gathering rather than a table.
+   Only where the grid lays itself out — the phone tessellates instead, in
+   rows app.js builds, and there the offset is the point. */
+.circle-grid:not(.is-hex) .badge:nth-child(3n+2) { margin-top: clamp(.6rem, 2vw, 1.5rem); }
+.circle-grid:not(.is-hex) .badge:nth-child(5n+4) { margin-top: clamp(.3rem, 1vw, .8rem); }
 
 /* only the photo opens a person — the name below is plain text */
 .badge {
@@ -331,7 +345,10 @@ main { padding-bottom: 1rem; }
 
 .badge-frame {
   position: relative;
-  width: 100%; max-width: 7.4rem;
+  /* Everything inside a badge measures itself against --frame, so the smaller
+     badges in the nudge strip only have to override this one number. */
+  --frame: var(--badge);
+  width: 100%; max-width: var(--frame);
   aspect-ratio: 1;
   padding: 0; border: 0; background: none;
   border-radius: 50%;
@@ -341,16 +358,18 @@ main { padding-bottom: 1rem; }
 }
 .badge-frame::after {
   content: "";
-  position: absolute; inset: -7px;
+  /* Percentages here resolve against the frame, which is a known square —
+     so the ring keeps its distance at any size without further arithmetic. */
+  position: absolute; inset: -6%;
   border-radius: 50%;
   border: 1.5px solid var(--ring);
   opacity: .85;
   transition: inset .35s var(--ease), opacity .3s, border-color .3s;
 }
 .badge-frame:hover { transform: rotate(0deg) translateY(-4px) scale(1.03); }
-.badge-frame:hover::after { inset: -11px; opacity: 1; }
+.badge-frame:hover::after { inset: -9.5%; opacity: 1; }
 .badge-frame:focus-visible { outline: none; }
-.badge-frame:focus-visible::after { inset: -11px; border-width: 2.5px; border-color: var(--green); }
+.badge-frame:focus-visible::after { inset: -9.5%; border-width: 2.5px; border-color: var(--green); }
 
 .badge-photo {
   position: absolute; inset: 0;
@@ -361,24 +380,24 @@ main { padding-bottom: 1rem; }
 }
 .badge-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .badge-photo .initials {
-  font-family: var(--display); font-size: 1.7rem; font-weight: 400;
+  font-family: var(--display); font-size: calc(var(--frame) * .23); font-weight: 400;
   font-variation-settings: "SOFT" 40, "WONK" 1, "opsz" 40;
   color: var(--ink-faint); letter-spacing: .02em;
 }
 
 .badge-flag, .badge-season {
   position: absolute;
-  width: 1.55rem; height: 1.55rem;
+  width: 21%; height: 21%;
   border-radius: 50%;
   background: var(--paper-raise);
   border: 1px solid var(--rule);
   display: grid; place-items: center;
-  font-size: .78rem; line-height: 1;
+  font-size: calc(var(--frame) * .105); line-height: 1;
   box-shadow: var(--shadow-lift);
   z-index: 2;
 }
-.badge-flag { top: -2px; right: -2px; color: var(--green); }
-.badge-season { bottom: -2px; left: -2px; color: var(--gold); }
+.badge-flag { top: -3%; right: -3%; color: var(--green); }
+.badge-season { bottom: -3%; left: -3%; color: var(--gold); }
 
 .badge-name { font-size: .84rem; font-weight: 600; letter-spacing: .01em; text-align: center; line-height: 1.25; }
 .badge-meta { font-size: .68rem; color: var(--ink-faint); letter-spacing: .04em; text-align: center; margin-top: -.45rem; }
@@ -388,8 +407,75 @@ main { padding-bottom: 1rem; }
 .badge[data-state="none"] { --ring: var(--rule); }
 .badge[data-state="due"] .badge-meta { color: var(--alert); }
 
-.nudge-row .badge { flex: 0 0 5.4rem; }
-.nudge-row .badge-frame { max-width: 5.4rem; }
+/* The strip stays deliberately smaller than the circle, but follows the setting. */
+.nudge-row .badge { flex: 0 0 calc(var(--badge) * .73); }
+.nudge-row .badge-frame { --frame: calc(var(--badge) * .73); }
+
+/* ── the phone tessellation ─────────────────────────────────────
+   app.js lays these rows out — long, short, long — because how many fit
+   across depends on the size setting, and CSS cannot offset "every other
+   row" without being told the count.
+
+   The half-cell offset costs nothing: a row of one fewer badge, centred
+   against a full one, already sits in the gaps of the row above. */
+@media (max-width: 899px) {
+  .circle-grid.is-hex {
+    display: flex; flex-direction: column; align-items: center;
+    gap: clamp(.5rem, 2vw, 1rem);
+  }
+  .hex-row { display: flex; justify-content: center; align-items: flex-start; gap: var(--badge-gap); }
+
+  /* Cells must be one height or the rows stop lining up — so a name gets one
+     line whatever its length, and the space below it is kept whether or not
+     there is anything to say there. */
+  /* --hex-cell is worked out in app.js: the size that fills the row exactly,
+     capped at --badge. Both rows share it, or the short row's faces would
+     stretch wider and the nesting would come apart. */
+  .hex-row .badge {
+    flex: 0 0 var(--hex-cell, var(--badge));
+    width: var(--hex-cell, var(--badge));
+    min-height: calc(var(--hex-cell, var(--badge)) + 2.4rem);
+  }
+  .hex-row .badge-frame { --frame: var(--hex-cell, var(--badge)); }
+  .hex-row .badge-name,
+  .hex-row .badge-meta { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+}
+
+/* What app.js measures a badge and its gap against, rather than keeping its
+   own copy of two numbers that live here. Never seen. */
+.badge-probe {
+  position: fixed; top: 0; left: -9999px;
+  width: var(--badge); margin-left: var(--badge-gap);
+  height: 0; pointer-events: none;
+}
+
+/* ── the frozen title ───────────────────────────────────────────
+   The masthead scrolls away untouched and this takes over, rather than the
+   masthead shrinking where it sits: a stuck element that changes height moves
+   the document beneath the very scroll position it is reacting to, and the
+   two then argue. Nothing here changes size, so there is nothing to argue with. */
+.topbar {
+  position: fixed; z-index: 120;
+  left: 0; right: 0; top: 0;
+  padding-top: env(safe-area-inset-top, 0px);
+  background: color-mix(in oklab, var(--paper) 82%, transparent);
+  backdrop-filter: blur(12px) saturate(1.3);
+  border-bottom: 1px solid var(--rule);
+  box-shadow: 0 8px 24px -18px rgba(20,35,25,.5);
+  opacity: 0; transform: translateY(-100%); pointer-events: none;
+  transition: opacity .2s var(--ease), transform .2s var(--ease);
+}
+.topbar.is-up { opacity: 1; transform: none; }
+/* Fixed leaves .shell behind, so its width and gutter are set again here or
+   the title sits out of line with the circle underneath it. */
+.topbar-inner {
+  max-width: var(--wrap); margin: 0 auto;
+  padding: .6rem clamp(1rem, 4vw, 2.5rem);
+  font-family: var(--display); font-size: 1.15rem; font-weight: 500;
+  font-variation-settings: "SOFT" 34, "WONK" 1, "opsz" 40;
+  letter-spacing: -.012em;
+}
+@media (min-width: 900px) { .topbar { display: none; } }
 
 /* ── blank states ───────────────────────────────────────────── */
 
@@ -953,6 +1039,15 @@ button.thumb:focus-visible { outline: 2px solid var(--green); outline-offset: 2p
   border: 1px solid color-mix(in oklab, var(--green) 45%, transparent);
   pointer-events: none;
 }
+
+/* Sits inside a settings row rather than a .field, so there is no input box
+   styling to undo here — only the slider itself to dress. */
+.size-range {
+  display: block; width: 100%; margin-top: .55rem;
+  accent-color: var(--green);
+  height: 1.4rem; cursor: pointer;
+}
+.size-range:focus-visible { outline: 2px solid var(--green); outline-offset: 3px; }
 
 .crop-zoom { margin-bottom: 0; }
 .crop-zoom input[type="range"] {

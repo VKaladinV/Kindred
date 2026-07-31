@@ -57,6 +57,12 @@
   </button>
 </nav>
 
+<!-- Takes the title's place on a phone once it has scrolled away. Hidden from
+     screen readers: the real heading is still in the page, just further up. -->
+<div class="topbar" id="topbar" aria-hidden="true">
+  <div class="topbar-inner">Kindred</div>
+</div>
+
 <div class="shell">
 
 <header class="masthead">
@@ -332,6 +338,15 @@
     <div class="setting-actions">
       <button class="btn btn-quiet btn-tiny" id="btn-sync-now">Sync now</button>
       <button class="btn btn-quiet" id="btn-auth">Sign in</button>
+    </div>
+  </div>
+
+  <div class="setting">
+    <div>
+      <h3>Size of the faces</h3>
+      <p class="hint">How big everyone sits in your circle. On a phone this also decides how many fit across a row.</p>
+      <input type="range" class="size-range" id="badge-size" min="70" max="145" step="1" value="100"
+             aria-label="Size of the faces">
     </div>
   </div>
 

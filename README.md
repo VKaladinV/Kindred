@@ -45,6 +45,10 @@ separate copy** of the data — see *Backups* below for moving data between devi
 The menu sits down the left on a computer, and becomes a bar along the bottom of
 the screen on a phone — within thumb reach, nothing to open.
 
+On a phone, once **Kindred** has scrolled off the top it comes back as a thin frozen
+line up there, so you still know where you are without the full title holding on to
+the room it needs.
+
 ### Circle
 Everyone you've added, as circular badges. The thin ring around each photo tells
 you how the check-in is going:
@@ -59,6 +63,17 @@ you how the check-in is going:
 A small **✜** at the top of a badge means open prayers; a mark at the bottom-left
 means they're in a season right now. Anyone overdue also appears in the
 *It's been a while* strip at the top.
+
+### How big they are, and how they sit
+**Settings → Size of the faces** decides how big everyone is. Every part of a badge
+is a proportion of that one number, so the ring, the two marks and the initials all
+hold their places at whatever size you land on.
+
+On a phone it decides something else as well: how many fit across. The circle
+tessellates there — rows of three, then two sitting in the gaps of the row above,
+the way a honeycomb packs. So making the faces smaller fits four across, and larger
+drops it to two. Names stay, shortened to one line so the rows keep level with each
+other. On a computer the grid keeps its looser scatter instead.
 
 ### Groups
 There are five, and a person can be in as many as fit — someone from church who

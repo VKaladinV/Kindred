@@ -622,6 +622,63 @@ function badge(p, i) {
   return b;
 }
 
+/* ── how big a face is, and how many fit ────────────────────────
+   The size lives in one CSS variable, so changing it is a variable to set
+   rather than anything to redraw — on a computer the grid reflows itself and
+   the badges never blink. A phone is the exception: there the badges are laid
+   out in rows here, and how many go in a row is exactly what just changed. */
+
+const phone = matchMedia('(max-width: 899px)');
+const SIZE_MIN = 70, SIZE_MAX = 145;
+
+const badgeSizePref = () => {
+  const v = Number(Store.getPref('badgeSize', '100'));
+  return Number.isFinite(v) ? clamp(v, SIZE_MIN, SIZE_MAX) : 100;
+};
+
+const applyBadgeSize = v => document.documentElement.style.setProperty('--badge-scale', v / 100);
+
+/* --badge is a calc(), and a calc() in a custom property does not resolve
+   when you read the property back — so the number is measured off a real
+   element rather than written down a second time here, where it would drift
+   from the stylesheet the first time either changed. The probe carries the
+   gap as a margin so one element answers both questions. */
+let probe = null;
+function hexMetrics(grid) {
+  if (!probe) {
+    probe = el('span', 'badge-probe');
+    probe.setAttribute('aria-hidden', 'true');
+    document.body.append(probe);
+  }
+  const cs = getComputedStyle(probe);
+  const max = parseFloat(cs.width) || 1;
+  const gap = parseFloat(cs.marginLeft) || 0;
+  const w = grid.clientWidth;
+  /* Same give as the grid takes on a computer: a face may shrink to
+     four-fifths of its set size if that lets one more fit across. */
+  const per = Math.max(2, Math.floor((w + gap) / (max * .8 + gap)));
+  return { per, cell: Math.min(max, (w - (per - 1) * gap) / per) };
+}
+
+let hexCols = 0;
+
+/* Rows of n, then n-1, then n again. The short row needs no nudging: centred
+   against a full one, one fewer face already sits in the gaps above it. */
+function layoutHex(grid, list) {
+  const { per, cell } = hexMetrics(grid);
+  grid.style.setProperty('--hex-cell', cell + 'px');
+  let i = 0, long = true;
+  while (i < list.length) {
+    const chunk = list.slice(i, i + (long ? per : Math.max(1, per - 1)));
+    const row = el('div', 'hex-row');
+    chunk.forEach((p, k) => row.append(badge(p, i + k)));
+    grid.append(row);
+    i += chunk.length;
+    long = !long;
+  }
+  return per;
+}
+
 function renderCircle() {
   const grid = $('#grid');
   grid.textContent = '';
@@ -632,7 +689,9 @@ function renderCircle() {
     .filter(p => !q || (p.name + ' ' + p.relationship + ' ' + p.summary + ' ' + p.groups.join(' ')).toLowerCase().includes(q))
     .sort((a, b) => a.name.localeCompare(b.name));
 
-  list.forEach((p, i) => grid.append(badge(p, i)));
+  grid.classList.toggle('is-hex', phone.matches);
+  if (phone.matches) hexCols = layoutHex(grid, list);
+  else list.forEach((p, i) => grid.append(badge(p, i)));
 
   $('#blank').hidden = people.length > 0;
   grid.hidden = people.length === 0;
@@ -2017,6 +2076,40 @@ function wire() {
     searchTimer = setTimeout(() => { query = v; renderCircle(); }, 120);
   };
 
+  const size = $('#badge-size');
+  size.value = String(badgeSizePref());
+  let sizeTimer;
+  size.oninput = e => {
+    const v = clamp(Number(e.target.value) || 100, SIZE_MIN, SIZE_MAX);
+    applyBadgeSize(v);
+    Store.setPref('badgeSize', String(v));
+    /* A computer needs nothing further — the grid reflows around the new
+       size. A phone does, because how many fit in a row has just changed. */
+    if (phone.matches) { clearTimeout(sizeTimer); sizeTimer = setTimeout(renderCircle, 120); }
+  };
+
+  /* Rebuilt when the number of badges across changes, not on every pixel of
+     a drag — turning a phone sideways matters, nudging a window edge does not. */
+  let resizeTimer;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      if (phone.matches && hexMetrics($('#grid')).per !== hexCols) renderCircle();
+    }, 150);
+  }, { passive: true });
+
+  phone.addEventListener('change', renderCircle);
+
+  /* The frozen title appears exactly as the real one leaves the top of the
+     screen. Watching the heading itself means no scroll arithmetic and no
+     threshold to keep in step with the masthead's height. */
+  const title = $('.masthead h1');
+  if (title && 'IntersectionObserver' in window) {
+    new IntersectionObserver(([e]) => {
+      $('#topbar').classList.toggle('is-up', !e.isIntersecting && e.boundingClientRect.top < 0);
+    }).observe(title);
+  }
+
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) { renderAll(); nudgeIfDue(); checkForUpdate(); }
   });
@@ -2094,6 +2187,10 @@ async function boot() {
 
   const startView = Store.getPref('view', 'circle');
   if (['circle', 'prayers', 'today'].includes(startView)) switchView(startView);
+
+  /* Before the first render, so the circle is drawn at the chosen size rather
+     than drawn small and then jumping. */
+  applyBadgeSize(badgeSizePref());
 
   renderAll();
   paintNotifState();
