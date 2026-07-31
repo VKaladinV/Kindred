@@ -5,7 +5,8 @@
       "name": "kindred",
       "runtimeExecutable": "node",
       "runtimeArgs": ["serve.js"],
-      "port": 4173
+      "port": 4173,
+      "autoPort": true
     }
   ]
 }
