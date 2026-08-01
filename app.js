@@ -816,7 +816,14 @@ function badge(p, i) {
   b.style.setProperty('--i', i);
   /* One number, and everything inside the badge follows it — the ring, the
      marks, the initials, the disc are all proportions of --frame already. */
-  b.style.setProperty('--scale', badgeScale(p).toFixed(3));
+  const scale = badgeScale(p);
+  b.style.setProperty('--scale', scale.toFixed(3));
+  /* The quiet ones: nobody you asked to be reminded about. At a third size
+     there is no room to name them and nothing for a days-since count to be
+     counting towards, so they keep the photo and the ring and let go of the
+     rest. Tapping still opens them. */
+  const quiet = scale <= SMALL;
+  b.classList.toggle('is-quiet', quiet);
 
   const frame = el('button', 'badge-frame');
   frame.type = 'button';
@@ -897,22 +904,53 @@ function hexMetrics(grid) {
      hidden tab used to do exactly that. switchView repaints on the way in now,
      but a render should not be able to emit nonsense in the first place. */
   const cell = Math.min(max, (w - (per - 1) * gap) / per);
-  return { per, cell: cell > 0 ? cell : max };
+  return { per, gap, width: w > 0 ? w : max, cell: cell > 0 ? cell : max };
 }
 
 let hexCols = 0;
 
-/* Rows of n, then n-1, then n again. The short row needs no nudging: centred
-   against a full one, one fewer face already sits in the gaps above it. */
+/* ── the phone tessellation ──────────────────────────────────────
+   Faces are no longer one size, so rows can no longer be a count. Each face
+   asks for its own width and a row takes them until the next will not fit,
+   which is what lets three quiet third-size faces sit where one full one did.
+
+   The nesting survives it. Alternate rows give up half a face of usable
+   width, so with faces all one size this still comes out as rows of n and
+   n-1 — the short row centred into the gaps of the long one — and with mixed
+   sizes it degrades into an honest stagger rather than a grid.
+
+   Each row also carries its own tallest face. That is what lets a row of
+   small faces be a short row, instead of every row standing to the height of
+   the biggest face anywhere in the circle. */
 function layoutHex(grid, list) {
-  const { per, cell } = hexMetrics(grid);
+  const { per, cell, gap, width } = hexMetrics(grid);
   grid.style.setProperty('--hex-cell', cell + 'px');
+
+  const faces = list.map(p => ({ p, face: cell * badgeScale(p) }));
+
   let i = 0, long = true;
-  while (i < list.length) {
-    const chunk = list.slice(i, i + (long ? per : Math.max(1, per - 1)));
+  while (i < faces.length) {
+    /* Half a face of slack on the short rows is the whole nesting trick. */
+    const room = width - (long ? 0 : (cell + gap) / 2);
+    const chunk = [];
+    let used = 0;
+    while (i + chunk.length < faces.length) {
+      const next = faces[i + chunk.length];
+      const need = used + (chunk.length ? gap : 0) + next.face;
+      if (chunk.length && need > room) break;    // always at least one
+      used = need;
+      chunk.push(next);
+    }
+
     const row = el('div', 'hex-row');
-    chunk.forEach((p, k) => row.append(badge(p, i + k)));
+    row.style.setProperty('--row-face', Math.max(...chunk.map(c => c.face)) + 'px');
+    chunk.forEach(({ p, face }, k) => {
+      const b = badge(p, i + k);
+      b.style.setProperty('--frame-px', face + 'px');
+      row.append(b);
+    });
     grid.append(row);
+
     i += chunk.length;
     long = !long;
   }
@@ -1214,10 +1252,12 @@ const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
    rather than redrawing. */
 const MONTHS_AHEAD = 12;
 
-let calPicked = '';    // the day whose list is narrowed to it, '' for none
-let calLayer = null;   // the back-button layer, while a day is picked
-let calSeen = '';      // the month the frozen bar is naming, as 'YYYY-MM'
-let calWatch = null;   // the observer telling it which month that is
+let calPicked = '';     // the day that has taken over its month, '' for none
+let calLayer = null;    // the back-button layer, while a day is open
+let calSeen = '';       // the month the frozen bar is naming, as 'YYYY-MM'
+let calWatch = null;    // the observer telling it which month that is
+let calFlipFrom = null; // { date, rect } — where that day sat before this render
+let calPin = 0;         // the height the open month must go on filling, in px
 
 const monthStart = d => new Date(d.getFullYear(), d.getMonth(), 1);
 const monthEnd = d => new Date(d.getFullYear(), d.getMonth() + 1, 0);
@@ -1233,15 +1273,39 @@ const monthsShown = () => {
 
 const monthSection = key => $(`#calendar-body .cal-month[data-month="${key}"]`);
 
-/* Narrowing a month to one day, and widening it out again. Back widens it,
-   which is why it registers with the layer stack — the same way a dialog
-   does, and on both widths for the same reason. */
+const dayCell = date => $(`#calendar-body .cal-day[data-date="${date}"]`);
+
+/* ── a day taking over its month ─────────────────────────────────
+   Tapping a day sends its number to the top of that month, clears the rest
+   of the month out of the way, and gives the day the room. Back sends it
+   back down and the month reassembles around it.
+
+   The month keeps the exact height it had while that happens. That is the
+   whole reason this is safe inside a year-long scroll: a section that
+   collapsed would drag every month below it up the page, and the browser
+   would re-clamp the scroll on the way. Nothing shortens, so nothing moves.
+
+   A pin can only ever be slack, never tight — the grid loses five of its six
+   rows and the day's list is a subset of the month's — so a min-height is
+   enough, and can never be the thing making a section too tall. */
+
+/* Both directions run through here: opening reads the number out of the
+   grid, closing reads it out of the corner, and the render that follows
+   carries it from wherever it was to wherever it lands. */
+function markFlip(date) {
+  const cell = dayCell(date);
+  if (cell) calFlipFrom = { date, rect: cell.getBoundingClientRect() };
+}
+
 function pickDay(date) {
   if (calPicked === date) return unpickDay();
+  markFlip(date);
+  const section = monthSection(date.slice(0, 7));
+  calPin = section ? section.getBoundingClientRect().height : 0;
   calPicked = date;
   if (!calLayer) calLayer = openLayer(unpickDay);
   renderCalendar();
-  $(`#calendar-body .cal-day[data-date="${date}"]`)?.focus({ preventScroll: true });
+  dayCell(date)?.focus({ preventScroll: true });
 }
 
 /* Also the close callback the back button reaches. By then popstate has
@@ -1250,19 +1314,23 @@ function pickDay(date) {
 function unpickDay() {
   if (!calPicked) return;
   const was = calPicked;
+  markFlip(was);
   calPicked = '';
+  calPin = 0;
   const layer = calLayer;
   calLayer = null;
   if (layer) closeLayer(layer);
   renderCalendar();
-  $(`#calendar-body .cal-day[data-date="${was}"]`)?.focus({ preventScroll: true });
+  dayCell(was)?.focus({ preventScroll: true });
 }
 
 /* For the ways out that are not the back button — leaving the tab. Silent,
-   because that is not a day being widened; it is simply no longer what you
+   because that is not a day being closed; it is simply no longer what you
    are looking at. */
 function clearPickedDay() {
   calPicked = '';
+  calPin = 0;
+  calFlipFrom = null;
   const layer = calLayer;
   calLayer = null;
   if (layer) closeLayer(layer);
@@ -1301,11 +1369,20 @@ function monthSectionFor(month, onDay) {
   const last = monthEnd(month);
   const key = monthKey(first);
 
+  /* Open means this is the month the picked day belongs to — the only one
+     that changes shape, and the only one that has to hold its place. */
+  const open = calPicked && calPicked.startsWith(key);
+
   const section = el('section', 'cal-month');
   section.dataset.month = key;
+  if (open && calPin) section.style.minHeight = calPin + 'px';
   section.append(el('h3', 'cal-month-name', monthLabel(first)));
 
   const grid = el('div', 'cal-grid');
+  grid.classList.toggle('is-zoomed', !!open);
+  /* Only while something is actually moving, so the fade stays off the
+     renders that every ordinary edit triggers. */
+  grid.classList.toggle('is-flipping', !!calFlipFrom);
   WEEKDAYS.forEach(w => grid.append(el('div', 'cal-dow', w)));
 
   /* Monday-first: getDay() calls Sunday 0, so Sunday sits at the end. */
@@ -1344,29 +1421,58 @@ function monthSectionFor(month, onDay) {
   }
   section.append(grid);
 
-  /* A picked day narrows its own month and leaves the other eleven whole.
-     An empty day still narrows and still says so — a tap that answers
-     nothing reads as the app having missed you. */
-  const narrowed = calPicked && calPicked.startsWith(key);
-  const shown = narrowed ? (onDay[calPicked] || []) : mine;
+  /* An open day takes over its own month and leaves the other eleven whole.
+     An empty day still opens and still says so — a tap that answers nothing
+     reads as the app having missed you. */
+  const shown = open ? (onDay[calPicked] || []) : mine;
 
   let details;
   if (shown.length) {
-    details = block(narrowed ? prettyDate(calPicked) : 'Everything this month');
+    details = block(open ? prettyDate(calPicked) : 'Everything this month');
     shown.forEach(x => details._list.append(todayRow(x.p, {
-      when: `${x.glyph} ${narrowed ? '' : parseYmd(x.date).getDate() + ' ' + shortMonth(x.date)}`.trim(),
+      when: `${x.glyph} ${open ? '' : parseYmd(x.date).getDate() + ' ' + shortMonth(x.date)}`.trim(),
       calm: x.date !== today(),
       sub: x.short,
     })));
   } else {
-    details = el('p', 'quiet-note', narrowed
+    details = el('p', 'quiet-note', open
       ? 'Nothing on that day.'
       : 'Nothing this month — birthdays and any date you have noted would show here.');
   }
-  if (narrowed) details.classList.add('cal-enter');
+  if (open) details.classList.add('cal-enter');
   section.append(details);
 
   return section;
+}
+
+/* The number, carried from where it was to where it now is.
+
+   A CSS transition rather than element.animate, because the stylesheet's one
+   reduced-motion rule zeroes transition and animation durations and knows
+   nothing about the Web Animations API — staying in CSS means that setting is
+   honoured here for free, with no second mechanism to keep in step.
+
+   Rects are viewport-relative and deliberately not corrected for scroll: this
+   is about where the thing looked like it was, and the finger saw the
+   viewport. Pinning the section means nothing scrolled anyway. */
+function flipDay(body) {
+  const from = calFlipFrom;
+  calFlipFrom = null;
+  if (!from) return;
+
+  const cell = body.querySelector(`.cal-day[data-date="${from.date}"]`);
+  if (!cell) return;
+
+  const now = cell.getBoundingClientRect();
+  const dx = from.rect.left - now.left;
+  const dy = from.rect.top - now.top;
+  if (!dx && !dy) return;
+
+  cell.style.transition = 'none';
+  cell.style.transform = `translate(${dx}px, ${dy}px)`;
+  void cell.offsetWidth;            // the same reflow the toast forces, for the same reason
+  cell.style.transition = '';
+  cell.style.transform = '';
 }
 
 function renderCalendar() {
@@ -1394,6 +1500,7 @@ function renderCalendar() {
 
   paintCalBar();
   watchMonths();
+  flipDay(body);
 }
 
 /* Which month the frozen bar is naming. The sections are new elements on every

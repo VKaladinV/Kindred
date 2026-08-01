@@ -1,7 +1,7 @@
 /* Fellowship service worker — makes the app work offline once loaded.
    Bump CACHE when you change any of the shell files. */
 
-const CACHE = 'kindred-v13';
+const CACHE = 'kindred-v14';
 const SHELL = [
   './',
   'index.html',

@@ -448,12 +448,14 @@ main { padding-bottom: 1rem; }
 .badge[data-state="none"] { --ring: var(--rule); }
 
 /* ── the phone tessellation ─────────────────────────────────────
-   app.js lays these rows out — long, short, long — because how many fit
-   across depends on the size setting, and CSS cannot offset "every other
-   row" without being told the count.
+   app.js fills these rows, because how wide a face is now depends on how
+   overdue its person is, and CSS cannot pack a row against widths it is not
+   told. Each badge is given its own face size in --frame-px and each row the
+   tallest face it holds in --row-face.
 
-   The half-cell offset costs nothing: a row of one fewer badge, centred
-   against a full one, already sits in the gaps of the row above. */
+   Alternate rows are filled against half a face less room, which is what
+   keeps the nesting: with faces all one size it still comes out as rows of n
+   and n-1, the short one centred into the gaps above. */
 @media (max-width: 899px) {
   .circle-grid.is-hex {
     display: flex; flex-direction: column; align-items: center;
@@ -461,24 +463,27 @@ main { padding-bottom: 1rem; }
   }
   .hex-row { display: flex; justify-content: center; align-items: flex-start; gap: var(--badge-gap); }
 
-  /* Cells must be one height or the rows stop lining up — so a name gets one
-     line whatever its length, and the space below it is kept whether or not
-     there is anything to say there. */
-  /* --hex-cell is worked out in app.js: the size that fills the row exactly,
-     capped at --badge. Both rows share it, or the short row's faces would
-     stretch wider and the nesting would come apart. */
+  /* A face takes only the room it draws, so three quiet ones sit where one
+     full one did. The row's tallest face is the line they all stand on, which
+     is what lets a row of small faces be a genuinely short row rather than
+     one standing to the height of the biggest face in the circle. */
   .hex-row .badge {
-    flex: 0 0 var(--hex-cell, var(--badge));
-    width: var(--hex-cell, var(--badge));
-    min-height: calc(var(--hex-cell, var(--badge)) + 2.4rem);
+    flex: 0 0 var(--frame-px, var(--hex-cell, var(--badge)));
+    width: var(--frame-px, var(--hex-cell, var(--badge)));
   }
-  /* The slot stays one size or the rows stop nesting; only the face inside it
-     shrinks. That is what keeps the honeycomb packing while the sizes vary —
-     and the margin puts every face's bottom on the same line, so a row of
-     mixed sizes still stacks to one height. */
-  .hex-row .badge-frame { --face: var(--hex-cell, var(--badge)); }
+  .hex-row .badge-frame {
+    --face: var(--row-face, var(--hex-cell, var(--badge)));
+    --frame: var(--frame-px, var(--face));
+  }
   .hex-row .badge-name,
   .hex-row .badge-meta { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+
+  /* The quiet ones — nobody you asked to be reminded about. Too small to
+     caption, and a days-since count has nothing to count towards when there
+     is no rhythm to be behind. Photo and ring; tapping still opens them. */
+  .hex-row .badge.is-quiet .badge-name,
+  .hex-row .badge.is-quiet .badge-meta,
+  .hex-row .badge.is-quiet .badge-since { display: none; }
 }
 
 /* What app.js measures a badge and its gap against, rather than keeping its
@@ -765,8 +770,32 @@ body.on-calendar .topbar { display: none; }
    in the list underneath. */
 .cal-day.is-picked .cal-dot { background: currentColor; }
 
-/* Narrowing a month to one day changes only the list under that month's grid,
-   so it arrives on the same rise the views themselves come in on. */
+/* ── a day taking over its month ────────────────────────────────
+   The rest of the month leaves, so the grid collapses from six rows to one.
+   The open day is then the only child left and ordinary auto-placement puts
+   it in the corner — nothing has to be told where to go.
+
+   They go rather than fade because fading needs them kept in the layout, and
+   anything still occupying a square holds the grid open at six rows, which is
+   the very thing being cleared. On the way back they do fade in: the calendar
+   is rebuilt from nothing on every render, and while a freshly inserted
+   element has no previous state for a *transition* to run from, an animation
+   plays on first paint. That is why this is a keyframe and the travelling
+   number is not.
+
+   The section around it keeps the height it had — set in app.js — so no month
+   above or below moves while this happens. */
+
+@keyframes cal-back { from { opacity: 0; } }
+
+.cal-grid.is-zoomed > *:not(.is-picked) { display: none; }
+.cal-grid.is-flipping:not(.is-zoomed) > * { animation: cal-back .34s var(--ease); }
+
+/* The travelling number needs longer than a hover lift: it moves the width
+   and depth of a month. */
+.cal-grid.is-flipping .cal-day { transition: transform .34s var(--ease); }
+
+/* The day's own list arrives on the same rise the views come in on. */
 .cal-enter { animation: rise .38s var(--ease) both; }
 
 @media (max-width: 460px) {

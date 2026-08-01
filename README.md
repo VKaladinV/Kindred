@@ -97,10 +97,22 @@ saved the local way, as *082 …* rather than *+27 82 …*. It starts at **27**.
 Numbers you already saved with a **+** carry their own and are left alone.
 
 On a phone it decides something else as well: how many fit across. The circle
-tessellates there — rows of three, then two sitting in the gaps of the row above,
-the way a honeycomb packs. So making the faces smaller fits four across, and larger
-drops it to two. Names stay, shortened to one line so the rows keep level with each
-other. On a computer the grid keeps its looser scatter instead.
+tessellates there — a row fills, then the next takes half a face less room so it
+sits in the gaps of the one above, the way a honeycomb packs. With everyone the
+same size that comes out as rows of three and two.
+
+**Each face asks for its own width**, though, so the packing follows the sizing
+above: three quiet third-size faces sit in the room one overdue face takes, and a
+row of them is a third as tall. Every face in a row rests on the same line, and
+the row is only as tall as the biggest face in it — so the people you have set no
+reminder for gather into a tight band at the end rather than taking a screenful.
+
+The smallest faces carry no name and no since-count. There is no room to caption
+them, and a days-since number has nothing to count towards when there is no rhythm
+to be behind. Tapping the photo still opens them, and their page is unchanged.
+
+On a computer the grid keeps its looser scatter, at one column width — there is
+room enough there that nothing needs packing.
 
 ### Groups
 There are five, and a person can be in as many as fit — someone from church who
@@ -270,11 +282,15 @@ they scroll straight there, and **Today** brings you back to this month. The bar
 keeps one height whatever the month is called, because a frozen thing that changed
 size would move the page underneath the very scroll position it was reacting to.
 
-**Tapping a day narrows that month to it** — the grid stays exactly where it is, so
-you keep your place, and only the list underneath it changes. Every other month is
-left alone. Tapping the day again, or the back button, widens it out. A day with
-nothing on it narrows too, and says so, so a tap is never a press you have to
-wonder about.
+**Tapping a day gives it that month's place.** The number you tapped travels up to
+the corner, the rest of the month clears out of the way, and the day's own list
+takes the room. Tapping it again, or the back button, sends the number back down to
+its square and the month reassembles around it.
+
+**The month holds its place while that happens** — it keeps exactly the height it
+had, so not one month above or below it moves, and you never lose your place in the
+year. Every other month is left alone entirely. A day with nothing on it opens too,
+and says so, so a tap is never a press you have to wonder about.
 
 ---
 
