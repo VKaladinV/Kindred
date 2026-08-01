@@ -277,6 +277,17 @@ main { padding-bottom: 1rem; }
 .chip .n { opacity: .6; margin-left: .3rem; font-variant-numeric: tabular-nums; }
 .chip:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
 
+/* The two focus chips ask a different kind of question from the groups — they
+   narrow what you are looking at where a group widens it — so they are set
+   apart from them. A hairline on a computer; in the popup, where a vertical
+   rule in a wrapping row would land wherever it happened to fall, a line
+   break does the same work. The dashed edge carries the distinction once the
+   chips have wrapped and the separator is no longer next to them. */
+.chips .chip-sep { flex: 0 0 1px; align-self: stretch; background: var(--rule); margin: .2rem .45rem; }
+.chip-pick .chip-sep { flex: 0 0 100%; height: 0; margin: .1rem 0; }
+.chip.is-focus { border-style: dashed; }
+.chip.is-focus.is-on { border-style: solid; }
+
 /* the same chips, used to tag rather than to filter */
 .chip-pick { display: flex; flex-wrap: wrap; gap: .4rem; }
 
@@ -330,9 +341,23 @@ main { padding-bottom: 1rem; }
   --ring: var(--ash);
   display: flex; flex-direction: column; align-items: center; gap: .7rem;
   animation: pop .55s var(--ease) both;
-  animation-delay: calc(var(--i, 0) * 42ms);
+  /* Capped, because the wave reads as a wave long before the end of a long
+     circle — and a filter that admits one new face at position forty should
+     not make you wait most of two seconds to see it. */
+  animation-delay: calc(min(var(--i, 0), 14) * 42ms);
 }
 @keyframes pop { from { opacity: 0; transform: translateY(14px) scale(.94); } }
+
+/* A face that was already on the screen does not arrive — it moves. The pop
+   belongs to the ones that genuinely were not here a moment ago. app.js sets
+   this before it measures anything, so a survivor's pop never starts and never
+   has to be cancelled halfway. */
+.badge.is-staying { animation: none; transition: transform .42s var(--ease); }
+.badge.is-staying .badge-frame {
+  /* transform is restated because this shorthand replaces the one below it,
+     and dropping it would take the hover lift's easing away with it. */
+  transition: width .42s var(--ease), margin-top .42s var(--ease), transform .4s var(--ease);
+}
 
 .badge-frame {
   position: relative;
@@ -442,6 +467,11 @@ main { padding-bottom: 1rem; }
   margin-top: .2rem;              /* clears the disc hanging off the frame */
 }
 .badge-meta { font-size: .68rem; color: var(--ink-faint); letter-spacing: .04em; text-align: center; margin-top: -.45rem; }
+/* Two lines under a narrow face is one line of ellipsis and one line of noise,
+   so the relationship goes and the name keeps the whole width. Only the phone
+   packer sets this — it is the only thing that knows how wide a face is
+   actually drawn — so the rule needs no media query to be phone-only. */
+.badge.is-terse .badge-meta { display: none; }
 .badge[data-state="due"]  { --ring: var(--alert); }
 .badge[data-state="soon"] { --ring: var(--gold); }
 .badge[data-state="well"] { --ring: var(--sage); }
@@ -485,6 +515,21 @@ main { padding-bottom: 1rem; }
   .hex-row .badge.is-quiet .badge-meta,
   .hex-row .badge.is-quiet .badge-since { display: none; }
 }
+
+/* ── faces on their way out ─────────────────────────────────────
+   Below the frozen title rather than over it, so a face being let go passes
+   behind it exactly as the real ones do on the way up the page.
+
+   Each ghost keeps a .hex-row around it. Every rule the phone packing hangs
+   off that class — the face size, the nowrap captions, the hidden quiet
+   captions — stops applying the moment a badge leaves the grid, and without
+   the wrapper a quiet ghost would sprout a name halfway through its own fade.
+   On a computer .hex-row has no rules at all, so there the wrapper is an inert
+   block of the width the badge's cell had. */
+.ghosts { position: fixed; inset: 0; z-index: 80; pointer-events: none; }
+.ghosts .hex-row { position: absolute; animation: ghost-go .3s var(--ease) forwards; }
+.ghosts .badge { animation: none; }
+@keyframes ghost-go { to { opacity: 0; transform: scale(.9); } }
 
 /* What app.js measures a badge and its gap against, rather than keeping its
    own copy of two numbers that live here. Never seen. */

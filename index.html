@@ -390,7 +390,7 @@
 <!-- ─────────── WHO TO SHOW (phone) ─────────── -->
 <dialog class="dlg" id="dlg-filter">
   <h2 class="dlg-title">Who to show</h2>
-  <p class="hint">Groups add up — <em>Family</em> and <em>Medical</em> together is everyone in either.</p>
+  <p class="hint" id="filter-hint">Groups add up — Family and Medical together is everyone in either.</p>
   <div class="chip-pick" id="filter-chips"></div>
   <div class="dlg-actions">
     <span class="spacer"></span>
@@ -602,6 +602,10 @@
 </dialog>
 
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<!-- Where a face goes when the filter stops asking for it: pinned to where it
+     stood and faded there, so it reads as being let go rather than deleted. -->
+<div class="ghosts" id="ghosts" aria-hidden="true"></div>
 
 <script src="config.js"></script>
 <script src="app.js"></script>

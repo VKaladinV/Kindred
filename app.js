@@ -370,6 +370,7 @@ let people = [];
 let photos = {};
 let openId = null;
 const filterGroups = new Set();   // empty means everyone
+const filterFocus = new Set();    // empty means nothing narrowed beyond the groups
 let query = '';
 let saveTimer = null;
 
@@ -548,6 +549,43 @@ function badgeScale(p) {
   return 0.5 + 0.5 * clamp(s.days / p.cadenceDays, 0, 1);
 }
 
+/* ── lifting a circle in which nobody is due ─────────────────────
+   A full face means "you owe them a call today", measured against the whole
+   circle. Filter down to a group where nobody is overdue and every face is a
+   half or a third: the sizes are still true, but true about a circle you are
+   no longer looking at, and the screen fills with small faces and white space.
+
+   So the set on screen is lifted until its largest face is a full one. Nothing
+   is invented — the order is untouched and the faces keep their proportions to
+   each other. Only what full is measured against changes, from the whole circle
+   to the part you asked for. The ring still carries the real state, so a lifted
+   face never claims to be overdue.
+
+   The two populations move differently, on purpose. Someone with no rhythm is
+   a third and nothing else — there is no band for them to sit on, so they step
+   a whole rung: a third becomes a half, or a full if thirds are all there is.
+   Everyone with a rhythm sits somewhere on the continuous half-to-full band,
+   and the band is multiplied until its top touches full, so the person nearest
+   their own next call stays visibly nearer than the one seen yesterday.
+   Snapping them all to one size would have been fewer lines and would have
+   thrown away the only thing the sizes were saying. */
+const LADDER = [SMALL, 0.5, 1];
+
+function scalesFor(list) {
+  const raw = list.map(p => [p.id, badgeScale(p)]);
+  const band = raw.map(([, s]) => s).filter(s => s > SMALL);
+  const top = band.length ? Math.max(...band) : 0;
+
+  /* How far the ladder has to move: not at all if a full face is already
+     there, one rung if the band is all there is, two if the set is nothing
+     but quiet thirds. */
+  const steps = top >= 1 ? 0 : band.length ? 1 : 2;
+  const gain = top > 0 ? 1 / top : 1;
+
+  return new Map(raw.map(([id, s]) =>
+    [id, s > SMALL ? clamp(s * gain, 0, 1) : LADDER[steps]]));
+}
+
 /* the next time an annual date comes round — used for birthdays and
    for upcoming records flagged as repeating */
 function nextAnnual(dateStr) {
@@ -598,6 +636,38 @@ function dueList() {
     .filter(x => x.s.state === 'due')
     .sort((a, b) => b.s.ratio - a.s.ratio);
 }
+
+/* ── the two questions that are not "who" ────────────────────────
+   A group says which shelf of your life someone is on, and groups add up:
+   Family and Medical together is everyone in either. These two say something
+   about today instead, so they behave differently — they narrow whatever the
+   groups left rather than widening it. Family and needs-a-check-in is the
+   people in Family who need one, which is how the question is asked out loud.
+
+   Both are answers the app already worked out for other views; dueList and
+   the Today list have been computing them all along. They just never reached
+   the filter row, which is where you go looking for them. */
+const DATE_WINDOW = 30;
+
+/* A birthday counts, and so does anything you wrote down as coming — yearly
+   ones rolled forward to their next landing by occurrenceOf.
+
+   A pregnancy counts however far out it is, which is the one place this breaks
+   its own window. datesAhead already makes the same exception for the same
+   reason: forty weeks is longer than any horizon worth setting, and it is the
+   date you want in sight from the day you hear about it. */
+function hasDateWithin(p, within = DATE_WINDOW) {
+  const bd = nextBirthday(p);
+  if (bd && bd.inDays <= within) return true;
+  return upcomingOf(p).some(({ r, o }) => o.inDays >= 0 && (o.inDays <= within || isBaby(r)));
+}
+
+const FOCUS = {
+  due:   { chip: 'Needs a check-in', phrase: 'need a check-in',
+           test: p => statusOf(p).state === 'due' },
+  dates: { chip: 'Dates this month', phrase: 'have a date this month',
+           test: p => hasDateWithin(p) },
+};
 
 /* The circle's order: the people you owe a call first, furthest past their
    cadence at the top, then the ones getting close, then everyone who is fine.
@@ -809,19 +879,25 @@ function toast(msg, action) {
 
 /* ═══════════════════════════ RENDER: CIRCLE ════════════════ */
 
-function badge(p, i) {
+function badge(p, i, scale = badgeScale(p)) {
   const s = statusOf(p);
   const b = el('div', 'badge');
   b.dataset.state = s.state;
+  /* What lets a face be recognised as the same face across a rebuild, which
+     is the whole of what a filter transition needs to know. */
+  b.dataset.id = p.id;
   b.style.setProperty('--i', i);
   /* One number, and everything inside the badge follows it — the ring, the
-     marks, the initials, the disc are all proportions of --frame already. */
-  const scale = badgeScale(p);
+     marks, the initials, the disc are all proportions of --frame already. It
+     is handed in rather than worked out here, because how big a face is drawn
+     now depends on the company it is keeping. */
   b.style.setProperty('--scale', scale.toFixed(3));
   /* The quiet ones: nobody you asked to be reminded about. At a third size
      there is no room to name them and nothing for a days-since count to be
      counting towards, so they keep the photo and the ring and let go of the
-     rest. Tapping still opens them. */
+     rest. Tapping still opens them.
+     Read off the lifted scale, so a third that a filter has raised to a half
+     gets its name back — at that size there is room for it again. */
   const quiet = scale <= SMALL;
   b.classList.toggle('is-quiet', quiet);
 
@@ -871,6 +947,13 @@ function badge(p, i) {
 
 const phone = matchMedia('(max-width: 899px)');
 const SIZE_MIN = 70, SIZE_MAX = 145;
+
+/* Under this much drawn face, two lines of caption is one line of ellipsis and
+   one line of noise, so the relationship goes and the name keeps the width.
+   A floor in real pixels rather than a proportion of the face: the caption is
+   the same eleven-pixel line whatever size the faces are set to, so what it
+   needs in order to be worth reading is the same width too. */
+const META_MIN_PX = 76;
 
 const badgeSizePref = () => {
   const v = Number(Store.getPref('badgeSize', '100'));
@@ -922,11 +1005,17 @@ let hexCols = 0;
    Each row also carries its own tallest face. That is what lets a row of
    small faces be a short row, instead of every row standing to the height of
    the biggest face anywhere in the circle. */
-function layoutHex(grid, list) {
+function layoutHex(grid, list, scales) {
   const { per, cell, gap, width } = hexMetrics(grid);
   grid.style.setProperty('--hex-cell', cell + 'px');
 
-  const faces = list.map(p => ({ p, face: cell * badgeScale(p) }));
+  /* A missing id would hand cell * undefined on to CSS as NaNpx, which is an
+     invalid length: the declaration is dropped and the row comes apart — the
+     same failure the zero-width guard above exists to prevent. */
+  const faces = list.map(p => {
+    const scale = scales?.get(p.id) ?? badgeScale(p);
+    return { p, scale, face: cell * scale };
+  });
 
   let i = 0, long = true;
   while (i < faces.length) {
@@ -944,9 +1033,12 @@ function layoutHex(grid, list) {
 
     const row = el('div', 'hex-row');
     row.style.setProperty('--row-face', Math.max(...chunk.map(c => c.face)) + 'px');
-    chunk.forEach(({ p, face }, k) => {
-      const b = badge(p, i + k);
+    chunk.forEach(({ p, scale, face }, k) => {
+      const b = badge(p, i + k, scale);
       b.style.setProperty('--frame-px', face + 'px');
+      /* Only the packer knows how wide a face is actually drawn, so the
+         decision about what fits underneath it is made here. */
+      b.classList.toggle('is-terse', face < META_MIN_PX);
       row.append(b);
     });
     grid.append(row);
@@ -957,22 +1049,157 @@ function layoutHex(grid, list) {
   return per;
 }
 
+/* ── moving from one filter to the next ─────────────────────────
+   A filter change is not a new circle. It is the same circle asked a narrower
+   question, and rebuilding it from nothing says otherwise: everybody blinks
+   out and a different group blinks in, and you lose track of where somebody
+   went. So the faces that stay are carried — from where they were to where
+   they now are, and from the size they were to the size they now are — and
+   the faces that go are left to fade where they stood.
+
+   Built the way flipDay is built, and for the same reason: rects recorded
+   before the render, the inverse applied with transitions off, one forced
+   reflow, then everything cleared so the stylesheet's own transition runs.
+   CSS rather than element.animate, so the single prefers-reduced-motion rule
+   at the foot of the stylesheet covers this too, without a second mechanism
+   to keep in step with the first. */
+
+let circleFlip = null;
+let ghostTimer = null;
+
+/* Called before the render, while the old faces are still on the screen —
+   the same shape as markFlip, and for the same reason. */
+function markCircleFlip() {
+  const grid = $('#grid');
+  /* A grid nobody can see measures zero, and a flip built on zeroes throws
+     every face at the top-left corner. The same trap hexMetrics guards. */
+  if (!grid || !grid.clientWidth) { circleFlip = null; return; }
+  const map = new Map();
+  for (const b of grid.querySelectorAll('.badge[data-id]')) {
+    const f = b.querySelector('.badge-frame');
+    if (!f) continue;
+    map.set(b.dataset.id, {
+      el: b,
+      /* The frame's rect, because that is the thing that moves and resizes —
+         on a computer the badge is a whole grid cell and says nothing about
+         where the face was drawn. The badge's own rect comes too: a face that
+         is leaving takes its name with it, and both have to fade together. */
+      face: f.getBoundingClientRect(),
+      box: b.getBoundingClientRect(),
+      rowFace: b.parentElement?.style.getPropertyValue('--row-face') || '',
+    });
+  }
+  circleFlip = map;
+}
+
+/* The ones the filter stopped asking for, pinned where they stood and faded
+   there rather than cut. Each keeps a .hex-row around it: every rule the phone
+   packing hangs off that class — the face size, the nowrap captions, the
+   hidden quiet ones — stops applying the moment a badge leaves the grid, and
+   a quiet ghost would sprout a name halfway through its own fade. */
+function ghostAway(snap, keep) {
+  const layer = $('#ghosts');
+  if (!layer) return;
+  /* Cleared rather than added to: tapping four chips quickly should not leave
+     four generations of ghosts stacked on the screen. The oldest simply go. */
+  layer.textContent = '';
+  for (const [id, s] of snap) {
+    if (keep.has(id)) continue;
+    const row = el('div', 'hex-row');
+    row.style.left = s.box.left + 'px';
+    row.style.top = s.box.top + 'px';
+    row.style.width = s.box.width + 'px';
+    if (s.rowFace) row.style.setProperty('--row-face', s.rowFace);
+    row.append(s.el);
+    row.addEventListener('animationend', e => { if (e.target === row) row.remove(); });
+    layer.append(row);
+  }
+  /* One sweep behind the lot of them, in case an animationend never arrives —
+     a ghost that outlives its fade would sit over the circle unclickable. */
+  clearTimeout(ghostTimer);
+  ghostTimer = setTimeout(() => { layer.textContent = ''; }, 700);
+}
+
+/* The ones that stayed, carried across. */
+function flipCircle(grid, snap) {
+  const stayed = [];
+  for (const b of grid.querySelectorAll('.badge[data-id]')) {
+    const was = snap.get(b.dataset.id);
+    if (was) stayed.push([b, was]);
+  }
+  if (!stayed.length) return;
+
+  /* Before anything is measured, so no survivor's pop has the chance to start
+     and then be cancelled — a cancelled pop is a face blinking from nothing to
+     solid, which is worse than the hard cut this replaces. */
+  for (const [b] of stayed) b.classList.add('is-staying');
+
+  /* --frame is the one number everything inside a badge is measured against,
+     and it is a plain custom property — so an inline pixel value overrides
+     both the computer's calc and the phone's --frame-px at once, and width and
+     margin-top follow it in a single move. Setting the old size here, before
+     the reflow below, is what gives a face that is growing something to grow
+     from; without it the element has no from-state and the browser simply
+     draws it at its new size.
+
+     Only the drawn face is animated, never the badge's own box: .hex-row is
+     flex: 0 0 and does not wrap, so a row whose boxes were mid-growth would
+     overflow for as long as the move took. The packing is settled before
+     anything starts moving, and only the faces inside it travel. */
+  for (const [b, was] of stayed) {
+    const f = b.querySelector('.badge-frame');
+    f.style.transition = 'none';
+    f.style.setProperty('--frame', was.face.width + 'px');
+  }
+
+  /* One read pass, after every write — the layout is flushed once and the rest
+     of these come out of the same cache. */
+  const moves = stayed.map(([b, was]) => {
+    const now = b.querySelector('.badge-frame').getBoundingClientRect();
+    return [b, was.face.left - now.left, was.face.top - now.top];
+  });
+
+  /* The move goes on the badge, not the frame: the frame's own transform is
+     already spoken for by --tilt and the hover lift, and moving the badge
+     carries the name along underneath the face. */
+  for (const [b, dx, dy] of moves) {
+    b.style.transition = 'none';
+    b.style.transform = `translate(${dx}px, ${dy}px)`;
+  }
+
+  void grid.offsetWidth;
+
+  /* Everything written above is cleared here, which is why this needs no
+     tidying pass and no generation counter: a snapshot taken mid-flight reads
+     the interpolated rect, which is exactly where the face visually is, and
+     turning the transition off writes the value it is already at. Tapping
+     chips faster than the animation simply picks it up from wherever it got. */
+  for (const [b] of moves) {
+    b.style.transition = '';
+    b.style.transform = '';
+    const f = b.querySelector('.badge-frame');
+    f.style.transition = '';
+    f.style.removeProperty('--frame');
+  }
+}
+
 /* ── choosing who to show ───────────────────────────────────────
    One builder, two homes: the row above the circle on a computer, and the
    popup a phone opens from the filter button. The row costs three lines of
    a small screen before you have seen anybody, which is what the button is
    for — the chips inside it are the same chips, doing the same thing. */
 
-function fillGroupChips(box) {
+function fillFilterChips(box) {
   box.textContent = '';
   const counts = {};
   people.forEach(p => p.groups.forEach(g => { counts[g] = (counts[g] || 0) + 1; }));
 
-  const everyone = el('button', 'chip' + (filterGroups.size ? '' : ' is-on'));
+  const none = !filterGroups.size && !filterFocus.size;
+  const everyone = el('button', 'chip' + (none ? ' is-on' : ''));
   everyone.type = 'button';
-  everyone.setAttribute('aria-pressed', String(!filterGroups.size));
+  everyone.setAttribute('aria-pressed', String(none));
   everyone.append(document.createTextNode('Everyone'), el('span', 'n', people.length));
-  everyone.onclick = () => { filterGroups.clear(); afterFilterChange(); };
+  everyone.onclick = () => { filterGroups.clear(); filterFocus.clear(); afterFilterChange(); };
   box.append(everyone);
 
   GROUPS.forEach(g => {
@@ -990,18 +1217,58 @@ function fillGroupChips(box) {
     };
     box.append(c);
   });
+
+  /* Set apart from the groups because they do the opposite thing: a group
+     widens what you are looking at and these narrow it. A hairline on a
+     computer, a line break in the popup, where a vertical rule in a wrapping
+     row would land wherever it fell. */
+  const shown = Object.entries(FOCUS).filter(([k, f]) =>
+    filterFocus.has(k) || people.some(f.test));
+  if (shown.length) box.append(el('span', 'chip-sep'));
+
+  shown.forEach(([key, f]) => {
+    const on = filterFocus.has(key);
+    const c = el('button', 'chip is-focus' + (on ? ' is-on' : ''));
+    c.type = 'button';
+    c.setAttribute('aria-pressed', String(on));
+    /* Counted over everybody rather than over the current narrowing, the way
+       the group counts already are — a number that changed with every tap
+       would be answering a different question each time you read it. */
+    c.append(document.createTextNode(f.chip), el('span', 'n', people.filter(f.test).length));
+    c.onclick = () => {
+      if (!filterFocus.delete(key)) filterFocus.add(key);
+      afterFilterChange();
+    };
+    box.append(c);
+  });
 }
+
+/* The popup is where the two kinds of chip sit next to each other with nothing
+   between them to say which is which, so the line above them says it — and
+   says it about what you have actually chosen, rather than in the abstract. */
+function paintFilterHint() {
+  const f = [...filterFocus].map(k => FOCUS[k].phrase);
+  const g = [...filterGroups];
+  const who = f.length === 2 ? `${f[0]} or ${f[1]}` : f[0];
+  $('#filter-hint').textContent =
+    !f.length ? 'Groups add up — Family and Medical together is everyone in either.'
+    : g.length ? `${g.join(' and ')} — and of those, only the people who ${who}.`
+    : `The people who ${who}.`;
+}
+
+const paintFilterDialog = () => { fillFilterChips($('#filter-chips')); paintFilterHint(); };
 
 /* renderCircle rebuilds the row and the grid on its own. The popup's chips
    are outside it, so they are repainted here — but only while the popup is
    the thing being looked at. */
 function afterFilterChange() {
+  markCircleFlip();
   renderCircle();
-  if ($('#dlg-filter').open) fillGroupChips($('#filter-chips'));
+  if ($('#dlg-filter').open) paintFilterDialog();
 }
 
 function paintFilterCount() {
-  const n = filterGroups.size;
+  const n = filterGroups.size + filterFocus.size;
   const b = $('#btn-filter');
   b.classList.toggle('is-on', n > 0);
   $('#filter-n').textContent = n || '';
@@ -1010,17 +1277,39 @@ function paintFilterCount() {
 
 function renderCircle() {
   const grid = $('#grid');
+  /* Taken once and spent once, exactly like calFlipFrom. Every other caller —
+     renderAll after an edit, switchView on the way in, the resize handler —
+     leaves it null and gets the plain repaint it always got. Only a change of
+     mind about who to show is a move worth animating. */
+  const flip = circleFlip;
+  circleFlip = null;
+
   grid.textContent = '';
 
   const q = query.trim().toLowerCase();
   const list = people
     .filter(p => !filterGroups.size || p.groups.some(g => filterGroups.has(g)))
+    /* The groups add up among themselves and these add up among themselves,
+       but the two narrow each other: Family and Medical and needs-a-check-in
+       is the people in either group who are also due. */
+    .filter(p => !filterFocus.size || [...filterFocus].some(k => FOCUS[k].test(p)))
     .filter(p => !q || (p.name + ' ' + p.relationship + ' ' + p.summary + ' ' + p.groups.join(' ')).toLowerCase().includes(q))
     .sort(byNeed);
 
+  /* Worked out once here rather than twice inside the renderers, because how
+     big a face is drawn depends on the whole of what is on screen with it. */
+  const scales = scalesFor(list);
+
   grid.classList.toggle('is-hex', phone.matches);
-  if (phone.matches) hexCols = layoutHex(grid, list);
-  else list.forEach((p, i) => grid.append(badge(p, i)));
+  if (phone.matches) hexCols = layoutHex(grid, list, scales);
+  else list.forEach((p, i) => grid.append(badge(p, i, scales.get(p.id))));
+
+  if (flip) {
+    /* The leavers first: they are already detached, and getting them out of
+       the way before anything is measured keeps the read pass below clean. */
+    ghostAway(flip, new Set(list.map(p => p.id)));
+    flipCircle(grid, flip);
+  }
 
   $('#blank').hidden = people.length > 0;
   grid.hidden = people.length === 0;
@@ -1033,7 +1322,7 @@ function renderCircle() {
   const chips = $('#chips');
   chips.textContent = '';
   const canFilter = people.length > 3;
-  if (canFilter) fillGroupChips(chips);
+  if (canFilter) fillFilterChips(chips);
 
   /* The button that stands in for the row on a phone. Hidden on the same
      terms as the chips: with three people there is nothing to sift. */
@@ -3368,7 +3657,7 @@ function wire() {
   $('#btn-how-plain').onclick = () => { chooseHow(''); };
   $('#btn-how-cancel').onclick = () => $('#dlg-how').close();
 
-  $('#btn-filter').onclick = () => { fillGroupChips($('#filter-chips')); $('#dlg-filter').showModal(); };
+  $('#btn-filter').onclick = () => { paintFilterDialog(); $('#dlg-filter').showModal(); };
   $('#btn-filter-done').onclick = () => $('#dlg-filter').close();
 
   $('#btn-settings').onclick = () => {
@@ -3405,7 +3694,9 @@ function wire() {
   $('#search').oninput = e => {
     clearTimeout(searchTimer);
     const v = e.target.value;
-    searchTimer = setTimeout(() => { query = v; renderCircle(); }, 120);
+    /* Typing narrows the circle the same way a chip does, so it moves the same
+       way — and it has to, now that narrowing can change everybody's size. */
+    searchTimer = setTimeout(() => { query = v; markCircleFlip(); renderCircle(); }, 120);
   };
 
   const cc = $('#country-code');
