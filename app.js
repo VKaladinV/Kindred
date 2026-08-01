@@ -1192,12 +1192,72 @@ const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 let calPicked = '';    // the day whose list is open, '' for none
 
+/* ── opening a day on a phone ────────────────────────────────────
+   A computer has room for the month and the day's details at once. A phone
+   does not: the grid fills the screen, so the answer to the tap lands below
+   the fold and tapping a square reads as nothing happening. So there the day
+   takes the screen — the number travels up to where the first of the month
+   was, the rest of the month clears out, and the back button puts it back.
+
+   That last part is why this registers with the layer stack below, the same
+   way the person sheet does. It is the one thing on a tab that does, and it
+   earns it: opening a day covers the month the way a sheet covers the circle,
+   and back is how you get out of both. */
+
+let calLayer = null;      // the back-button layer, while a day is open
+let calFlipFrom = null;   // { date, rect } — where that day sat before this render
+
 const monthStart = d => new Date(d.getFullYear(), d.getMonth(), 1);
 const monthEnd = d => new Date(d.getFullYear(), d.getMonth() + 1, 0);
 
+const dayCell = date => $(`#calendar-body .cal-day[data-date="${date}"]`);
+
+/* Both directions run through here: opening reads the cell out of the grid,
+   closing reads it out of the top-left, and the render that follows carries
+   it from wherever it was to wherever it lands. */
+function markFlip(date) {
+  const cell = dayCell(date);
+  if (cell && phone.matches) calFlipFrom = { date, rect: cell.getBoundingClientRect() };
+}
+
+function pickDay(date) {
+  if (calPicked === date) return unpickDay();
+  markFlip(date);
+  calPicked = date;
+  if (phone.matches && !calLayer) calLayer = openLayer(unpickDay);
+  renderCalendar();
+  dayCell(date)?.focus({ preventScroll: true });   // or the scroll fights the move
+}
+
+/* Also the close callback the back button reaches. By then popstate has
+   already taken the layer off the list, so closeLayer finds nothing and does
+   nothing — which is exactly what it is built for. */
+function unpickDay() {
+  if (!calPicked) return;
+  const was = calPicked;
+  markFlip(was);
+  calPicked = '';
+  const layer = calLayer;
+  calLayer = null;
+  if (layer) closeLayer(layer);
+  renderCalendar();
+  dayCell(was)?.focus({ preventScroll: true });
+}
+
+/* For the ways out that are not the back button: changing month, leaving the
+   tab, growing past the phone breakpoint. Silent, because none of them is a
+   day being closed — the day is simply no longer what you are looking at. */
+function dropDayZoom() {
+  calPicked = '';
+  calFlipFrom = null;
+  const layer = calLayer;
+  calLayer = null;
+  if (layer) closeLayer(layer);
+}
+
 function shiftMonth(by) {
   calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() + by, 1);
-  calPicked = '';
+  dropDayZoom();
   renderCalendar();
 }
 
@@ -1216,7 +1276,22 @@ function renderCalendar() {
   const onDay = {};
   entries.forEach(x => (onDay[x.date] ||= []).push(x));
 
+  /* Zoomed is a phone with a day open. is-flipping is only on while something
+     is actually moving, which is what keeps the fades off the renders that
+     every ordinary edit triggers. */
+  /* A day is only ever open on a phone, so growing past the breakpoint ends
+     it. The breakpoint listener says so first; this says so again, because a
+     layer left standing would cost a back press that closed nothing visible,
+     and the two accounts of what is open must not drift apart. */
+  if (calLayer && !phone.matches) dropDayZoom();
+
+  const zoom = phone.matches && !!calPicked;
+  const flipping = !!calFlipFrom;
+
   const grid = el('div', 'cal-grid');
+  grid.classList.toggle('is-zoomed', zoom);
+  grid.classList.toggle('is-flipping', flipping);
+
   WEEKDAYS.forEach(w => grid.append(el('div', 'cal-dow', w)));
 
   /* Monday-first: getDay() calls Sunday 0, so Sunday sits at the end. */
@@ -1226,11 +1301,13 @@ function renderCalendar() {
   for (let day = 1; day <= last.getDate(); day++) {
     const date = ymd(new Date(first.getFullYear(), first.getMonth(), day));
     const list = onDay[date] || [];
+    const picked = date === calPicked;
 
     const cell = el('button', 'cal-day');
     cell.type = 'button';
+    cell.dataset.date = date;
     if (date === today()) cell.classList.add('is-today');
-    if (date === calPicked) cell.classList.add('is-picked');
+    if (picked) cell.classList.add('is-picked');
     if (!list.length) cell.classList.add('is-empty');
 
     cell.append(el('span', 'cal-n', String(day)));
@@ -1246,28 +1323,64 @@ function renderCalendar() {
     cell.setAttribute('aria-label', list.length
       ? `${prettyDate(date)} — ${plural(list.length, 'thing', 'things')}`
       : prettyDate(date));
-    cell.onclick = () => { calPicked = calPicked === date ? '' : date; renderCalendar(); };
+    cell.onclick = () => pickDay(date);
 
     grid.append(cell);
   }
   body.append(grid);
 
-  /* What the chosen day holds, or the whole month when nothing is chosen. */
+  /* What the chosen day holds, or the whole month when nothing is chosen.
+     An empty day still opens and still says so — a tap that does nothing
+     reads as the app having missed you. */
   const shown = calPicked ? (onDay[calPicked] || []) : entries;
-  if (!shown.length) {
-    body.append(el('p', 'quiet-note', calPicked
+  let details;
+  if (shown.length) {
+    details = block(calPicked ? prettyDate(calPicked) : 'Everything this month');
+    shown.forEach(x => details._list.append(todayRow(x.p, {
+      when: `${x.glyph} ${calPicked ? '' : parseYmd(x.date).getDate() + ' ' + shortMonth(x.date)}`.trim(),
+      calm: x.date !== today(),
+      sub: x.short,
+    })));
+  } else {
+    details = el('p', 'quiet-note', calPicked
       ? 'Nothing on that day.'
-      : 'Nothing this month — birthdays and any date you have noted would show here.'));
-    return;
+      : 'Nothing this month — birthdays and any date you have noted would show here.');
   }
+  /* Arrives with the number rather than being there before it. */
+  if (flipping) details.classList.add('cal-enter');
+  body.append(details);
 
-  const b = block(calPicked ? prettyDate(calPicked) : 'Everything this month');
-  shown.forEach(x => b._list.append(todayRow(x.p, {
-    when: `${x.glyph} ${calPicked ? '' : parseYmd(x.date).getDate() + ' ' + shortMonth(x.date)}`.trim(),
-    calm: x.date !== today(),
-    sub: x.short,
-  })));
-  body.append(b);
+  flipDay(grid);
+}
+
+/* The number, carried from where it was to where it now is.
+
+   A CSS transition rather than element.animate, because the app's one
+   reduced-motion rule zeroes transition and animation durations and knows
+   nothing about the Web Animations API — staying in CSS means that setting
+   is honoured here for free, with no second mechanism to keep in step.
+
+   Rects are viewport-relative and deliberately not corrected for scroll:
+   this is about where the thing looked like it was, and the finger saw the
+   viewport. */
+function flipDay(grid) {
+  const from = calFlipFrom;
+  calFlipFrom = null;
+  if (!from) return;
+
+  const cell = grid.querySelector(`.cal-day[data-date="${from.date}"]`);
+  if (!cell) return;
+
+  const now = cell.getBoundingClientRect();
+  const dx = from.rect.left - now.left;
+  const dy = from.rect.top - now.top;
+  if (!dx && !dy) return;
+
+  cell.style.transition = 'none';
+  cell.style.transform = `translate(${dx}px, ${dy}px)`;
+  void cell.offsetWidth;            // the same reflow the toast forces, for the same reason
+  cell.style.transition = '';
+  cell.style.transform = '';
 }
 
 /* ═══════════════════════════ THE BACK BUTTON ═════════════
@@ -2961,6 +3074,10 @@ function switchView(name) {
     else t.removeAttribute('aria-current');
   });
   $$('.view').forEach(v => { v.hidden = v.id !== 'view-' + name; });
+  /* An open day is not something to come back to from another tab, and a
+     layer left standing for it would make a later back press unzoom a
+     calendar nobody is looking at. */
+  if (name !== 'calendar' && calPicked) { dropDayZoom(); renderCalendar(); }
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -3090,10 +3207,13 @@ function wire() {
 
   $('#cal-prev').onclick = () => shiftMonth(-1);
   $('#cal-next').onclick = () => shiftMonth(1);
+  /* Land on this month first, so the day being opened is one the grid is
+     already showing and has a square to travel out of. */
   $('#cal-today').onclick = () => {
     calMonth = monthStart(new Date());
-    calPicked = today();
+    dropDayZoom();
     renderCalendar();
+    pickDay(today());
   };
 
   $('#btn-how-plain').onclick = () => { chooseHow(''); };
@@ -3170,7 +3290,13 @@ function wire() {
     }, 150);
   }, { passive: true });
 
-  phone.addEventListener('change', renderCircle);
+  /* Growing past the breakpoint gives the calendar its room back, so an open
+     day stops being a state that means anything. */
+  phone.addEventListener('change', () => {
+    renderCircle();
+    if (!phone.matches && calPicked) { dropDayZoom(); }
+    renderCalendar();
+  });
 
   /* The frozen title appears exactly as the real one leaves the top of the
      screen. Watching the heading itself means no scroll arithmetic and no

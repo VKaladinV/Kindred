@@ -153,7 +153,8 @@ On a phone, the **back button closes their page** and puts you back in your circ
 instead of closing Kindred. Back inside a dialog closes just that dialog, so an
 *edit details* opened over someone takes two presses to unwind — one for each thing
 covering the circle. Only when nothing is covering it does back leave the app, which
-is where it should. The tabs stay out of this deliberately: back is a way out, not a
+is where it should. An open calendar day counts as covering the app too, and back
+closes it the same way. The tabs stay out of this deliberately: back is a way out, not a
 walk back through everywhere you have been.
 
 ### Adding someone from your contacts
@@ -244,9 +245,21 @@ made both easier to stop reading.
 ### Calendar
 The same dates as a month, so you can see the shape of one — which week is crowded,
 how far off the next thing is. Each day carries a coloured dot per thing landing on
-it, in the same colours the history timeline uses. Tap a day to list just that day,
-and tap it again to go back to the whole month. **‹** and **›** move between months
-and **Today** brings you home. Tapping anyone's photo opens their page.
+it, in the same colours the history timeline uses. **‹** and **›** move between
+months and **Today** brings you home. Tapping anyone's photo opens their page.
+
+On a computer, tapping a day tints it and lists that day underneath the month.
+
+**On a phone the day takes the screen.** The grid already fills it, so a list below
+the month would land below the fold — you would tap a square and, as far as you could
+see, nothing would happen. Instead the number you tapped travels up to the corner, the
+rest of the month clears out of the way, and the day's details take the room. The
+month and year stay above it, so the lone number still reads as *10 August*.
+
+**The back button puts it back** — the number slides down to its square and the month
+returns around it, the same way back closes someone's page rather than closing
+Kindred. A day with nothing on it opens too, and says so, so a tap is never a press
+you have to wonder about.
 
 ---
 

@@ -685,6 +685,9 @@ button.thumb:focus-visible { outline: 2px solid var(--green); outline-offset: 2p
   transition: border-color .2s var(--ease), background .2s var(--ease), transform .2s var(--ease);
 }
 .cal-day:hover { border-color: var(--green); transform: translateY(-1px); }
+/* The travelling number needs longer than a hover lift. It is the only thing
+   in this block that moves, and it moves the width of the month. */
+.cal-grid.is-flipping .cal-day { transition: transform .34s var(--ease); }
 .cal-day:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
 /* A day with nothing on it is still a day — quieter, not missing. */
 .cal-day.is-empty { background: none; border-color: var(--rule-soft); color: var(--ink-faint); }
@@ -708,6 +711,28 @@ button.thumb:focus-visible { outline: 2px solid var(--green); outline-offset: 2p
    would disappear — white reads against it, and the day is already named
    in the list underneath. */
 .cal-day.is-picked .cal-dot { background: currentColor; }
+
+/* ── a day open on a phone ──────────────────────────────────────
+   The rest of the month leaves, so the grid collapses from six rows to one and
+   the details come up to meet it. The open day is then the only child left, and
+   ordinary auto-placement puts it in the corner — nothing has to be told where
+   to go, which is why there is no placement arithmetic here or in app.js.
+
+   They go rather than fade because fading needs them kept in the layout, and
+   anything still occupying a square holds the grid open at six rows — the very
+   thing being cleared. On the way back they do fade in: the grid is rebuilt from
+   nothing on every render, and while a freshly inserted element has no previous
+   state for a *transition* to run from, an animation plays on first paint. That
+   is the whole reason this is a keyframe and the travelling number is not. */
+
+@keyframes cal-back { from { opacity: 0; } }
+
+.cal-grid.is-zoomed > *:not(.is-picked) { display: none; }
+.cal-grid.is-flipping:not(.is-zoomed) > * { animation: cal-back .34s var(--ease); }
+
+/* The details arrive with the number rather than being there before it —
+   the same rise the views themselves come in on. */
+.cal-enter { animation: rise .38s var(--ease) both; }
 
 @media (max-width: 460px) {
   .cal-grid { gap: .2rem; }
