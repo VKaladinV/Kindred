@@ -1,5 +1,5 @@
 /* ══════════════════════════════════════════════════════════════
-   Kindred — all data lives on this device.
+   Fellowship — all data lives on this device.
    people    → IndexedDB "kv" store (or localStorage fallback)
    photos    → IndexedDB "photos" store, keyed by person id
    originals → IndexedDB "originals" store, keyed by person id:
@@ -118,14 +118,6 @@ const HEALTH = {
     empty: 'Nothing listed — diagnoses, allergies, what to watch for.',
   },
 };
-
-const PROMPTS = [
-  'A few names, held on purpose.',
-  'Care is mostly remembering, then acting on it.',
-  'Small check-ins, kept up, become a life shared.',
-  'Nobody is a task. Reach out anyway.',
-  'The people below have been on your mind. Here they are.',
-];
 
 /* ─────────────────────────── tiny helpers ──────────────────── */
 
@@ -535,6 +527,27 @@ function dueFromGestation(weeks, days) {
   return ymd(d);
 }
 
+/* How much of a full-size face someone takes in the circle, so a glance says
+   what the order already says: the people you owe a call are the big ones.
+
+   Half on the day you saw them, growing straight-line with how far through
+   their own rhythm they are, full when the check-in falls due and full after.
+   Because it is a proportion of each person's own cadence rather than a count
+   of days, someone you see weekly and someone you see twice a year both fill
+   out at their own pace and arrive at full size on the day they are owed.
+
+   No cadence is a third, whatever else is happening to them. Their dates still
+   surface in Today and the calendar; what a circle sorted by need cannot say
+   about them is when to call, so they sit quietly. */
+const SMALL = 1 / 3;
+
+function badgeScale(p) {
+  if (!p.cadenceDays) return SMALL;
+  const s = statusOf(p);
+  if (s.days === null) return 1;          // never yet — already counted as due
+  return 0.5 + 0.5 * clamp(s.days / p.cadenceDays, 0, 1);
+}
+
 /* the next time an annual date comes round — used for birthdays and
    for upcoming records flagged as repeating */
 function nextAnnual(dateStr) {
@@ -801,6 +814,9 @@ function badge(p, i) {
   const b = el('div', 'badge');
   b.dataset.state = s.state;
   b.style.setProperty('--i', i);
+  /* One number, and everything inside the badge follows it — the ring, the
+     marks, the initials, the disc are all proportions of --frame already. */
+  b.style.setProperty('--scale', badgeScale(p).toFixed(3));
 
   const frame = el('button', 'badge-frame');
   frame.type = 'button';
@@ -875,7 +891,13 @@ function hexMetrics(grid) {
   /* Same give as the grid takes on a computer: a face may shrink to
      four-fifths of its set size if that lets one more fit across. */
   const per = Math.max(2, Math.floor((w + gap) / (max * .8 + gap)));
-  return { per, cell: Math.min(max, (w - (per - 1) * gap) / per) };
+  /* A grid nobody can see has no width, and the arithmetic above then hands
+     back a negative cell — which reaches CSS as an invalid length, so every
+     declaration built on it is dropped and the faces come apart. Renders on a
+     hidden tab used to do exactly that. switchView repaints on the way in now,
+     but a render should not be able to emit nonsense in the first place. */
+  const cell = Math.min(max, (w - (per - 1) * gap) / per);
+  return { per, cell: cell > 0 ? cell : max };
 }
 
 let hexCols = 0;
@@ -1140,9 +1162,6 @@ function renderToday() {
   $('#today-date').textContent = new Date().toLocaleDateString(undefined,
     { weekday: 'long', day: 'numeric', month: 'long' });
 
-  const seed = hashCode(today());
-  body.append(el('p', 'verse', PROMPTS[seed % PROMPTS.length]));
-
   /* Birthdays and dated records, and nothing else. Who you owe a call is the
      circle's question, and it answers it by putting them first — asking it
      twice, in two places, only ever made both easier to stop reading. */
@@ -1168,7 +1187,7 @@ function renderToday() {
 
   if (!ahead.length) {
     body.append(el('p', 'all-clear', people.length
-      ? 'Nothing on the calendar. The next birthday is further out than a month and a half.'
+      ? 'Nothing to know about today.'
       : 'Add someone to your circle and this page will start looking after you.'));
   }
 
@@ -1185,48 +1204,44 @@ function renderToday() {
    of one — which week is crowded, how far off the next thing is. It reads
    the data and changes none of it. */
 
-let calMonth = null;   // first of the month on show, as a Date
-
 const MONTH_NAMES = 'January February March April May June July August September October November December'.split(' ');
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-let calPicked = '';    // the day whose list is open, '' for none
+/* A year, laid out end to end. Paging a month at a time meant pressing the
+   arrow and losing the thread of what came before it; a year in one scroll
+   is the shape of the question people actually ask of a calendar. The bar at
+   the top freezes and still steps month to month — it just scrolls there
+   rather than redrawing. */
+const MONTHS_AHEAD = 12;
 
-/* ── opening a day on a phone ────────────────────────────────────
-   A computer has room for the month and the day's details at once. A phone
-   does not: the grid fills the screen, so the answer to the tap lands below
-   the fold and tapping a square reads as nothing happening. So there the day
-   takes the screen — the number travels up to where the first of the month
-   was, the rest of the month clears out, and the back button puts it back.
-
-   That last part is why this registers with the layer stack below, the same
-   way the person sheet does. It is the one thing on a tab that does, and it
-   earns it: opening a day covers the month the way a sheet covers the circle,
-   and back is how you get out of both. */
-
-let calLayer = null;      // the back-button layer, while a day is open
-let calFlipFrom = null;   // { date, rect } — where that day sat before this render
+let calPicked = '';    // the day whose list is narrowed to it, '' for none
+let calLayer = null;   // the back-button layer, while a day is picked
+let calSeen = '';      // the month the frozen bar is naming, as 'YYYY-MM'
+let calWatch = null;   // the observer telling it which month that is
 
 const monthStart = d => new Date(d.getFullYear(), d.getMonth(), 1);
 const monthEnd = d => new Date(d.getFullYear(), d.getMonth() + 1, 0);
+const monthKey = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}`;
+const monthLabel = d => `${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}`;
 
-const dayCell = date => $(`#calendar-body .cal-day[data-date="${date}"]`);
+/* The twelve months on show, this one first. */
+const monthsShown = () => {
+  const from = monthStart(new Date());
+  return Array.from({ length: MONTHS_AHEAD }, (_, i) =>
+    new Date(from.getFullYear(), from.getMonth() + i, 1));
+};
 
-/* Both directions run through here: opening reads the cell out of the grid,
-   closing reads it out of the top-left, and the render that follows carries
-   it from wherever it was to wherever it lands. */
-function markFlip(date) {
-  const cell = dayCell(date);
-  if (cell && phone.matches) calFlipFrom = { date, rect: cell.getBoundingClientRect() };
-}
+const monthSection = key => $(`#calendar-body .cal-month[data-month="${key}"]`);
 
+/* Narrowing a month to one day, and widening it out again. Back widens it,
+   which is why it registers with the layer stack — the same way a dialog
+   does, and on both widths for the same reason. */
 function pickDay(date) {
   if (calPicked === date) return unpickDay();
-  markFlip(date);
   calPicked = date;
-  if (phone.matches && !calLayer) calLayer = openLayer(unpickDay);
+  if (!calLayer) calLayer = openLayer(unpickDay);
   renderCalendar();
-  dayCell(date)?.focus({ preventScroll: true });   // or the scroll fights the move
+  $(`#calendar-body .cal-day[data-date="${date}"]`)?.focus({ preventScroll: true });
 }
 
 /* Also the close callback the back button reaches. By then popstate has
@@ -1235,79 +1250,79 @@ function pickDay(date) {
 function unpickDay() {
   if (!calPicked) return;
   const was = calPicked;
-  markFlip(was);
   calPicked = '';
   const layer = calLayer;
   calLayer = null;
   if (layer) closeLayer(layer);
   renderCalendar();
-  dayCell(was)?.focus({ preventScroll: true });
+  $(`#calendar-body .cal-day[data-date="${was}"]`)?.focus({ preventScroll: true });
 }
 
-/* For the ways out that are not the back button: changing month, leaving the
-   tab, growing past the phone breakpoint. Silent, because none of them is a
-   day being closed — the day is simply no longer what you are looking at. */
-function dropDayZoom() {
+/* For the ways out that are not the back button — leaving the tab. Silent,
+   because that is not a day being widened; it is simply no longer what you
+   are looking at. */
+function clearPickedDay() {
   calPicked = '';
-  calFlipFrom = null;
   const layer = calLayer;
   calLayer = null;
   if (layer) closeLayer(layer);
+}
+
+/* The arrows no longer redraw anything. Every month is already on the page,
+   so stepping is scrolling — and scroll-margin-top on the sections is what
+   keeps the frozen bar from landing on the heading it just travelled to. */
+function goToMonth(key) {
+  const section = monthSection(key);
+  if (!section) return;
+  calSeen = key;
+  paintCalBar();
+  section.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function shiftMonth(by) {
-  calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() + by, 1);
-  dropDayZoom();
-  renderCalendar();
+  const months = monthsShown();
+  const at = Math.max(0, months.findIndex(m => monthKey(m) === calSeen));
+  const next = months[clamp(at + by, 0, months.length - 1)];
+  if (next) goToMonth(monthKey(next));
 }
 
-function renderCalendar() {
-  const body = $('#calendar-body');
-  if (!body) return;
-  if (!calMonth) calMonth = monthStart(new Date());
-  body.textContent = '';
+function paintCalBar() {
+  const months = monthsShown();
+  const at = months.findIndex(m => monthKey(m) === calSeen);
+  const now = months[at] || months[0];
+  $('#cal-month').textContent = monthLabel(now);
+  $('#cal-prev').disabled = at <= 0;
+  $('#cal-next').disabled = at >= months.length - 1;
+}
 
-  const first = monthStart(calMonth);
-  const last = monthEnd(calMonth);
-  $('#cal-month').textContent = `${MONTH_NAMES[first.getMonth()]} ${first.getFullYear()}`;
+/* One month: its heading, its grid, and the list underneath it. */
+function monthSectionFor(month, onDay) {
+  const first = monthStart(month);
+  const last = monthEnd(month);
+  const key = monthKey(first);
 
-  /* Everything landing in this month, gathered once and looked up per day. */
-  const entries = datesIn(ymd(first), ymd(last));
-  const onDay = {};
-  entries.forEach(x => (onDay[x.date] ||= []).push(x));
-
-  /* Zoomed is a phone with a day open. is-flipping is only on while something
-     is actually moving, which is what keeps the fades off the renders that
-     every ordinary edit triggers. */
-  /* A day is only ever open on a phone, so growing past the breakpoint ends
-     it. The breakpoint listener says so first; this says so again, because a
-     layer left standing would cost a back press that closed nothing visible,
-     and the two accounts of what is open must not drift apart. */
-  if (calLayer && !phone.matches) dropDayZoom();
-
-  const zoom = phone.matches && !!calPicked;
-  const flipping = !!calFlipFrom;
+  const section = el('section', 'cal-month');
+  section.dataset.month = key;
+  section.append(el('h3', 'cal-month-name', monthLabel(first)));
 
   const grid = el('div', 'cal-grid');
-  grid.classList.toggle('is-zoomed', zoom);
-  grid.classList.toggle('is-flipping', flipping);
-
   WEEKDAYS.forEach(w => grid.append(el('div', 'cal-dow', w)));
 
   /* Monday-first: getDay() calls Sunday 0, so Sunday sits at the end. */
   const lead = (first.getDay() + 6) % 7;
   for (let i = 0; i < lead; i++) grid.append(el('div', 'cal-pad'));
 
+  const mine = [];
   for (let day = 1; day <= last.getDate(); day++) {
     const date = ymd(new Date(first.getFullYear(), first.getMonth(), day));
     const list = onDay[date] || [];
-    const picked = date === calPicked;
+    mine.push(...list);
 
     const cell = el('button', 'cal-day');
     cell.type = 'button';
     cell.dataset.date = date;
     if (date === today()) cell.classList.add('is-today');
-    if (picked) cell.classList.add('is-picked');
+    if (date === calPicked) cell.classList.add('is-picked');
     if (!list.length) cell.classList.add('is-empty');
 
     cell.append(el('span', 'cal-n', String(day)));
@@ -1327,64 +1342,84 @@ function renderCalendar() {
 
     grid.append(cell);
   }
-  body.append(grid);
+  section.append(grid);
 
-  /* What the chosen day holds, or the whole month when nothing is chosen.
-     An empty day still opens and still says so — a tap that does nothing
-     reads as the app having missed you. */
-  const shown = calPicked ? (onDay[calPicked] || []) : entries;
+  /* A picked day narrows its own month and leaves the other eleven whole.
+     An empty day still narrows and still says so — a tap that answers
+     nothing reads as the app having missed you. */
+  const narrowed = calPicked && calPicked.startsWith(key);
+  const shown = narrowed ? (onDay[calPicked] || []) : mine;
+
   let details;
   if (shown.length) {
-    details = block(calPicked ? prettyDate(calPicked) : 'Everything this month');
+    details = block(narrowed ? prettyDate(calPicked) : 'Everything this month');
     shown.forEach(x => details._list.append(todayRow(x.p, {
-      when: `${x.glyph} ${calPicked ? '' : parseYmd(x.date).getDate() + ' ' + shortMonth(x.date)}`.trim(),
+      when: `${x.glyph} ${narrowed ? '' : parseYmd(x.date).getDate() + ' ' + shortMonth(x.date)}`.trim(),
       calm: x.date !== today(),
       sub: x.short,
     })));
   } else {
-    details = el('p', 'quiet-note', calPicked
+    details = el('p', 'quiet-note', narrowed
       ? 'Nothing on that day.'
       : 'Nothing this month — birthdays and any date you have noted would show here.');
   }
-  /* Arrives with the number rather than being there before it. */
-  if (flipping) details.classList.add('cal-enter');
-  body.append(details);
+  if (narrowed) details.classList.add('cal-enter');
+  section.append(details);
 
-  flipDay(grid);
+  return section;
 }
 
-/* The number, carried from where it was to where it now is.
+function renderCalendar() {
+  const body = $('#calendar-body');
+  if (!body) return;
 
-   A CSS transition rather than element.animate, because the app's one
-   reduced-motion rule zeroes transition and animation durations and knows
-   nothing about the Web Animations API — staying in CSS means that setting
-   is honoured here for free, with no second mechanism to keep in step.
+  const months = monthsShown();
+  if (!calSeen) calSeen = monthKey(months[0]);
 
-   Rects are viewport-relative and deliberately not corrected for scroll:
-   this is about where the thing looked like it was, and the finger saw the
-   viewport. */
-function flipDay(grid) {
-  const from = calFlipFrom;
-  calFlipFrom = null;
-  if (!from) return;
+  /* One pass over the whole year rather than twelve — datesIn already rolls a
+     yearly record into each year the range covers, so a birthday in March
+     appears in both Marches a thirteen-month window can straddle. */
+  const from = monthStart(months[0]);
+  const to = monthEnd(months[months.length - 1]);
+  const onDay = {};
+  datesIn(ymd(from), ymd(to)).forEach(x => (onDay[x.date] ||= []).push(x));
 
-  const cell = grid.querySelector(`.cal-day[data-date="${from.date}"]`);
-  if (!cell) return;
+  /* Built off-document and swapped in one move. Emptying first would leave the
+     page momentarily a year shorter, and the browser clamps the scroll to the
+     shorter page before the new content lands — so the reader would be thrown
+     back to January every time anything anywhere was edited. */
+  const frag = document.createDocumentFragment();
+  months.forEach(m => frag.append(monthSectionFor(m, onDay)));
+  body.replaceChildren(frag);
 
-  const now = cell.getBoundingClientRect();
-  const dx = from.rect.left - now.left;
-  const dy = from.rect.top - now.top;
-  if (!dx && !dy) return;
+  paintCalBar();
+  watchMonths();
+}
 
-  cell.style.transition = 'none';
-  cell.style.transform = `translate(${dx}px, ${dy}px)`;
-  void cell.offsetWidth;            // the same reflow the toast forces, for the same reason
-  cell.style.transition = '';
-  cell.style.transform = '';
+/* Which month the frozen bar is naming. The sections are new elements on every
+   render, so the observer is rebuilt with them. The band is a thin strip just
+   under the bar: the month crossing it is the one being read. */
+function watchMonths() {
+  calWatch?.disconnect();
+  if (!('IntersectionObserver' in window)) return;
+
+  calWatch = new IntersectionObserver(entries => {
+    const hit = entries.filter(e => e.isIntersecting)
+      .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
+    if (!hit) return;
+    const key = hit.target.dataset.month;
+    if (key === calSeen) return;
+    calSeen = key;
+    paintCalBar();
+    /* Measured rather than written down, so it cannot drift from the height
+       the stylesheet gives the bar. */
+  }, { rootMargin: `-${Math.round($('.cal-head')?.getBoundingClientRect().height || 56)}px 0px -80% 0px` });
+
+  $$('#calendar-body .cal-month').forEach(s => calWatch.observe(s));
 }
 
 /* ═══════════════════════════ THE BACK BUTTON ═════════════
-   Nothing in Kindred is a separate page — the person sheet and every
+   Nothing in Fellowship is a separate page — the person sheet and every
    dialog are elements that get unhidden — so on a phone the back button
    had nothing to go back through and closed the whole app instead, even
    with someone's page open over the top.
@@ -2569,7 +2604,7 @@ async function importAll(file) {
   let data;
   try { data = JSON.parse(await file.text()); }
   catch { return toast('That file could not be read'); }
-  if (!data || !Array.isArray(data.people)) return toast('That is not a Kindred backup');
+  if (!data || !Array.isArray(data.people)) return toast('That is not a Fellowship backup');
 
   let added = 0, merged = 0;
   for (const raw of data.people) {
@@ -2631,7 +2666,7 @@ function paintNotifState() {
   const perm = Notification.permission;
   btn.hidden = perm !== 'default';
   txt.textContent = perm === 'granted'
-    ? 'On — when you open Kindred, it will nudge you once a day about anyone overdue, any date landing today, and a baby due soon.'
+    ? 'On — when you open Fellowship, it will nudge you once a day about anyone overdue, any date landing today, and a baby due soon.'
     : perm === 'denied'
       ? 'Blocked in your browser settings. The Today tab still keeps count.'
       : 'Get a nudge when someone is overdue. Fires when you open the app.';
@@ -2650,7 +2685,7 @@ async function enableNotifications() {
    out, then closing, then daily once it is near enough to happen any morning.
 
    The honest limit is the same as the rest of the reminders — this fires when
-   you open Kindred, not while your phone is in your pocket. */
+   you open Fellowship, not while your phone is in your pocket. */
 const BABY_MARKS = [28, 21, 14, 10];
 
 const babiesSpeakingToday = () =>
@@ -2786,11 +2821,11 @@ async function enrolBio() {
   const cred = await navigator.credentials.create({
     publicKey: {
       challenge: crypto.getRandomValues(new Uint8Array(32)),
-      rp: { name: 'Kindred', id: location.hostname },
+      rp: { name: 'Fellowship', id: location.hostname },
       user: {
         id: crypto.getRandomValues(new Uint8Array(16)),
         name: syncEmail() || 'kindred',
-        displayName: 'Kindred',
+        displayName: 'Fellowship',
       },
       pubKeyCredParams: [{ type: 'public-key', alg: -7 }, { type: 'public-key', alg: -257 }],
       authenticatorSelection: {
@@ -2912,7 +2947,7 @@ async function submitPin() {
 }
 
 /* Signing in is the way back — but only as the account this device already
-   belongs to. Any Kindred account opening any phone would be no lock at all. */
+   belongs to. Any Fellowship account opening any phone would be no lock at all. */
 function knownAccount() {
   return (syncEmail() || lockRecord()?.email || '').toLowerCase();
 }
@@ -2976,9 +3011,9 @@ function paintLockState() {
   const able = canLock();
 
   $('#lock-hint').textContent = !able
-    ? 'A PIN needs Kindred opened over https, or straight off the disk. This address cannot hash one safely, so it is not offered here.'
+    ? 'A PIN needs Fellowship opened over https, or straight off the disk. This address cannot hash one safely, so it is not offered here.'
     : on
-      ? 'On. Kindred asks when it starts, and again when you come back after a couple of minutes away.'
+      ? 'On. Fellowship asks when it starts, and again when you come back after a couple of minutes away.'
       : 'Ask for a PIN before your circle is shown. It stays on this device — not in your account, and not in your backup.';
 
   $('#btn-pin').hidden = !able || on;
@@ -3000,8 +3035,8 @@ function pinDialog(mode) {
   $('#dlg-pin-title').textContent =
     mode === 'off' ? 'Turn the lock off' : mode === 'change' ? 'Change your PIN' : 'Set a PIN';
   $('#pin-lede').textContent = mode === 'off'
-    ? 'Enter it once more and Kindred will stop asking. Any fingerprint you set up is forgotten with it.'
-    : 'Four to eight digits, kept on this device alone. If you lose it, signing in to your Kindred account is the way back.';
+    ? 'Enter it once more and Fellowship will stop asking. Any fingerprint you set up is forgotten with it.'
+    : 'Four to eight digits, kept on this device alone. If you lose it, signing in to your Fellowship account is the way back.';
 
   $('#pin-current-wrap').hidden = !need;
   $('#pin-new-wrap').hidden = mode === 'off';
@@ -3044,7 +3079,7 @@ async function savePin(e) {
   await setPin(pin);
   $('#dlg-pin').close();
   paintLockState();
-  toast(pinMode === 'change' ? 'PIN changed' : 'PIN set — Kindred will ask next time it opens');
+  toast(pinMode === 'change' ? 'PIN changed' : 'PIN set — Fellowship will ask next time it opens');
 }
 
 async function toggleBio() {
@@ -3074,10 +3109,24 @@ function switchView(name) {
     else t.removeAttribute('aria-current');
   });
   $$('.view').forEach(v => { v.hidden = v.id !== 'view-' + name; });
-  /* An open day is not something to come back to from another tab, and a
-     layer left standing for it would make a later back press unzoom a
-     calendar nobody is looking at. */
-  if (name !== 'calendar' && calPicked) { dropDayZoom(); renderCalendar(); }
+
+  /* The calendar's frozen bar wants the top of the screen, and on a phone the
+     frozen title is already fixed there. Only one of them can have it. */
+  document.body.classList.toggle('on-calendar', name === 'calendar');
+
+  /* An open day is not something to come back to from another tab, and a layer
+     left standing for it would make a later back press widen a list nobody is
+     looking at. */
+  if (name !== 'calendar' && calPicked) { clearPickedDay(); renderCalendar(); }
+
+  /* renderCircle measures the grid to work out how many faces fit across, and
+     a hidden grid measures zero. Every mutation re-renders every view, so
+     editing anything on another tab used to leave the circle laid out against
+     a width of nothing — which is what made the faces come back stacked with
+     their discs missing. Repainting on the way in is the fix: the one render
+     that reads the DOM now always runs while that DOM can be seen. */
+  if (name === 'circle') renderCircle();
+
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -3207,14 +3256,7 @@ function wire() {
 
   $('#cal-prev').onclick = () => shiftMonth(-1);
   $('#cal-next').onclick = () => shiftMonth(1);
-  /* Land on this month first, so the day being opened is one the grid is
-     already showing and has a square to travel out of. */
-  $('#cal-today').onclick = () => {
-    calMonth = monthStart(new Date());
-    dropDayZoom();
-    renderCalendar();
-    pickDay(today());
-  };
+  $('#cal-today').onclick = () => goToMonth(monthKey(new Date()));
 
   $('#btn-how-plain').onclick = () => { chooseHow(''); };
   $('#btn-how-cancel').onclick = () => $('#dlg-how').close();
@@ -3290,13 +3332,7 @@ function wire() {
     }, 150);
   }, { passive: true });
 
-  /* Growing past the breakpoint gives the calendar its room back, so an open
-     day stops being a state that means anything. */
-  phone.addEventListener('change', () => {
-    renderCircle();
-    if (!phone.matches && calPicked) { dropDayZoom(); }
-    renderCalendar();
-  });
+  phone.addEventListener('change', renderCircle);
 
   /* The frozen title appears exactly as the real one leaves the top of the
      screen. Watching the heading itself means no scroll arithmetic and no
@@ -3323,7 +3359,7 @@ function wire() {
 
 /* ──────────────── keeping up with the live site ──────────────── */
 
-/* Installed as an Android app, Kindred is a window onto the deployed URL, not
+/* Installed as an Android app, Fellowship is a window onto the deployed URL, not
    a copy of the files — so a change reaches the phone without reinstalling
    anything. What it does not do is reload. An app picked back up from the
    task switcher keeps the page it booted with, and can sit for days on last
@@ -3389,15 +3425,15 @@ async function boot() {
   checkBio().then(paintLockState);
 
   $('#storage-state').textContent = Store.blocked
-    ? 'Kindred is open in another tab and holding the database. Close it and reload — nothing here will save until you do.'
+    ? 'Fellowship is open in another tab and holding the database. Close it and reload — nothing here will save until you do.'
     : ({
       indexeddb: 'Saved in this browser’s database on this device.',
       localstorage: 'Saved in browser storage (limited room for photos). Run it from a local server for more space.',
       memory: 'Nothing can be saved in this browser mode — export a backup before closing.',
     })[Store.mode];
-  if (Store.blocked) toast('Close Kindred’s other tab and reload');
+  if (Store.blocked) toast('Close Fellowship’s other tab and reload');
 
-  /* Always the circle. Kindred used to reopen on whichever tab you left it on,
+  /* Always the circle. Fellowship used to reopen on whichever tab you left it on,
      which meant signing in could land you on a prayer list rather than on the
      faces — and the faces are the app. Coming back is different from starting:
      unlocking after a couple of minutes away leaves you where you were. */

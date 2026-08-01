@@ -1,5 +1,5 @@
 -- ══════════════════════════════════════════════════════════════════════
---  Kindred — database schema
+--  Fellowship — database schema
 --
 --  Paste the whole file into the Supabase SQL Editor and press Run.
 --  It is safe to run more than once: everything is idempotent.
@@ -213,4 +213,4 @@ create policy own_photos_delete on storage.objects
   using (bucket_id = 'photos' and (storage.foldername(name))[1] = auth.uid()::text);
 
 -- ── done ─────────────────────────────────────────────────────────────
-select 'Kindred schema ready' as status;
+select 'Fellowship schema ready' as status;

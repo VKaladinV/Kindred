@@ -1,4 +1,4 @@
-# Kindred
+# Fellowship
 
 A small private app for remembering the people you care about — a circle of photo
 badges, and behind each one a summary, a life-events timeline, and a prayer list.
@@ -45,7 +45,7 @@ separate copy** of the data — see *Backups* below for moving data between devi
 The menu sits down the left on a computer, and becomes a bar along the bottom of
 the screen on a phone — within thumb reach, nothing to open.
 
-On a phone, once **Kindred** has scrolled off the top it comes back as a thin frozen
+On a phone, once **Fellowship** has scrolled off the top it comes back as a thin frozen
 line up there, so you still know where you are without the full title holding on to
 the room it needs.
 
@@ -74,10 +74,23 @@ exact count.
 A small **✜** at the top of a badge means open prayers; a mark at the bottom-left
 means they're in a season right now.
 
+**How big a face is says how much you owe it.** On the day you check in someone
+drops to half size, and grows back a little each day until they are full size on
+the day the check-in falls due — so the biggest faces are always the ones asking
+for you. Because it is a proportion of each person's own rhythm rather than a
+count of days, someone you see weekly and someone you see twice a year both fill
+out at their own pace and arrive full-size exactly when they are owed.
+
+Anyone you set **no** reminder for stays at a third size, however much is
+happening to them. Nothing is hidden — their birthdays and dates still surface in
+Today and the calendar — but a circle sorted by who to call has nothing to say
+about them, so they sit quietly at the back.
+
 ### How big they are, and how they sit
 **Settings → Size of the faces** decides how big everyone is. Every part of a badge
 is a proportion of that one number, so the ring, the two marks and the initials all
-hold their places at whatever size you land on.
+hold their places at whatever size you land on. The check-in sizing above is a
+proportion of that in turn, so the two multiply rather than fight.
 
 **Settings → Country code** is what lets WhatsApp find someone whose number you
 saved the local way, as *082 …* rather than *+27 82 …*. It starts at **27**.
@@ -150,7 +163,7 @@ Inside:
   you want to be nudged.
 
 On a phone, the **back button closes their page** and puts you back in your circle
-instead of closing Kindred. Back inside a dialog closes just that dialog, so an
+instead of closing Fellowship. Back inside a dialog closes just that dialog, so an
 *edit details* opened over someone takes two presses to unwind — one for each thing
 covering the circle. Only when nothing is covering it does back leave the app, which
 is where it should. An open calendar day counts as covering the app too, and back
@@ -159,7 +172,7 @@ walk back through everywhere you have been.
 
 ### Adding someone from your contacts
 On an Android phone, *Someone new* offers **fill from a contact**. It opens
-Android's own chooser, and only whoever you tap comes back — Kindred never sees
+Android's own chooser, and only whoever you tap comes back — Fellowship never sees
 the rest of the address book. The button doesn't appear on the PC, because no
 desktop browser has a picker to offer.
 
@@ -174,7 +187,7 @@ picture to move it, and zoom in to single one person out of a group shot. The
 circle you see in that dialog is the badge — there is no surprise afterwards.
 
 The crop is cut from the picture at full size, so zooming onto a distant face
-still has detail to work with. Kindred keeps a copy of the uncropped picture on
+still has detail to work with. Fellowship keeps a copy of the uncropped picture on
 that device, so **adjust focus** can reopen it later exactly where you left it,
 without hunting for the file again. That copy never leaves the device: it isn't
 synced and isn't in your backup.
@@ -210,7 +223,7 @@ the next morning and a due date never is.
 
 From then on the record reads as *32w 4d · due in 6 weeks*, and it stays in **Today**
 for the whole pregnancy rather than waiting for the usual month and a half — it is
-the one date worth having in sight from the day you hear about it. Kindred also
+the one date worth having in sight from the day you hear about it. Fellowship also
 nudges you as it nears: a month out, then closing in, then every day inside the last
 week. Once the baby arrives, edit the record into their **history**.
 
@@ -240,32 +253,34 @@ list.
 Only what is coming up: birthdays and your dated records together, in **Today**,
 **This week** and **Later**. Nothing about who you owe a call — the circle answers
 that by putting them first, and asking the same question in two places only ever
-made both easier to stop reading.
+made both easier to stop reading. When there is nothing at all, it says so:
+*Nothing to know about today.*
 
 ### Calendar
-The same dates as a month, so you can see the shape of one — which week is crowded,
-how far off the next thing is. Each day carries a coloured dot per thing landing on
-it, in the same colours the history timeline uses. **‹** and **›** move between
-months and **Today** brings you home. Tapping anyone's photo opens their page.
+**A year, end to end.** Twelve months from this one, each with its grid and,
+underneath it, everything landing in that month. You scroll through the lot rather
+than paging a month at a time and losing the thread of what came before.
 
-On a computer, tapping a day tints it and lists that day underneath the month.
+Each day carries a coloured dot per thing landing on it, in the same colours the
+history timeline uses. Tapping anyone's photo opens their page.
 
-**On a phone the day takes the screen.** The grid already fills it, so a list below
-the month would land below the fold — you would tap a square and, as far as you could
-see, nothing would happen. Instead the number you tapped travels up to the corner, the
-rest of the month clears out of the way, and the day's details take the room. The
-month and year stay above it, so the lone number still reads as *10 August*.
+**The bar at the top freezes** and names whichever month you have scrolled to. Its
+**‹** and **›** no longer redraw anything — every month is already on the page, so
+they scroll straight there, and **Today** brings you back to this month. The bar
+keeps one height whatever the month is called, because a frozen thing that changed
+size would move the page underneath the very scroll position it was reacting to.
 
-**The back button puts it back** — the number slides down to its square and the month
-returns around it, the same way back closes someone's page rather than closing
-Kindred. A day with nothing on it opens too, and says so, so a tap is never a press
-you have to wonder about.
+**Tapping a day narrows that month to it** — the grid stays exactly where it is, so
+you keep your place, and only the list underneath it changes. Every other month is
+left alone. Tapping the day again, or the back button, widens it out. A day with
+nothing on it narrows too, and says so, so a tap is never a press you have to
+wonder about.
 
 ---
 
 ## Reminders — the honest version
 
-Turn them on in **Settings → Reminders**. What you get: **when you open Kindred, it
+Turn them on in **Settings → Reminders**. What you get: **when you open Fellowship, it
 notifies you once a day** if anyone is overdue, if a birthday or one of your dated
 records falls today, or if a baby is due soon — a month out, then at three weeks,
 two, ten days, and every day inside the last week.
@@ -273,14 +288,14 @@ two, ten days, and every day inside the last week.
 What it can't do: wake your phone up on its own while closed. A true scheduled push
 notification needs a server sending it, and this app deliberately has no server —
 that's the trade for your data never leaving your device. **This applies to the due
-date too**: Kindred cannot count down to it at you, it can only tell you where things
+date too**: Fellowship cannot count down to it at you, it can only tell you where things
 stand the next time you open the app. In practice, put the icon on your home screen
 where you'll see it, and let the *Today* tab do the work.
 
 ## Locking it
 
 **Settings → Lock with a PIN** puts four to eight digits in front of your circle. It
-asks when Kindred starts, and again when you come back more than a couple of minutes
+asks when Fellowship starts, and again when you come back more than a couple of minutes
 after leaving. Glancing at a message and coming straight back doesn't ask again.
 
 Where the phone has a fingerprint or face reader — or the PC has Windows Hello —
@@ -292,15 +307,15 @@ The lock belongs to the device rather than to you: it is not part of your accoun
 never synced, and is not in a backup. Setting one on the phone leaves the PC as it
 was, which is usually what you want — the phone is the one that gets left on tables.
 
-Locking never costs you anything half-written. If Kindred locks while you were partway
+Locking never costs you anything half-written. If Fellowship locks while you were partway
 through adding someone, the lock sits over the top of it, and everything you had typed
 is still there when you come back.
 
 ### What it is, and what it isn't
 
-A lock on the door, not a safe. Kindred has no server to check a PIN against, so the
+A lock on the door, not a safe. Fellowship has no server to check a PIN against, so the
 checking happens here: the PIN is kept as a PBKDF2 hash rather than as itself, and the
-fingerprint is the device telling Kindred it recognised you. Someone determined, with
+fingerprint is the device telling Fellowship it recognised you. Someone determined, with
 your phone already unlocked and developer tools open, could still reach the browser
 storage underneath.
 
@@ -312,10 +327,10 @@ covering.
 
 **forgotten your PIN?** on the lock screen takes the email and password of the account
 this device syncs with, and lifts the lock. It has to be *this* device's account: any
-Kindred account opening any phone would be no lock at all.
+Fellowship account opening any phone would be no lock at all.
 
 If this device was never signed in, there is nobody to ask, and the lock screen says so
-plainly. The only way past is then to clear Kindred's data in your browser settings —
+plainly. The only way past is then to clear Fellowship's data in your browser settings —
 which erases the circle on that device — and restore from a backup. One more reason to
 keep one.
 

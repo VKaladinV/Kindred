@@ -1,5 +1,5 @@
 /* ══════════════════════════════════════════════════════════════════════
-   Kindred — sign-in and device sync.
+   Fellowship — sign-in and device sync.
 
    The app stays local-first: IndexedDB remains the working store and
    everything keeps functioning with no signal. Supabase is what the

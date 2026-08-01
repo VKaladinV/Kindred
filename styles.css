@@ -1,5 +1,5 @@
 /* ══════════════════════════════════════════════════════════════
-   Kindred — soft green and white, pitched at the dandelion's own
+   Fellowship — soft green and white, pitched at the dandelion's own
    hue (~95°, a yellow-green). Green is the app's voice; three
    status inks carry meaning:
    green (well) · gold (soon) · clay (overdue, and only overdue).
@@ -38,6 +38,9 @@
   --wrap: 62rem;
   --rail: 15rem;
   --bar: 4.4rem;
+  /* The calendar's frozen bar. One number, because scroll-margin-top on the
+     month sections has to match its height exactly. */
+  --cal-bar: 3.4rem;
 
   /* How big a face in the circle is. The slider in settings moves the scale;
      everything about a badge — its ring, its marks, its initials — is a
@@ -333,11 +336,22 @@ main { padding-bottom: 1rem; }
 
 .badge-frame {
   position: relative;
-  /* Everything inside a badge measures itself against --frame, so the smaller
-     badges in the nudge strip only have to override this one number. */
-  --frame: var(--badge);
-  width: 100%; max-width: var(--frame);
+  /* Everything inside a badge measures itself against --frame, so sizing a
+     face by how overdue it is only has to move this one number. --scale is
+     set per badge in app.js: a third for someone with no check-in rhythm,
+     half on the day you saw them, growing to one as the check-in falls due. */
+  /* --face is the square a badge is given; --frame is how much of it the
+     circle actually draws. Keeping them apart is what lets the sizes vary
+     without the layout moving: the space a smaller face does not use is
+     taken as margin above it, so every face rests on one line and the names
+     underneath stay level. Both are the same length, so they cancel exactly
+     — which a max-width could not promise, since it caps the drawn width
+     without the margin knowing it did. */
+  --face: min(var(--badge), 100%);
+  --frame: calc(var(--face) * var(--scale, 1));
+  width: var(--frame);
   aspect-ratio: 1;
+  margin-top: calc(var(--face) - var(--frame));
   padding: 0; border: 0; background: none;
   border-radius: 50%;
   cursor: pointer;
@@ -368,19 +382,23 @@ main { padding-bottom: 1rem; }
 }
 .badge-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .badge-photo .initials {
-  font-family: var(--display); font-size: calc(var(--frame) * .23); font-weight: 400;
+  font-family: var(--display); font-size: max(.7rem, calc(var(--frame) * .23)); font-weight: 400;
   font-variation-settings: "SOFT" 40, "WONK" 1, "opsz" 40;
   color: var(--ink-faint); letter-spacing: .02em;
 }
 
+/* The marks and the disc are proportions of the frame, which held while every
+   face was one size. A third-size face makes that proportion a four-pixel
+   glyph, so all three are floored: they read proportionally larger on the
+   smallest faces, which is the trade for their still being readable there. */
 .badge-flag, .badge-season {
   position: absolute;
-  width: 21%; height: 21%;
+  width: max(1.15rem, 21%); height: max(1.15rem, 21%);
   border-radius: 50%;
   background: var(--paper-raise);
   border: 1px solid var(--rule);
   display: grid; place-items: center;
-  font-size: calc(var(--frame) * .105); line-height: 1;
+  font-size: clamp(.56rem, calc(var(--frame) * .105), .78rem); line-height: 1;
   box-shadow: var(--shadow-lift);
   z-index: 2;
 }
@@ -395,14 +413,14 @@ main { padding-bottom: 1rem; }
 .badge-since {
   position: absolute;
   bottom: -5%; left: 50%; transform: translateX(-50%);
-  min-width: 25%; height: 19%;
-  padding: 0 4%;
+  min-width: max(1.55rem, 25%); height: max(.92rem, 19%);
+  padding: 0 .25rem;
   border-radius: 999px;
   background: #14160f;
   border: 1px solid color-mix(in oklab, #fdfdfa 34%, transparent);
   color: #f4f5ee;
   display: grid; place-items: center;
-  font-size: calc(var(--frame) * .1); font-weight: 700;
+  font-size: clamp(.55rem, calc(var(--frame) * .1), .8rem); font-weight: 700;
   letter-spacing: .02em; line-height: 1;
   font-variant-numeric: tabular-nums;
   box-shadow: 0 2px 7px -2px rgba(10,14,8,.55);
@@ -454,7 +472,11 @@ main { padding-bottom: 1rem; }
     width: var(--hex-cell, var(--badge));
     min-height: calc(var(--hex-cell, var(--badge)) + 2.4rem);
   }
-  .hex-row .badge-frame { --frame: var(--hex-cell, var(--badge)); }
+  /* The slot stays one size or the rows stop nesting; only the face inside it
+     shrinks. That is what keeps the honeycomb packing while the sizes vary —
+     and the margin puts every face's bottom on the same line, so a row of
+     mixed sizes still stacks to one height. */
+  .hex-row .badge-frame { --face: var(--hex-cell, var(--badge)); }
   .hex-row .badge-name,
   .hex-row .badge-meta { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 }
@@ -638,13 +660,6 @@ button.thumb:focus-visible { outline: 2px solid var(--green); outline-offset: 2p
 .today-row > .tick { opacity: .55; }
 .today-row:hover > .tick { opacity: 1; }
 
-.verse {
-  font-family: var(--display); font-style: italic;
-  font-variation-settings: "SOFT" 50, "WONK" 1, "opsz" 24;
-  font-size: 1.15rem; line-height: 1.5; color: var(--ink-soft);
-  border-left: 2px solid var(--sage);
-  padding: .2rem 0 .2rem 1.2rem; margin: 0 0 2.6rem;
-}
 .all-clear {
   text-align: center; padding: 2.5rem 1rem;
   font-family: var(--display); font-style: italic; font-size: 1.2rem; color: var(--ink-soft);
@@ -656,9 +671,50 @@ button.thumb:focus-visible { outline: 2px solid var(--green); outline-offset: 2p
    is visible: which week is crowded, how far off the next thing is.
    A cell is a square whatever the screen, so the grid stays a grid. */
 
-.cal-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+/* The bar freezes to the top and names whichever month you have scrolled to.
+   Every month is already on the page, so its arrows scroll rather than redraw
+   — and scroll-margin-top below is what stops the bar landing on the heading
+   it has just travelled to. */
+.cal-head {
+  position: sticky; top: 0; z-index: 90;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: .8rem; flex-wrap: nowrap;
+  height: var(--cal-bar);
+  margin-bottom: 1.6rem;
+  background: color-mix(in oklab, var(--paper) 88%, transparent);
+  backdrop-filter: blur(12px) saturate(1.3);
+  border-bottom: 1px solid var(--rule);
+}
+/* One line, one height. A frozen bar that grew when the month name got longer
+   would move the document under the very scroll position it is reacting to —
+   the same argument the frozen title above it settles the same way. And the
+   height is a variable because scroll-margin-top below has to match it, or
+   stepping to a month lands the bar on the heading it just travelled to. */
+.cal-head .section-title {
+  margin: 0; min-width: 0;
+  font-size: clamp(1.05rem, 4.4vw, 1.5rem);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 .cal-nav { display: flex; gap: .35rem; flex: 0 0 auto; }
 .cal-nav .btn { min-width: 2.2rem; }
+.cal-nav .btn:disabled { opacity: .32; cursor: default; }
+
+/* On a phone the frozen title is fixed to the same spot, so it stands down
+   while the calendar is showing rather than the two sitting on each other. */
+body.on-calendar .topbar { display: none; }
+
+/* Room past the last month, so every month — including July — can be brought
+   to the top. Without it the final section can never reach the bar, and the
+   bar goes on naming the month before it. */
+#calendar-body { padding-bottom: 60vh; }
+
+.cal-month { scroll-margin-top: calc(var(--cal-bar) + .4rem); }
+.cal-month + .cal-month { margin-top: 3rem; padding-top: 2.2rem; border-top: 1px solid var(--rule); }
+.cal-month-name {
+  font-family: var(--display); font-weight: 500; font-size: 1.3rem;
+  font-variation-settings: "SOFT" 34, "WONK" 1, "opsz" 30;
+  margin: 0 0 1.1rem;
+}
 
 .cal-grid {
   display: grid; grid-template-columns: repeat(7, 1fr);
@@ -685,9 +741,6 @@ button.thumb:focus-visible { outline: 2px solid var(--green); outline-offset: 2p
   transition: border-color .2s var(--ease), background .2s var(--ease), transform .2s var(--ease);
 }
 .cal-day:hover { border-color: var(--green); transform: translateY(-1px); }
-/* The travelling number needs longer than a hover lift. It is the only thing
-   in this block that moves, and it moves the width of the month. */
-.cal-grid.is-flipping .cal-day { transition: transform .34s var(--ease); }
 .cal-day:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
 /* A day with nothing on it is still a day — quieter, not missing. */
 .cal-day.is-empty { background: none; border-color: var(--rule-soft); color: var(--ink-faint); }
@@ -712,26 +765,8 @@ button.thumb:focus-visible { outline: 2px solid var(--green); outline-offset: 2p
    in the list underneath. */
 .cal-day.is-picked .cal-dot { background: currentColor; }
 
-/* ── a day open on a phone ──────────────────────────────────────
-   The rest of the month leaves, so the grid collapses from six rows to one and
-   the details come up to meet it. The open day is then the only child left, and
-   ordinary auto-placement puts it in the corner — nothing has to be told where
-   to go, which is why there is no placement arithmetic here or in app.js.
-
-   They go rather than fade because fading needs them kept in the layout, and
-   anything still occupying a square holds the grid open at six rows — the very
-   thing being cleared. On the way back they do fade in: the grid is rebuilt from
-   nothing on every render, and while a freshly inserted element has no previous
-   state for a *transition* to run from, an animation plays on first paint. That
-   is the whole reason this is a keyframe and the travelling number is not. */
-
-@keyframes cal-back { from { opacity: 0; } }
-
-.cal-grid.is-zoomed > *:not(.is-picked) { display: none; }
-.cal-grid.is-flipping:not(.is-zoomed) > * { animation: cal-back .34s var(--ease); }
-
-/* The details arrive with the number rather than being there before it —
-   the same rise the views themselves come in on. */
+/* Narrowing a month to one day changes only the list under that month's grid,
+   so it arrives on the same rise the views themselves come in on. */
 .cal-enter { animation: rise .38s var(--ease) both; }
 
 @media (max-width: 460px) {

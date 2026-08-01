@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Kindred — people I hold close</title>
+<title>Fellowship — people I hold close</title>
 <meta name="description" content="A quiet place to remember the people you care about: check-ins, life events, and a prayer list.">
 <meta name="theme-color" content="#fcfdfb" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#141712" media="(prefers-color-scheme: dark)">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Kindred">
+<meta name="apple-mobile-web-app-title" content="Fellowship">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-32.png" sizes="32x32" type="image/png">
 <link rel="icon" href="icon-192.png" sizes="192x192" type="image/png">
@@ -64,14 +64,14 @@
 <!-- Takes the title's place on a phone once it has scrolled away. Hidden from
      screen readers: the real heading is still in the page, just further up. -->
 <div class="topbar" id="topbar" aria-hidden="true">
-  <div class="topbar-inner">Kindred</div>
+  <div class="topbar-inner">Fellowship</div>
 </div>
 
 <div class="shell">
 
 <header class="masthead">
   <p class="eyebrow">kept close</p>
-  <h1>Kindred</h1>
+  <h1>Fellowship</h1>
   <p class="tagline" id="tagline">the people I hold, and how they are</p>
 </header>
 
@@ -138,12 +138,11 @@
   </section>
 
   <!-- ─────────── CALENDAR ─────────── -->
+  <!-- A year end to end. The bar freezes to the top of the screen and still
+       steps month to month — it just scrolls there rather than redrawing. -->
   <section class="view" id="view-calendar" aria-label="Calendar" hidden>
-    <div class="section-head cal-head">
-      <div>
-        <h2 class="section-title" id="cal-month">—</h2>
-        <p class="section-sub">Birthdays and every date you have noted.</p>
-      </div>
+    <div class="cal-head">
+      <h2 class="section-title" id="cal-month">—</h2>
       <div class="cal-nav">
         <button type="button" class="btn btn-quiet btn-tiny" id="cal-prev" aria-label="The month before">‹</button>
         <button type="button" class="btn btn-quiet btn-tiny" id="cal-today">Today</button>
@@ -532,10 +531,10 @@
      half-typed. Its cancel event is refused in app.js, which is what stops
      Escape and the phone's back button dismissing it. It carries no .dlg
      class on purpose: that is what the back button watches. -->
-<dialog class="lock" id="lock" aria-label="Kindred is locked">
+<dialog class="lock" id="lock" aria-label="Fellowship is locked">
   <div class="lock-card" id="lock-card">
     <img class="lock-mark" src="logo-mark.png" alt="" width="256" height="256">
-    <h2>Kindred</h2>
+    <h2>Fellowship</h2>
     <p class="lock-sub">Your circle is behind your PIN.</p>
 
     <form id="form-lock">
@@ -568,9 +567,9 @@
         <button type="submit" class="btn btn-quiet">Sign in and unlock</button>
       </form>
       <p class="hint" id="lock-forgot-none" hidden>
-        This device has never been signed in, and everything in Kindred is here
+        This device has never been signed in, and everything in Fellowship is here
         and nowhere else — so there is nobody to ask. The only way past is to
-        clear Kindred’s data in your browser settings, which erases your circle,
+        clear Fellowship’s data in your browser settings, which erases your circle,
         and then restore it from a backup.
       </p>
     </div>
