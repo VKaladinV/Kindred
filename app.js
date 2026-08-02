@@ -1482,10 +1482,6 @@ function renderFuture() {
    The pill is both the saying and the record of it. Until you have linked
    with anybody it is a promise about a future audience rather than a live
    broadcast, and it says so. */
-const sharedCount = p => !p?.isSelf ? 0
-  : p.prayers.filter(x => x.shared && !x.answeredAt && !x.releasedAt).length
-  + p.events.filter(x => x.shared).length;
-
 function toggleShared(personId, kind, recId) {
   const per = byId(personId);
   if (!per || !per.isSelf) return;
@@ -2309,18 +2305,9 @@ function renderSheet() {
   /* ── check-in bar ──
      Not for yourself: there is no rhythm to be behind on with the person
      holding the phone, and every part of this bar — the days since, the
-     cadence, the beads, the button — is about somebody else. What stands
-     here instead says who can see this page. */
-  if (p.isSelf) {
-    const mine = el('div', 'touch-bar is-mine');
-    const st = el('div', 'touch-status');
-    st.append(el('span', 'big', 'This is your page'));
-    st.append(el('span', 'sub', sharedCount(p)
-      ? `${plural(sharedCount(p), 'thing', 'things')} marked to share`
-      : 'Nothing here is shared yet'));
-    mine.append(st);
-    root.append(mine);
-  } else if (p.isFuture) {
+     cadence, the beads, the button — is about somebody else. Your own page
+     shows none of it. */
+  if (p.isFuture) {
     const box = el('div', 'touch-bar is-mine');
     const st = el('div', 'touch-status');
     st.append(el('span', 'big', 'Not in your circle yet'));
@@ -2331,7 +2318,7 @@ function renderSheet() {
     promote.onclick = () => promoteToCircle(p.id);
     box.append(promote);
     root.append(box);
-  } else {
+  } else if (!p.isSelf) {
 
   const bar = el('div', 'touch-bar');
   const st = el('div', 'touch-status');
@@ -2378,17 +2365,25 @@ function renderSheet() {
   }   /* end of the not-yourself branch */
 
   /* ── medical: only for the people you are carrying that way ──
-     Yours is always here rather than waiting on a group, because the group
-     is how you sort other people and says nothing about yourself. */
-  if (isMedical(p) || p.isSelf) {
+     Never on your own page — a medication list is not part of your story the
+     way it's part of theirs, and self never carries the group this checks. */
+  if (isMedical(p)) {
     root.append(healthBlock(p, 'medications'), healthBlock(p, 'conditions'));
   }
+
+  /* ── right now, coming up, history, summary and prayers ──
+     Built here, laid out below. Your own page reads as your story first and
+     who can see it second — history, how you are, what's on now, what's
+     ahead, then the prayer list. Everyone else's leads with who they are,
+     since that's usually why the page was opened, in the order it always
+     read in: who they are, history, right now, coming up, prayers. */
+  let snBlock, upBlock, evBlock;
 
   /* ── right now: seasons ──
      Not for a future connection — seasons, coming up and history all model
      an ongoing story with them that starts once they're in the circle. */
   if (!p.isFuture) {
-  const snBlock = el('div', 'sheet-block');
+  snBlock = el('div', 'sheet-block');
   snBlock.append(blockHead('Right now', '+ start a season', () => eventDialog(p.id, null, 'season')));
   if (seasons.length) {
     seasons.sort((a, b) => (a.date < b.date ? 1 : -1)).forEach(sn => {
@@ -2412,7 +2407,6 @@ function renderSheet() {
       ? 'Nothing you have named — grief, treatment, a new baby, a hard stretch at work.'
       : 'Not in any season you have noted — grief, treatment, a new baby, a hard stretch at work.'));
   }
-  root.append(snBlock);
   }
 
   /* ── summary ── */
@@ -2441,7 +2435,6 @@ function renderSheet() {
     flashTimer = setTimeout(() => flash.classList.remove('show'), 1400);
   };
   sumBlock.append(ta);
-  root.append(sumBlock);
 
   /* ── prayers ── */
   const prBlock = el('div', 'sheet-block');
@@ -2484,11 +2477,10 @@ function renderSheet() {
   };
   archive(answeredPrayers(p), 'answeredAt', 'answered', 'answered');
   archive(releasedPrayers(p), 'releasedAt', 'released', 'let go');
-  root.append(prBlock);
 
   /* ── coming up ── */
   if (!p.isFuture) {
-  const upBlock = el('div', 'sheet-block');
+  upBlock = el('div', 'sheet-block');
   upBlock.append(blockHead('Coming up', '+ add a date', () => eventDialog(p.id, null, 'upcoming')));
   const ups = upcomingOf(p);
   if (ups.length) {
@@ -2532,12 +2524,11 @@ function renderSheet() {
   } else {
     upBlock.append(el('p', 'quiet-note', 'Nothing on the calendar — appointments, a surgery date, an anniversary.'));
   }
-  root.append(upBlock);
   }
 
   /* ── history ── */
   if (!p.isFuture) {
-  const evBlock = el('div', 'sheet-block');
+  evBlock = el('div', 'sheet-block');
   evBlock.append(blockHead('History', '+ add to history', () => eventDialog(p.id, null, 'history')));
 
   const hist = historyOf(p);
@@ -2569,8 +2560,12 @@ function renderSheet() {
   } else {
     evBlock.append(el('p', 'quiet-note', 'Nothing recorded yet — births, diagnoses, new jobs, moves, losses, wins.'));
   }
-  root.append(evBlock);
   }
+
+  const order = p.isSelf
+    ? [evBlock, sumBlock, snBlock, upBlock, prBlock]
+    : [sumBlock, evBlock, snBlock, upBlock, prBlock];
+  root.append(...order.filter(Boolean));
 }
 
 /* ─────────────────────────── mutations ─────────────────────── */
