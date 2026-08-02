@@ -45,6 +45,17 @@ create index if not exists invites_mine on public.invites (created_by, created_a
 alter table public.invites add column if not exists from_tel    text not null default '';
 alter table public.invites add column if not exists claimed_tel text not null default '';
 
+-- What the sender already had written down about the person they are
+-- inviting — name, number, birthday, occupation — carried along so the
+-- person on the other end is not asked to retype what somebody who knows
+-- them already typed. Never readable by the receiver directly (see
+-- invites_own below); it only ever reaches them through claim_invite(),
+-- and only once, at the moment they claim it.
+alter table public.invites add column if not exists invitee_name       text not null default '';
+alter table public.invites add column if not exists invitee_contact    text not null default '';
+alter table public.invites add column if not exists invitee_birthday   date;
+alter table public.invites add column if not exists invitee_occupation text not null default '';
+
 -- ── who is linked to whom ────────────────────────────────────────────
 -- One row per pair, in a fixed order, so a pair cannot exist twice and
 -- cannot be linked in one direction only. Both sides consented: one made
@@ -161,13 +172,50 @@ begin
 
   -- The sender's own number rides back with the claim, the same way their
   -- name already did — so the device accepting this link can match it
-  -- against whoever it already has that number saved for.
-  return jsonb_build_object('other', inv.created_by, 'name', inv.from_name, 'tel', inv.from_tel);
+  -- against whoever it already has that number saved for. The invitee_*
+  -- fields ride back too, but only here, only once, and only to the one
+  -- account that just proved it was sent this link — never through a
+  -- select policy, because there isn't one.
+  return jsonb_build_object(
+    'id', inv.id, 'other', inv.created_by, 'name', inv.from_name, 'tel', inv.from_tel,
+    'invitee_name', inv.invitee_name, 'invitee_contact', inv.invitee_contact,
+    'invitee_birthday', inv.invitee_birthday, 'invitee_occupation', inv.invitee_occupation
+  );
 end;
 $$;
 
 revoke all on function public.claim_invite(text, text, text) from public;
 grant execute on function public.claim_invite(text, text, text) to authenticated;
+
+-- Enough to ask "does this person want to join?" before they have signed
+-- in to anything — which is the one moment claim_invite() cannot serve,
+-- since it requires auth.uid(). Deliberately the thinnest possible slice:
+-- just the two names, so the link can be greeted by who sent it and who
+-- it is for, without handing a number, a birthday or an occupation to
+-- whoever merely holds the link before they have proven anything by
+-- claiming it. Same lookup rules as claim_invite() — hashed, unclaimed,
+-- unrevoked, unexpired — so this cannot be used to probe a token either.
+create or replace function public.preview_invite(token text)
+returns jsonb
+language sql
+stable
+security definer
+set search_path = public, pg_temp
+as $$
+  select coalesce(
+    (select jsonb_build_object('from_name', i.from_name, 'invitee_name', i.invitee_name)
+       from public.invites i
+      where i.token_hash = encode(sha256(token::bytea), 'hex')
+        and i.claimed_by is null
+        and i.revoked_at is null
+        and i.expires_at > now()),
+    '{}'::jsonb
+  );
+$$;
+
+revoke all on function public.preview_invite(text) from public;
+-- Anon too: this runs before sign-in, which is the whole point of it.
+grant execute on function public.preview_invite(text) to anon, authenticated;
 
 -- ══════════════════════════════════════════════════════════════════════
 --  What you publish.  One row per account, replaced whole — there is one
@@ -237,6 +285,76 @@ create policy profiles_change on public.profiles
 create policy profiles_drop on public.profiles
   for delete to authenticated
   using (user_id = (select auth.uid()));
+
+-- ══════════════════════════════════════════════════════════════════════
+--  Photo for an invitation not yet claimed.
+--  Path convention: invites/<invite_id>.jpg — a second folder inside the
+--  same `photos` bucket schema.sql already created, so nothing about the
+--  per-user own_photos_* policies has to change to make room for this.
+--  The sender can always read and replace their own; the receiver gains
+--  read access only once claim_invite() has stamped claimed_by against
+--  the one invitation they claimed — never a bucket-wide grant.
+-- ══════════════════════════════════════════════════════════════════════
+
+do $$
+declare c text;
+begin
+  foreach c in array array['select', 'insert', 'update', 'delete'] loop
+    execute format('drop policy if exists invite_photos_%s on storage.objects', c);
+  end loop;
+end $$;
+
+create policy invite_photos_select on storage.objects
+  for select to authenticated
+  using (
+    bucket_id = 'photos' and (storage.foldername(name))[1] = 'invites'
+    and exists (
+      select 1 from public.invites i
+       where i.id = (regexp_replace(storage.filename(name), '\.jpg$', ''))::uuid
+         and (i.created_by = auth.uid() or i.claimed_by = auth.uid())
+    )
+  );
+
+create policy invite_photos_insert on storage.objects
+  for insert to authenticated
+  with check (
+    bucket_id = 'photos' and (storage.foldername(name))[1] = 'invites'
+    and exists (
+      select 1 from public.invites i
+       where i.id = (regexp_replace(storage.filename(name), '\.jpg$', ''))::uuid
+         and i.created_by = auth.uid()
+    )
+  );
+
+create policy invite_photos_update on storage.objects
+  for update to authenticated
+  using (
+    bucket_id = 'photos' and (storage.foldername(name))[1] = 'invites'
+    and exists (
+      select 1 from public.invites i
+       where i.id = (regexp_replace(storage.filename(name), '\.jpg$', ''))::uuid
+         and i.created_by = auth.uid()
+    )
+  )
+  with check (
+    bucket_id = 'photos' and (storage.foldername(name))[1] = 'invites'
+    and exists (
+      select 1 from public.invites i
+       where i.id = (regexp_replace(storage.filename(name), '\.jpg$', ''))::uuid
+         and i.created_by = auth.uid()
+    )
+  );
+
+create policy invite_photos_delete on storage.objects
+  for delete to authenticated
+  using (
+    bucket_id = 'photos' and (storage.foldername(name))[1] = 'invites'
+    and exists (
+      select 1 from public.invites i
+       where i.id = (regexp_replace(storage.filename(name), '\.jpg$', ''))::uuid
+         and i.created_by = auth.uid()
+    )
+  );
 
 -- ── done ─────────────────────────────────────────────────────────────
 select 'Fellowship linking ready' as status;

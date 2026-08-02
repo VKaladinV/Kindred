@@ -127,14 +127,50 @@ async function signUp(email, password) {
 }
 
 /* Without this, a forgotten password is an account nobody can get back into —
-   which was survivable while the only user was the person who built it. */
+   which was survivable while the only user was the person who built it.
+
+   redirect_to rides along the same way a join link's own origin does: the
+   email brings them back to wherever this was sent from — this deploy, a
+   preview, a phone testing against localhost — rather than one fixed
+   address baked into the Supabase project's dashboard settings. Supabase
+   still has to be told each address is allowed to be redirected to (see
+   Authentication → URL Configuration), this only chooses which allowed one
+   is used. */
 async function recover(email) {
-  const r = await fetch(`${API}/auth/v1/recover`, {
+  const redirect = encodeURIComponent(`${location.origin}${location.pathname}`);
+  const r = await fetch(`${API}/auth/v1/recover?redirect_to=${redirect}`, {
     method: 'POST',
     headers: { apikey: ANON, 'Content-Type': 'application/json' },
     body: JSON.stringify({ email }),
   });
   if (!r.ok) throw new Error(authWords(await r.json().catch(() => ({})), 'Could not send that'));
+  return true;
+}
+
+/* The other end of recover(): the email's link redirects here carrying a
+   short-lived access token in the fragment rather than the query string,
+   GoTrue's own choice this time, not this app's — and it is taken out of
+   the address bar the same way an invitation's token is, since a token is
+   not something to leave sitting in browser history. It proves who they
+   are on its own; nothing here asks for the password being replaced. */
+async function takeRecoveryFragment() {
+  const params = new URLSearchParams(location.hash.slice(1));
+  const accessToken = params.get('access_token');
+  if (params.get('type') !== 'recovery' || !accessToken) return false;
+  try { history.replaceState(history.state, '', location.pathname + location.search); } catch {}
+
+  try {
+    const r = await fetch(`${API}/auth/v1/user`, {
+      headers: { apikey: ANON, Authorization: `Bearer ${accessToken}` },
+    });
+    if (!r.ok) return false;   // link expired, already used, or malformed
+    setSession({
+      access_token: accessToken,
+      refresh_token: params.get('refresh_token') || '',
+      expires_in: Number(params.get('expires_in')) || 3600,
+      user: await r.json(),
+    });
+  } catch { return false; }    // offline, most likely — the email link still works if opened again
   return true;
 }
 
@@ -240,7 +276,11 @@ async function hashToken(token) {
    sent to a server at all and is stripped from the Request the worker sees. */
 const joinUrl = token => `${location.origin}${location.pathname}#join=${token}`;
 
-async function createInvite(fromName, fromTel) {
+/* `invitee` is what the sender already had written down about the person
+   they're inviting — name, number, birthday, occupation — so it can ride
+   along and save the other end from retyping it. Optional throughout:
+   an invite with none of this works exactly as it always has. */
+async function createInvite(fromName, fromTel, invitee = {}) {
   const token = newToken();
   const r = await api(rest('invites'), {
     method: 'POST',
@@ -250,6 +290,10 @@ async function createInvite(fromName, fromTel) {
       from_name: fromName || '',
       from_tel: fromTel || '',
       token_hash: await hashToken(token),
+      invitee_name: invitee.name || '',
+      invitee_contact: invitee.contact || '',
+      invitee_birthday: invitee.birthday || null,
+      invitee_occupation: invitee.occupation || '',
     }]),
   });
   if (!r.ok) throw new Error(linkWords(await r.text()));
@@ -266,6 +310,46 @@ async function claimInvite(token, myName, myTel) {
   const text = await r.text();
   if (!r.ok) throw new Error(linkWords(text));
   return JSON.parse(text);
+}
+
+/* Who sent it and who it's for — asked before signing in, which is the one
+   moment claimInvite can't help with (it needs a session). Unauthenticated
+   on purpose: its own fetch, not the api() wrapper, and the anon key rather
+   than a bearer token. Best-effort by every caller — a name to greet
+   somebody with is a nicety, never something worth failing the join over. */
+async function previewInvite(token) {
+  const r = await fetch(`${API}/rest/v1/rpc/preview_invite`, {
+    method: 'POST',
+    headers: { apikey: ANON, Authorization: `Bearer ${ANON}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token }),
+  });
+  if (!r.ok) return null;
+  const body = await r.json();
+  return body && Object.keys(body).length ? body : null;
+}
+
+const invitePhotoPath = id => `invites/${id}.jpg`;
+
+async function uploadInvitePhoto(inviteId, dataUrl) {
+  const blob = await (await fetch(dataUrl)).blob();
+  const r = await api(`/storage/v1/object/${BUCKET}/${invitePhotoPath(inviteId)}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'image/jpeg', 'x-upsert': 'true' },
+    body: blob,
+  });
+  return r.ok;
+}
+
+async function downloadInvitePhoto(inviteId) {
+  const r = await api(`/storage/v1/object/${BUCKET}/${invitePhotoPath(inviteId)}`);
+  if (!r.ok) return null;
+  const blob = await r.blob();
+  return new Promise(res => {
+    const fr = new FileReader();
+    fr.onload = () => res(fr.result);
+    fr.onerror = () => res(null);
+    fr.readAsDataURL(blob);
+  });
 }
 
 /* Everyone you are linked to, as the other person's id. The list is read
@@ -949,6 +1033,10 @@ function wire() {
         paintStatus();
         Kindred.toast('Account made — your circle will sync from here');
         await sync({ manual: true });
+        /* An invitation waiting in storage does not otherwise get resumed
+           until the next reload or unlock — and there was a session made
+           just now, right here, worth not making them wait for. */
+        Kindred.afterAuth?.();
         return;
       }
 
@@ -958,6 +1046,7 @@ function wire() {
       paintStatus();
       Kindred.toast('Signed in — syncing your circle');
       await sync({ manual: true });
+      Kindred.afterAuth?.();
     } catch (ex) {
       err.classList.remove('is-note');
       err.textContent = ex.message;
@@ -968,6 +1057,40 @@ function wire() {
     }
   };
   $('#auth-cancel').onclick = () => $('#dlg-auth').close();
+
+  $('#recover-cancel').onclick = () => $('#dlg-recover').close();
+
+  $('#form-recover').onsubmit = async e => {
+    e.preventDefault();
+    const btn = $('#recover-submit');
+    const err = $('#recover-error');
+    err.textContent = '';
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+    try {
+      /* api() rather than a bare fetch: it already knows how to attach the
+         session takeRecoveryFragment just set, and to refresh it first if
+         the link sat in an inbox long enough to be close to expiring. */
+      const r = await api('/auth/v1/user', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: $('#recover-password').value }),
+      });
+      const body = await r.json();
+      if (!r.ok) throw new Error(authWords(body, 'Could not set that password'));
+      $('#recover-password').value = '';
+      $('#dlg-recover').close();
+      paintStatus();
+      Kindred.toast('Password set — syncing your circle');
+      await sync({ manual: true });
+      Kindred.afterAuth?.();
+    } catch (ex) {
+      err.textContent = ex.message;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Set password';
+    }
+  };
 
   $('#btn-auth').onclick = () => {
     if (Session.signedIn) {
@@ -989,10 +1112,17 @@ function wire() {
   setInterval(paintStatus, 30000);
 }
 
-function boot() {
+async function boot() {
   if (!$('#dlg-auth')) return;
   wire();
   paintStatus();
+  /* Ahead of the sign-in check below: the token this sets counts as one. */
+  if (await takeRecoveryFragment()) {
+    paintStatus();
+    $('#recover-error').textContent = '';
+    $('#dlg-recover').showModal();
+    setTimeout(() => $('#recover-password').focus(), 60);
+  }
   if (Session.signedIn) sync();
 }
 
@@ -1001,7 +1131,8 @@ else boot();
 
 window.KindredSync = {
   sync, signIn, signUp, recover, signOut, Session, status: () => status, openSignIn,
-  createInvite, claimInvite, listLinks, listInvites, revokeInvite, unlink, joinUrl,
+  createInvite, claimInvite, previewInvite, listLinks, listInvites, revokeInvite, unlink, joinUrl,
+  uploadInvitePhoto, downloadInvitePhoto,
   projectSelf, publishMine, pullShared,
   flatten, nest, mergeTable, planPush,   // exported so the rules can be tested
 };

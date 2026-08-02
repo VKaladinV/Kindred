@@ -1232,15 +1232,36 @@ body.on-calendar .topbar { display: none; }
 .link-row .link-btn { color: var(--ink-faint); border-color: transparent; }
 .link-row .link-btn:hover { color: var(--green); border-color: currentColor; }
 
+/* Who the link is for, so the dialog reads as being about somebody rather
+   than about a URL — the same avatar treatment personDialog's photo pick
+   uses (.photo-preview, below), scaled down for a header row. */
+.invite-who { display: flex; gap: .9rem; align-items: center; margin-bottom: .9rem; }
+.invite-avatar {
+  width: 3.2rem; height: 3.2rem; border-radius: 50%; flex: 0 0 auto;
+  background: var(--paper-sunk); border: 1px solid var(--rule);
+  overflow: hidden; display: grid; place-items: center;
+  box-shadow: var(--shadow-lift);
+}
+.invite-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.invite-avatar span { font-family: var(--display); font-size: 1.05rem; color: var(--ink-faint); }
+.invite-who-text { min-width: 0; }
+.invite-who-text .dlg-title { font-size: 1.3rem; margin: 0 0 .2rem; }
+.invite-who-text .dlg-lede { margin: 0; }
+
 /* The link itself, shown rather than hidden behind a button: it is the
-   thing being sent, and seeing it is how you know what you are sending. */
+   thing being sent, and seeing it is how you know what you are sending.
+   Sized and framed as the one thing on this dialog worth pausing on,
+   rather than a line of fine print — a raised card with the accent colour
+   down the side, not a sunken caption. */
 .invite-link {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: .72rem; line-height: 1.5;
+  font-size: .86rem; line-height: 1.6; letter-spacing: -.01em;
   word-break: break-all;
-  padding: .7rem .85rem; margin-bottom: .9rem;
-  border: 1px solid var(--rule); border-radius: 10px;
-  background: var(--paper-sunk); color: var(--ink-soft);
+  padding: .85rem 1rem; margin-bottom: .9rem;
+  border: 1px solid var(--rule); border-left: 3px solid var(--green);
+  border-radius: 10px;
+  background: var(--paper-raise); color: var(--ink);
+  box-shadow: var(--shadow-lift);
   min-height: 2.6rem;
 }
 

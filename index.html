@@ -430,12 +430,18 @@
      dialog.dlg once at boot, so a dialog made later never gets the Android
      back button. -->
 <dialog class="dlg" id="dlg-invite">
-  <h2 class="dlg-title" id="invite-title">Invite someone</h2>
-  <p class="dlg-lede" id="invite-lede">Send them this link. When they open it, the two of you are linked, and each of you decides separately what the other gets to see.</p>
+  <div class="invite-who">
+    <div class="invite-avatar" id="invite-avatar"><span>?</span></div>
+    <div class="invite-who-text">
+      <h2 class="dlg-title" id="invite-title">Invite someone</h2>
+      <p class="dlg-lede" id="invite-lede">Send them this link. When they open it, the two of you are linked, and each of you decides separately what the other gets to see.</p>
+    </div>
+  </div>
 
   <div class="invite-link" id="invite-link" aria-live="polite"></div>
 
   <p class="hint">Anyone who opens this link can accept it, so send it to one person. It stops working in seven days, or as soon as it is taken up.</p>
+  <p class="hint">Whatever you've noted for them here — number, birthday, occupation, photo — goes with it, so opening it can start their own profile already filled in.</p>
   <p class="auth-error" id="invite-error" role="alert"></p>
 
   <div class="dlg-actions">
@@ -681,6 +687,29 @@
       <span class="spacer"></span>
       <button type="button" class="btn btn-quiet" id="auth-cancel">Cancel</button>
       <button type="submit" class="btn btn-primary" id="auth-submit">Sign in</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- ─────────── SETTING A NEW PASSWORD ───────────
+     Arrived at from the email "Forgotten it?" sends, never opened directly —
+     the link itself is what proves this is really them. -->
+<dialog class="dlg" id="dlg-recover">
+  <form id="form-recover" method="dialog">
+    <h2 class="dlg-title">Choose a new password</h2>
+    <p class="dlg-lede">The link in your email brought you back in — set a new password to finish.</p>
+
+    <label class="field">
+      <span>New password</span>
+      <input type="password" id="recover-password" autocomplete="new-password" required minlength="6">
+    </label>
+
+    <p class="auth-error" id="recover-error" role="alert"></p>
+
+    <div class="dlg-actions">
+      <span class="spacer"></span>
+      <button type="button" class="btn btn-quiet" id="recover-cancel">Not now</button>
+      <button type="submit" class="btn btn-primary" id="recover-submit">Set password</button>
     </div>
   </form>
 </dialog>

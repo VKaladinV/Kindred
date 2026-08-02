@@ -2749,6 +2749,7 @@ async function inviteDialog(personId) {
 
   invitingPersonId = personId;
   $('#invite-title').textContent = `Invite ${p.name.split(' ')[0]}`;
+  paintInviteWho(p);
   $('#invite-error').textContent = '';
   $('#invite-link').textContent = 'Making a link…';
   $('#btn-invite-wa').disabled = true;
@@ -2756,12 +2757,20 @@ async function inviteDialog(personId) {
   $('#dlg-invite').showModal();
 
   try {
-    const { id, url } = await api.createInvite(me?.name || '', me?.contact || '');
+    /* Whatever is already written down about them rides along — name,
+       number, birthday, occupation — so accepting this does not mean
+       retyping what one of you already knows. It reaches the other side
+       only once, at the moment they claim it (see claim_invite in
+       share.sql), and only ever to start their own profile with. */
+    const { id, url } = await api.createInvite(me?.name || '', me?.contact || '', {
+      name: p.name, contact: p.contact, birthday: p.birthday, occupation: p.occupation,
+    });
     /* Who this was meant for, kept here rather than sent. The server has no
        business knowing which of your people an invitation was for, and it
        does not need to: the only thing that ever asks is this device, when
        the invitation comes back claimed. */
     rememberInviteFor(id, personId);
+    if (photos[p.id]) api.uploadInvitePhoto(id, photos[p.id]).catch(() => {});   // best-effort
     $('#invite-link').textContent = url;
     $('#invite-link').dataset.url = url;
     $('#btn-invite-copy').disabled = false;
@@ -2774,6 +2783,22 @@ async function inviteDialog(personId) {
     $('#invite-link').textContent = '';
     $('#invite-error').textContent = e.message;
     $('#btn-invite-wa').hidden = true;
+  }
+}
+
+/* The face this link is for, so the dialog reads as being about somebody
+   rather than about a URL. */
+function paintInviteWho(p) {
+  const box = $('#invite-avatar');
+  if (!box) return;
+  box.textContent = '';
+  if (photos[p.id]) {
+    const img = el('img');
+    img.src = photos[p.id];
+    img.alt = '';
+    box.append(img);
+  } else {
+    box.append(el('span', null, initialsOf(p.name)));
   }
 }
 
@@ -2811,6 +2836,16 @@ function offerPendingJoin() {
     $('#btn-join-no').textContent = 'Not now';
     joining = { token, needsAccount: true };
     $('#dlg-join').showModal();
+    /* Upgraded with names once this answers — shown straight away rather
+       than waited for, since offline or slow is not worth holding the ask
+       back over, and a generic ask is still a true one. */
+    api.previewInvite(token).then(info => {
+      if (!info || joining?.token !== token) return;
+      const from = (info.from_name || '').split(' ')[0];
+      const who = (info.invitee_name || '').split(' ')[0];
+      if (!from) return;
+      $('#join-title').textContent = who ? `${from} invited ${who} to Fellowship` : `${from} wants to link with you`;
+    }).catch(() => {});
     return;
   }
   claimAndAsk(token);
@@ -2826,11 +2861,16 @@ async function claimAndAsk(token) {
   if (!$('#dlg-join').open) $('#dlg-join').showModal();
 
   try {
-    const { other, name, tel } = await api.claimInvite(token, me?.name || '', me?.contact || '');
+    const claim = await api.claimInvite(token, me?.name || '', me?.contact || '');
     /* Claimed. The link exists from here whatever happens next — saying who
        they are is a separate question, and one you are allowed to defer. */
     clearPendingJoin();
-    joining = { token, other, name: name || '', tel: tel || '' };
+    /* Nobody here yet: this is a brand new account, made from this very
+       link, so there is no circle to ask "which of your people is this?"
+       about — the one honest answer is "none of them yet". Fill both sides
+       in directly instead of putting a one-choice picker in front of them. */
+    if (!me) { await provisionFromInvite(claim); return; }
+    joining = { token, other: claim.other, name: claim.name || '', tel: claim.tel || '' };
     paintJoinPicker();
   } catch (e) {
     clearPendingJoin();
@@ -2839,6 +2879,42 @@ async function claimAndAsk(token) {
     $('#btn-join-yes').hidden = true;
     $('#btn-join-no').textContent = 'Close';
   }
+}
+
+/* First account, first link — nothing here yet for a pick-who-this-is
+   picker to offer, since the circle is empty. Whoever invited you already
+   told the app who you are, so that is put to use once, right here,
+   instead of asked for again: your own profile starts filled with it, and
+   they are already in your circle, linked. Never touches an existing
+   profile — claimAndAsk only reaches this when `me` is still nothing. */
+async function provisionFromInvite(claim) {
+  const api = linkApi();
+
+  me = normalise({
+    isSelf: true,
+    name: claim.invitee_name || 'You',
+    contact: claim.invitee_contact || '',
+    birthday: claim.invitee_birthday || '',
+    occupation: claim.invitee_occupation || '',
+  });
+
+  if (claim.id) {
+    try {
+      const photo = await api?.downloadInvitePhoto(claim.id);
+      if (photo) { photos[me.id] = photo; await Store.savePhoto(me.id, photo); }
+    } catch {}
+  }
+
+  const inviter = normalise({ name: claim.name || 'Someone', contact: claim.tel || '', linkedUid: claim.other });
+  people.push(inviter);
+
+  await saveRoster();
+  notifyMutate();
+  $('#dlg-join').close();
+  joining = null;
+  renderAll();
+  toast(`Linked with ${inviter.name.split(' ')[0]} — that's what they had for you below, fix anything that's off`);
+  openSheet(me.id);
 }
 
 /* Which of your people this account belongs to. The number you already have
@@ -2898,12 +2974,12 @@ async function finishJoin() {
   }
   if (!joining?.other) { $('#dlg-join').close(); return; }
 
-  const { other, name, choice } = joining;
+  const { other, name, tel, choice } = joining;
   if (!choice) { $('#join-error').textContent = 'Say who they are, or come back to it later.'; return; }
 
   let target;
   if (choice === '__new__') {
-    target = normalise({ name: name || 'Someone', linkedUid: other });
+    target = normalise({ name: name || 'Someone', contact: tel || '', linkedUid: other });
     people.push(target);
   } else {
     target = byId(choice);
@@ -4652,6 +4728,12 @@ window.Kindred = {
   ready: readyPromise,
   render: () => renderAll(),
   onMutate: fn => mutateHooks.push(fn),
+  /* Called once, right after a sign-in or sign-up succeeds. An invitation
+     waiting in storage would otherwise sit unclaimed until the next reload
+     or unlock (see offerPendingJoin's other two callers) — signing in is
+     itself the moment it was waiting for, so this is what closes that gap
+     without sync.js needing to know anything about joining. */
+  afterAuth: () => { if (!locked) { offerPendingJoin(); checkClaimedInvites(); } },
 };
 
 boot();
