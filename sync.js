@@ -240,7 +240,7 @@ async function hashToken(token) {
    sent to a server at all and is stripped from the Request the worker sees. */
 const joinUrl = token => `${location.origin}${location.pathname}#join=${token}`;
 
-async function createInvite(fromName) {
+async function createInvite(fromName, fromTel) {
   const token = newToken();
   const r = await api(rest('invites'), {
     method: 'POST',
@@ -248,6 +248,7 @@ async function createInvite(fromName) {
     body: JSON.stringify([{
       created_by: Session.user.id,
       from_name: fromName || '',
+      from_tel: fromTel || '',
       token_hash: await hashToken(token),
     }]),
   });
@@ -256,11 +257,11 @@ async function createInvite(fromName) {
   return { id: row.id, token, url: joinUrl(token) };
 }
 
-async function claimInvite(token, myName) {
+async function claimInvite(token, myName, myTel) {
   const r = await api('/rest/v1/rpc/claim_invite', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ token, my_name: myName || '' }),
+    body: JSON.stringify({ token, my_name: myName || '', my_tel: myTel || '' }),
   });
   const text = await r.text();
   if (!r.ok) throw new Error(linkWords(text));

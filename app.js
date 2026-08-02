@@ -2268,7 +2268,7 @@ function renderSheet() {
   /* Linking, on the page of the person it would be with. Only for somebody
      else, only once there is a sync layer to do it through, and only while
      they are not already linked — after that it says so instead. */
-  if (!p.isSelf && !p.isFuture && linkApi()) {
+  if (!p.isSelf && linkApi()) {
     const row = el('div', 'link-row');
     if (p.linkedUid) {
       row.append(el('span', 'pill pill-linked', '⇄ linked'));
@@ -2748,7 +2748,7 @@ async function inviteDialog(personId) {
   $('#dlg-invite').showModal();
 
   try {
-    const { id, url } = await api.createInvite(me?.name || '');
+    const { id, url } = await api.createInvite(me?.name || '', me?.contact || '');
     /* Who this was meant for, kept here rather than sent. The server has no
        business knowing which of your people an invitation was for, and it
        does not need to: the only thing that ever asks is this device, when
@@ -2782,7 +2782,7 @@ function sendInviteOnWhatsApp() {
 
 /* ── receiving one ───────────────────────────────────────────── */
 
-let joining = null;   // { token, other, name, choice }
+let joining = null;   // { token, other, name, tel, choice }
 
 /* Called once the app is up and the lock is passed — an invitation must not
    be claimable by somebody holding a locked phone. */
@@ -2818,11 +2818,11 @@ async function claimAndAsk(token) {
   if (!$('#dlg-join').open) $('#dlg-join').showModal();
 
   try {
-    const { other, name } = await api.claimInvite(token, me?.name || '');
+    const { other, name, tel } = await api.claimInvite(token, me?.name || '', me?.contact || '');
     /* Claimed. The link exists from here whatever happens next — saying who
        they are is a separate question, and one you are allowed to defer. */
     clearPendingJoin();
-    joining = { token, other, name: name || '' };
+    joining = { token, other, name: name || '', tel: tel || '' };
     paintJoinPicker();
   } catch (e) {
     clearPendingJoin();
@@ -2834,10 +2834,11 @@ async function claimAndAsk(token) {
 }
 
 /* Which of your people this account belongs to. The number you already have
-   for somebody is the hint — compared here, on this device, and never sent
-   anywhere. A name match is only a suggestion and says so. */
+   for somebody is the hint, carried through the claim and compared here, on
+   this device — a confident number match is picked for you; a name match is
+   only a suggestion and says so. */
 function paintJoinPicker() {
-  const { name } = joining;
+  const { name, tel } = joining;
   const first = (name || '').split(' ')[0];
   $('#join-title').textContent = name ? `${name} wants to link with you` : 'Someone wants to link with you';
   $('#btn-join-yes').disabled = false;
@@ -2850,13 +2851,15 @@ function paintJoinPicker() {
   box.append(el('p', 'join-q', `Which of your people is ${first || 'this'}?`));
 
   /* The best guess first. On the sending side that is whoever you actually
-     clicked invite on; on the receiving side there is no number to compare
-     against — the server is not told one — so a matching name is the only
-     hint available, and it is offered as a hint rather than as an answer. */
+     clicked invite on; on the receiving side it's whichever of your people —
+     circle or future connection — already carries this number. Only that
+     number match is confident enough to pick for you; a name is offered as
+     a hint rather than an answer, same as before. */
   const meant = joining.choice ? byId(joining.choice) : null;
-  const hit = !meant && name ? matchExisting(name, '') : null;
+  const hit = !meant ? matchExisting(name || '', tel || '', [...people, ...futures]) : null;
+  if (hit?.on === 'number') { joining.choice = hit.person.id; joining.matchReason = 'number'; }
   const best = meant || hit?.person || null;
-  const already = people.filter(p => !p.linkedUid);
+  const already = [...people, ...futures].filter(p => !p.linkedUid);
   const ordered = best ? [best, ...already.filter(p => p.id !== best.id)] : already;
 
   const list = el('div', 'join-pick');
@@ -2865,9 +2868,10 @@ function paintJoinPicker() {
     b.type = 'button';
     b.setAttribute('aria-pressed', String(joining.choice === id));
     b.append(el('span', 'join-opt-name', label));
-    if (meant && id === meant.id) b.append(el('span', 'join-opt-why', 'who you invited'));
-    else if (hit && id === hit.person.id) b.append(el('span', 'join-opt-why', 'same name — probably them'));
-    b.onclick = () => { joining.choice = id; paintJoinPicker(); };
+    if (joining.choice === id && joining.matchReason === 'number') b.append(el('span', 'join-opt-why', 'same number'));
+    else if (meant && id === meant.id) b.append(el('span', 'join-opt-why', 'who you invited'));
+    else if (hit && id === hit.person.id) b.append(el('span', 'join-opt-why', hit.on === 'number' ? 'same number' : 'same name — probably them'));
+    b.onclick = () => { joining.choice = id; joining.matchReason = null; paintJoinPicker(); };
     return b;
   };
 
@@ -3144,14 +3148,14 @@ function dialNumber(contact) {
 const waLink = n => `https://wa.me/${n}`;
 const telLink = n => `tel:+${n}`;
 
-function matchExisting(name, tel) {
+function matchExisting(name, tel, list = people) {
   const key = telKey(tel);
   if (key.length >= 7) {
-    const byTel = people.find(p => telKey(p.contact) === key);
+    const byTel = list.find(p => telKey(p.contact) === key);
     if (byTel) return { person: byTel, on: 'number' };
   }
   const n = name.trim().toLowerCase();
-  const byName = n ? people.find(p => p.name.trim().toLowerCase() === n) : null;
+  const byName = n ? list.find(p => p.name.trim().toLowerCase() === n) : null;
   return byName ? { person: byName, on: 'name' } : null;
 }
 

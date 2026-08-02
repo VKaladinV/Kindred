@@ -36,6 +36,15 @@ create table if not exists public.invites (
 );
 create index if not exists invites_mine on public.invites (created_by, created_at desc);
 
+-- The number on the sender's own profile, and the number the claimer's own
+-- profile carries back — so whoever opens the link can be matched by the
+-- number they already have for the other, not only by a typed name. Neither
+-- is searchable: this table has no receiver-side select policy at all (see
+-- invites_own below), so a number only ever surfaces to the one person who
+-- completes that one link, exactly the way from_name/claimed_name already do.
+alter table public.invites add column if not exists from_tel    text not null default '';
+alter table public.invites add column if not exists claimed_tel text not null default '';
+
 -- ── who is linked to whom ────────────────────────────────────────────
 -- One row per pair, in a fixed order, so a pair cannot exist twice and
 -- cannot be linked in one direction only. Both sides consented: one made
@@ -102,7 +111,12 @@ create policy links_end on public.links
 -- extension and the search_path can stay tight. Do not reach for
 -- pgcrypto's digest(): on Supabase it lives in the `extensions` schema
 -- and would not resolve from here.
-create or replace function public.claim_invite(token text, my_name text default '')
+-- Adding a parameter is a new overload in Postgres, not a true replace —
+-- dropping the old two-arg signature first is what keeps this a single
+-- function rather than two, so a stale copy is never left callable.
+drop function if exists public.claim_invite(text, text);
+
+create or replace function public.claim_invite(token text, my_name text default '', my_tel text default '')
 returns jsonb
 language plpgsql
 volatile
@@ -121,7 +135,8 @@ begin
   -- Finding it, checking it and claiming it are one statement, so two
   -- people opening a forwarded link at the same moment cannot both win.
   update public.invites
-     set claimed_by = me, claimed_at = now(), claimed_name = coalesce(my_name, '')
+     set claimed_by = me, claimed_at = now(), claimed_name = coalesce(my_name, ''),
+         claimed_tel = coalesce(my_tel, '')
    where token_hash  = h
      and claimed_by  is null
      and revoked_at  is null
@@ -144,12 +159,15 @@ begin
   values (least(inv.created_by, me), greatest(inv.created_by, me))
   on conflict (a, b) do nothing;
 
-  return jsonb_build_object('other', inv.created_by, 'name', inv.from_name);
+  -- The sender's own number rides back with the claim, the same way their
+  -- name already did — so the device accepting this link can match it
+  -- against whoever it already has that number saved for.
+  return jsonb_build_object('other', inv.created_by, 'name', inv.from_name, 'tel', inv.from_tel);
 end;
 $$;
 
-revoke all on function public.claim_invite(text, text) from public;
-grant execute on function public.claim_invite(text, text) to authenticated;
+revoke all on function public.claim_invite(text, text, text) from public;
+grant execute on function public.claim_invite(text, text, text) to authenticated;
 
 -- ══════════════════════════════════════════════════════════════════════
 --  What you publish.  One row per account, replaced whole — there is one
