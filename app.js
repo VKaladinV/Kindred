@@ -434,10 +434,18 @@ let me = null;
 function setRoster(list) {
   const all = list.map(normalise);
   const mine = all.filter(p => p.isSelf);
+  /* Two devices can each have made a profile before they ever met, and once
+     they sync, both carry isSelf. Picking whichever came first in the array
+     meant the answer depended on merge order — different on every load — so
+     the phone and the PC could each decide the other's profile was "you",
+     and a sync would swap which one that was. Sorting by when each was made,
+     with id (also time-ordered) breaking a same-day tie, gives every device
+     the same answer without needing to compare notes first: the older
+     profile is always you, everywhere, from here on. */
+  mine.sort((a, b) => a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : (a.id < b.id ? -1 : 1));
   me = mine[0] || null;
-  /* Two devices can each have made a profile before they ever met. Keep the
-     first and let the rest fall into the circle as ordinary people, rather
-     than dropping somebody on the floor to enforce a rule. */
+  /* The rest fall into the circle as ordinary people, rather than dropping
+     somebody on the floor to enforce a rule. */
   const rest = all.filter(p => !p.isSelf)
     .concat(mine.slice(1).map(p => ({ ...p, isSelf: false })));
   futures = rest.filter(p => p.isFuture);
