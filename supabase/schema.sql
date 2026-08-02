@@ -51,6 +51,17 @@ create table if not exists public.people (
 -- updated yet still reads something sensible, and is no longer written.
 alter table public.people add column if not exists circles text[] not null default '{}';
 
+-- The one person in the table who is you, and which account a card belongs to
+-- once you have linked with them. Both ride the ordinary sync, so your own
+-- profile reaches your other devices exactly the way everyone else does.
+--
+-- Deliberately no unique index on either. A constraint the client can break
+-- turns into a 409 inside the batched upsert, and one 409 fails the whole
+-- sync — so "only one of you" is kept in the app, where getting it wrong
+-- costs a duplicate rather than a device that can never sync again.
+alter table public.people add column if not exists is_self    boolean not null default false;
+alter table public.people add column if not exists linked_uid uuid;
+
 -- ── medications and conditions ───────────────────────────────────────
 -- One table for both, the way records carries three types: the shape is
 -- identical and only the wording around it differs.
@@ -102,6 +113,14 @@ create table if not exists public.prayers (
 -- them was the only way to say so before these existed.
 alter table public.prayers add column if not exists prayed_on date;
 alter table public.prayers add column if not exists released_on date;
+
+-- Whether this is one of the things on your own profile that the people you
+-- have linked with are allowed to see. Only ever true on a row belonging to
+-- your self card, and false unless you said otherwise — marking a thing to
+-- share is a decision made once, per thing, and it travels with the row so
+-- your other devices agree about what you decided.
+alter table public.prayers add column if not exists shared boolean not null default false;
+alter table public.records add column if not exists shared boolean not null default false;
 
 -- ── check-ins ────────────────────────────────────────────────────────
 -- id is derived from person + date on the client, so the same check-in

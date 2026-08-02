@@ -235,7 +235,41 @@ body { padding-left: var(--rail); }
 
 /* ── masthead ───────────────────────────────────────────────── */
 
-.masthead { padding: clamp(2rem, 6vw, 3.4rem) 0 1.8rem; }
+.masthead {
+  padding: clamp(2rem, 6vw, 3.4rem) 0 1.8rem;
+  display: flex; align-items: flex-end; gap: 1rem;
+}
+.masthead-words { min-width: 0; flex: 1 1 auto; }
+
+/* You, in the corner of the title rather than among the faces. Small on
+   purpose: it is a way back to your own page, not a thing to look at. */
+.me-btn {
+  flex: 0 0 auto;
+  width: clamp(2.6rem, 9vw, 3.4rem); aspect-ratio: 1;
+  margin-bottom: .35rem;
+  padding: 0; border: 0; background: none;
+  border-radius: 50%; cursor: pointer;
+  position: relative;
+  transition: transform .3s var(--ease);
+}
+.me-btn:hover { transform: translateY(-2px); }
+.me-btn::after {
+  content: "";
+  position: absolute; inset: -5%;
+  border-radius: 50%;
+  border: 1.5px solid var(--rule);
+  transition: border-color .3s, inset .3s var(--ease);
+}
+.me-btn:hover::after { border-color: var(--green); inset: -8%; }
+.me-btn:focus-visible { outline: none; }
+.me-btn:focus-visible::after { border-color: var(--green); border-width: 2.5px; inset: -8%; }
+.me-btn .badge-photo { position: absolute; inset: 0; }
+/* Nothing there yet — a quiet outline and a plus, not an empty face. */
+.me-btn.is-empty {
+  display: grid; place-items: center;
+  font-size: 1.1rem; color: var(--ink-faint); line-height: 1;
+}
+.me-btn.is-empty::after { border-style: dashed; }
 .eyebrow {
   margin: 0 0 .35rem;
   font-size: .66rem; letter-spacing: .3em; text-transform: uppercase;
@@ -1142,6 +1176,111 @@ body.on-calendar .topbar { display: none; }
 
 .quiet-note { font-size: .86rem; color: var(--ink-faint); font-style: italic; margin: 0; }
 
+/* ── your own page ──────────────────────────────────────────────
+   What you let others see, one thing at a time. Off is the resting state and
+   has to look like it: a dotted ring and faint ink, so a page of private
+   things reads as quiet rather than as a column of switches. */
+.share-pill {
+  display: inline-flex; align-items: center; gap: .3rem;
+  margin-top: .45rem;
+  padding: .2rem .6rem;
+  border: 1px dashed var(--rule); border-radius: 999px;
+  background: none; cursor: pointer;
+  font-family: var(--body); font-size: .66rem; font-weight: 700;
+  letter-spacing: .12em; text-transform: uppercase;
+  color: var(--ink-faint);
+  transition: color .2s, border-color .2s, background .2s;
+}
+.share-pill .glyph { font-size: .8em; }
+.share-pill:hover { color: var(--green); border-color: var(--green); }
+.share-pill.is-on {
+  border-style: solid;
+  border-color: color-mix(in oklab, var(--green) 45%, transparent);
+  background: var(--green-lift);
+  color: var(--green);
+}
+.share-pill:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+
+/* The health block's promise, and any other line that qualifies a whole
+   block rather than one row in it. */
+.block-note {
+  margin: -.3rem 0 .7rem;
+  font-size: .72rem; letter-spacing: .04em; color: var(--ink-faint);
+}
+
+/* Your page has no check-in bar — this stands where it would have. */
+.touch-bar.is-mine { background: var(--green-lift); }
+
+/* ── linking ────────────────────────────────────────────────────
+   Sits under "edit details" on someone's page, so the offer to link is on
+   the page of the person it would be with rather than in a list somewhere. */
+.link-row { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; margin-top: .5rem; }
+.pill-linked {
+  border-color: color-mix(in oklab, var(--green) 45%, transparent);
+  background: var(--green-lift); color: var(--green);
+}
+.link-row .link-btn { color: var(--ink-faint); border-color: transparent; }
+.link-row .link-btn:hover { color: var(--green); border-color: currentColor; }
+
+/* The link itself, shown rather than hidden behind a button: it is the
+   thing being sent, and seeing it is how you know what you are sending. */
+.invite-link {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: .72rem; line-height: 1.5;
+  word-break: break-all;
+  padding: .7rem .85rem; margin-bottom: .9rem;
+  border: 1px solid var(--rule); border-radius: 10px;
+  background: var(--paper-sunk); color: var(--ink-soft);
+  min-height: 2.6rem;
+}
+
+.join-q { margin: 0 0 .7rem; font-size: .9rem; color: var(--ink); font-weight: 600; }
+.join-pick { display: flex; flex-direction: column; gap: .4rem; max-height: 46vh; overflow-y: auto; }
+.join-opt {
+  display: flex; align-items: baseline; gap: .5rem; flex-wrap: wrap;
+  text-align: left; width: 100%;
+  padding: .55rem .8rem;
+  border: 1px solid var(--rule); border-radius: 10px;
+  background: none; color: var(--ink); cursor: pointer;
+  font-family: var(--body); font-size: .88rem;
+  transition: border-color .2s, background .2s, color .2s;
+}
+.join-opt:hover { border-color: var(--green); color: var(--green); }
+.join-opt.is-on { border-color: var(--green); background: var(--green-lift); color: var(--green); font-weight: 600; }
+.join-opt:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+.join-opt-why { font-size: .68rem; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); }
+.join-opt.is-on .join-opt-why { color: inherit; opacity: .75; }
+
+/* ── from them ──────────────────────────────────────────────────
+   A rule down the left in the gold ink rather than a label repeated on every
+   row: the boundary between what is theirs and what is yours is a texture
+   you feel once, not a word you have to keep reading. Everything below this
+   block's own heading, back to the ordinary section titles, is yours again —
+   that contrast is what makes the boundary legible without more explaining. */
+.sheet-block.is-theirs {
+  border-left: 3px solid var(--gold);
+  padding-left: .9rem;
+  margin-bottom: 2rem;
+}
+.theirs-sub { margin: -.4rem 0 .8rem; font-size: .74rem; color: var(--ink-faint); font-style: italic; }
+.theirs-summary {
+  font-size: .9rem; line-height: 1.5; color: var(--ink-soft);
+  margin: 0 0 1rem; white-space: pre-wrap;
+}
+.theirs-dates { display: flex; flex-direction: column; gap: .5rem; margin-bottom: .9rem; }
+.theirs-date-row { display: flex; align-items: baseline; gap: .55rem; font-size: .88rem; }
+.theirs-date-row .glyph { color: var(--gold); flex: 0 0 auto; }
+.theirs-prayers { display: flex; flex-direction: column; gap: .5rem; }
+.theirs-prayer-row {
+  display: flex; align-items: baseline; justify-content: space-between; gap: .8rem; flex-wrap: wrap;
+  padding: .5rem .7rem;
+  border: 1px solid var(--rule-soft); border-radius: 10px;
+  background: color-mix(in oklab, var(--gold) 6%, transparent);
+}
+.theirs-prayer-row .prayer-text { font-size: .88rem; color: var(--ink); }
+.theirs-prayer-row .link-btn { white-space: nowrap; }
+.theirs-prayer-row .link-btn:disabled { color: var(--ink-faint); border-color: transparent; cursor: default; }
+
 /* ── buttons ────────────────────────────────────────────────── */
 
 .btn {
@@ -1212,6 +1351,10 @@ body.on-calendar .topbar { display: none; }
 
 .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: .9rem; }
 @media (max-width: 460px) { .field-row { grid-template-columns: 1fr; gap: 0; } }
+/* Your own profile is not asked how you know yourself or how often to be
+   reminded about yourself, so half of each of these rows goes. The one left
+   should take the width rather than sit in a column beside nothing. */
+.field-row:has(> .field[hidden]) { grid-template-columns: 1fr; }
 
 .check-field {
   display: flex; align-items: flex-start; gap: .6rem;
@@ -1375,6 +1518,20 @@ body.on-calendar .topbar { display: none; }
   margin: -.4rem 0 0; min-height: 1.2em;
   font-size: .82rem; color: var(--alert); font-weight: 600;
 }
+/* An account made but not yet confirmed is not a failure, and reading it in
+   the same alarm red as a wrong password would say it was. */
+.auth-error.is-note { color: var(--green); }
+
+/* Making an account and signing in are the same form, so the way across sits
+   with the form rather than in the actions row, where it would read as a
+   third button of equal weight to the one that does the thing. */
+.auth-swap {
+  display: flex; align-items: baseline; gap: .4rem; flex-wrap: wrap;
+  margin: .9rem 0 0; font-size: .82rem; color: var(--ink-soft);
+}
+.auth-swap .spacer { flex: 1 1 auto; }
+.auth-swap #auth-forgot { color: var(--ink-faint); border-color: transparent; }
+.auth-swap #auth-forgot:hover { color: var(--ink); }
 
 /* ── the lock ───────────────────────────────────────────────────
    A dialog, so it lands in the top layer above anything else open —

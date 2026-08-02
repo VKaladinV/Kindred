@@ -56,14 +56,10 @@ const Session = {
   get signedIn() { return !!this.get()?.access_token; },
 };
 
-async function signIn(email, password) {
-  const r = await fetch(`${API}/auth/v1/token?grant_type=password`, {
-    method: 'POST',
-    headers: { apikey: ANON, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
-  });
-  const body = await r.json();
-  if (!r.ok) throw new Error(body.msg || body.error_description || 'Could not sign in');
+/* One place that turns a token response into a session. There were two copies
+   of this and sign-up was about to make a third, which is exactly how the
+   three quietly stop agreeing about what a session holds. */
+function setSession(body) {
   Session.set({
     access_token: body.access_token,
     refresh_token: body.refresh_token,
@@ -71,6 +67,75 @@ async function signIn(email, password) {
     user: { id: body.user.id, email: body.user.email },
   });
   return Session.get();
+}
+
+/* GoTrue says what went wrong in whichever of three fields it feels like, and
+   what it says is written for a developer reading a console. This is the one
+   place that turns it into something worth reading on a phone. */
+function authWords(body, fallback) {
+  const raw = (body?.error_code || body?.msg || body?.error_description || body?.error || '').toLowerCase();
+  if (!raw) return fallback;
+  if (raw.includes('invalid login') || raw.includes('invalid_credentials')) return "That email and password don't match.";
+  if (raw.includes('not confirmed')) return 'Almost — the link in that email finishes it.';
+  if (raw.includes('already registered') || raw.includes('already been registered')) return 'There is already an account on that address. Sign in instead.';
+  if (raw.includes('password') && (raw.includes('short') || raw.includes('least') || raw.includes('weak'))) return 'That password is too short — six characters at least.';
+  if (raw.includes('rate limit') || raw.includes('over_email_send')) return 'Too many emails just now. Try again in a few minutes.';
+  if (raw.includes('validate email') || raw.includes('invalid email') || raw.includes('invalid format')) return 'That does not look like an email address.';
+  return body?.msg || body?.error_description || fallback;
+}
+
+async function signIn(email, password) {
+  const r = await fetch(`${API}/auth/v1/token?grant_type=password`, {
+    method: 'POST',
+    headers: { apikey: ANON, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+  const body = await r.json();
+  if (!r.ok) throw new Error(authWords(body, 'Could not sign in'));
+  return setSession(body);
+}
+
+/* Making an account, which until now there was no way to do from inside the
+   app at all — the only route in was a row somebody else had already created.
+
+   Whether this signs you in depends on a setting in the Supabase dashboard
+   rather than on anything here: with email confirmation on, the response
+   carries a user and no session, because the account is not usable until the
+   link in the email is followed. That is a success, not a failure, and it has
+   to be reported as one — so the two cases are told apart by whether a token
+   came back, and the caller is told which happened. */
+async function signUp(email, password) {
+  const r = await fetch(`${API}/auth/v1/signup`, {
+    method: 'POST',
+    headers: { apikey: ANON, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+  const body = await r.json();
+  if (!r.ok) throw new Error(authWords(body, 'Could not create the account'));
+
+  /* Confirmation off: a session arrives here and you are in. */
+  if (body.access_token) { setSession(body); return { state: 'in' }; }
+
+  /* An address that already has an account comes back as 200 with a decoy
+     user carrying no identities — deliberately, so that signing up cannot be
+     used to find out who has an account. Told apart from a genuine new
+     sign-up only by that empty array, and worth telling apart: otherwise this
+     says "check your inbox" for an email that is never sent. */
+  if (Array.isArray(body.identities) && body.identities.length === 0) return { state: 'exists' };
+
+  return { state: 'sent' };
+}
+
+/* Without this, a forgotten password is an account nobody can get back into —
+   which was survivable while the only user was the person who built it. */
+async function recover(email) {
+  const r = await fetch(`${API}/auth/v1/recover`, {
+    method: 'POST',
+    headers: { apikey: ANON, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  });
+  if (!r.ok) throw new Error(authWords(await r.json().catch(() => ({})), 'Could not send that'));
+  return true;
 }
 
 async function refresh() {
@@ -82,14 +147,7 @@ async function refresh() {
     body: JSON.stringify({ refresh_token: s.refresh_token }),
   });
   if (!r.ok) { Session.set(null); return null; }
-  const body = await r.json();
-  Session.set({
-    access_token: body.access_token,
-    refresh_token: body.refresh_token,
-    expires_at: Date.now() + (body.expires_in || 3600) * 1000,
-    user: { id: body.user.id, email: body.user.email },
-  });
-  return Session.get();
+  return setSession(await r.json());
 }
 
 function signOut() {
@@ -152,6 +210,115 @@ async function upsert(table, rows) {
   return out;
 }
 
+/* ═══════════════════════ linking two people ═══════════════════════
+   An invitation is a secret in a link. Whoever opens it proves they were
+   sent it, which is the same trust the message carrying it already had —
+   you chose who to send it to, in a conversation you were already having.
+
+   The secret never reaches the server. Only its SHA-256 is stored, so the
+   database cannot be read to replay an invitation, and claiming one goes
+   through a function rather than a table because finding a row by its hash
+   is precisely what the receiver must be able to do and must not be able
+   to browse. Every one of these is best-effort: none of it is needed for
+   the app to keep a circle, so none of it may break keeping one. */
+
+/* 32 bytes, url-safe. Guessing is not a threat model at that width. */
+function newToken() {
+  const b = new Uint8Array(32);
+  crypto.getRandomValues(b);
+  return btoa(String.fromCharCode(...b)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+async function hashToken(token) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token));
+  return [...new Uint8Array(buf)].map(x => x.toString(16).padStart(2, '0')).join('');
+}
+
+/* The fragment, never the query string. A query reaches Netlify's logs and
+   whatever crawler WhatsApp sends to build a link preview, and the service
+   worker would cache "/?join=SECRET" as its own entry. A fragment is not
+   sent to a server at all and is stripped from the Request the worker sees. */
+const joinUrl = token => `${location.origin}${location.pathname}#join=${token}`;
+
+async function createInvite(fromName) {
+  const token = newToken();
+  const r = await api(rest('invites'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Prefer: 'return=representation' },
+    body: JSON.stringify([{
+      created_by: Session.user.id,
+      from_name: fromName || '',
+      token_hash: await hashToken(token),
+    }]),
+  });
+  if (!r.ok) throw new Error(linkWords(await r.text()));
+  const [row] = await r.json();
+  return { id: row.id, token, url: joinUrl(token) };
+}
+
+async function claimInvite(token, myName) {
+  const r = await api('/rest/v1/rpc/claim_invite', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token, my_name: myName || '' }),
+  });
+  const text = await r.text();
+  if (!r.ok) throw new Error(linkWords(text));
+  return JSON.parse(text);
+}
+
+/* Everyone you are linked to, as the other person's id. The list is read
+   whole rather than incrementally: a link that ended leaves no row behind
+   to notice, so the live list is the only thing that can say so. */
+async function listLinks() {
+  const uid = Session.user.id;
+  const r = await api(rest('links', '?select=a,b,created_at'));
+  if (!r.ok) throw new Error(linkWords(await r.text()));
+  return (await r.json()).map(x => ({ other: x.a === uid ? x.b : x.a, at: x.created_at }));
+}
+
+/* Invitations you sent, so the app can notice when one has been taken up.
+   There is no realtime channel and this app does not want one — you find
+   out next time it syncs, which is the right rhythm for it. */
+async function listInvites() {
+  const r = await api(rest('invites', '?select=*&order=created_at.desc&limit=50'));
+  if (!r.ok) throw new Error(linkWords(await r.text()));
+  return r.json();
+}
+
+async function revokeInvite(id) {
+  const r = await api(rest('invites', `?id=eq.${encodeURIComponent(id)}`), {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ revoked_at: nowIso() }),
+  });
+  if (!r.ok) throw new Error(linkWords(await r.text()));
+}
+
+/* Ending it is a real delete, and either side can do it. */
+async function unlink(other) {
+  const uid = Session.user.id;
+  const [a, b] = uid < other ? [uid, other] : [other, uid];
+  const r = await api(rest('links', `?a=eq.${a}&b=eq.${b}`), { method: 'DELETE' });
+  if (!r.ok) throw new Error(linkWords(await r.text()));
+}
+
+/* A database that has not had share.sql run against it answers 404 with a
+   message about a missing relation, and "could not find the table" is not
+   something to put in front of somebody. */
+function linkWords(text) {
+  const t = (text || '').toLowerCase();
+  if (t.includes('does not exist') || t.includes('not find') || t.includes('pgrst205')) {
+    return 'Linking is not set up on this account yet.';
+  }
+  if (t.includes('cannot be used')) return 'That link cannot be used — it may have expired, or already been taken up.';
+  if (t.includes('not signed in')) return 'Sign in first, then open the link again.';
+  try {
+    const j = JSON.parse(text);
+    return j.message || j.msg || j.hint || 'Something went wrong';
+  } catch { return 'Something went wrong'; }
+}
+
 /* ───────────────────── local shape ⇄ table rows ───────────────────── */
 
 const d = v => (v ? v : null);            // '' means "not set", which is null in SQL
@@ -169,10 +336,17 @@ function flatten(people, photos) {
   const rows = { people: {}, records: {}, prayers: {}, touches: {}, health: {} };
   const photoLens = {};
   for (const p of people) {
+    /* Key order follows the table's columns, and the two new ones go last for
+       the same reason prayed_on and released_on did below: same() compares
+       these stringified. Adding them at all makes every person differ from a
+       snapshot written before they existed, so the first sync after this
+       update re-pushes the whole circle once. That is expected — the rows are
+       identical in content, and it settles on the next run. */
     rows.people[p.id] = {
       id: p.id, name: p.name, relationship: p.relationship, circles: p.groups,
       birthday: d(p.birthday), contact: p.contact, summary: p.summary,
       cadence_days: p.cadenceDays, created_on: d(p.createdAt),
+      is_self: !!p.isSelf, linked_uid: p.linkedUid || null,
     };
     for (const [key, type] of [['medications', 'medication'], ['conditions', 'condition']]) {
       for (const h of p[key]) {
@@ -186,7 +360,7 @@ function flatten(people, photos) {
       rows.records[r.id] = {
         id: r.id, person_id: p.id, type: r.type, starts_on: r.date,
         ends_on: d(r.endDate), kind: r.kind, title: r.title, note: r.note,
-        repeats_yearly: !!r.repeatsYearly,
+        repeats_yearly: !!r.repeatsYearly, shared: !!r.shared,
       };
     }
     for (const pr of p.prayers) {
@@ -197,6 +371,7 @@ function flatten(people, photos) {
         id: pr.id, person_id: p.id, body: pr.text, created_on: d(pr.createdAt),
         answered_on: d(pr.answeredAt), answer_note: pr.answerNote || '',
         prayed_on: d(pr.prayedAt), released_on: d(pr.releasedAt),
+        shared: !!pr.shared,
       };
     }
     for (const t of p.touches) {
@@ -227,6 +402,11 @@ function nest(rows) {
       summary: r.summary || '', cadenceDays: r.cadence_days || 0,
       createdAt: r.created_on || '', touches: [], events: [], prayers: [],
       medications: [], conditions: [],
+      /* Anything flatten writes has to be read back here. nest's result
+         replaces the whole in-memory list on every sync, so a column written
+         and not read is not merely lost between devices — it is wiped on this
+         one, seconds later. */
+      isSelf: !!r.is_self, linkedUid: r.linked_uid || null,
     };
     byId[r.id] = p;
     return p;
@@ -236,6 +416,7 @@ function nest(rows) {
     p.events.push({
       id: r.id, type: r.type, date: r.starts_on, endDate: r.ends_on || '',
       kind: r.kind, title: r.title, note: r.note || '', repeatsYearly: !!r.repeats_yearly,
+      shared: !!r.shared,
     });
   }
   for (const r of Object.values(rows.prayers)) {
@@ -244,6 +425,7 @@ function nest(rows) {
       id: r.id, text: r.body, createdAt: r.created_on || '',
       answeredAt: r.answered_on || null, answerNote: r.answer_note || '',
       prayedAt: r.prayed_on || '', releasedAt: r.released_on || '',
+      shared: !!r.shared,
     });
   }
   for (const r of Object.values(rows.touches)) {
@@ -359,9 +541,132 @@ async function deletePhoto(uid, id) {
   await api(`/storage/v1/object/${BUCKET}/${photoPath(uid, id)}`, { method: 'DELETE' }).catch(() => {});
 }
 
+/* ═══════════════════════ what you publish ═══════════════════════
+   One row per account, replaced whole. There is one writer and no merge
+   problem here — you own it, you overwrite it — so un-sharing an item is
+   simply a payload that no longer contains it, with no tombstone needed.
+
+   Deliberately outside TABLES and outside flatten/nest. The snapshot only
+   ever holds the five synced tables, and that is the whole of how the
+   snapshot-diff engine is kept from trying to push a shared row back: it has
+   never heard of one. There is no flag to respect and nothing here for a
+   future edit to planPush to get wrong. */
+
+const publishedFields = r => ({
+  id: r.id, type: r.type, date: r.date, endDate: r.endDate || '',
+  kind: r.kind, title: r.title, note: r.note || '', repeatsYearly: !!r.repeatsYearly,
+});
+
+/* What leaves the device when you publish. Everything else about a person —
+   medications, conditions, contact, cadence, check-ins, groups, and anything
+   you did not mark shared — is not in here, whatever else changes about how
+   this function is written; that is the private-by-default promise the
+   feature rests on, kept by construction rather than by a filter someone
+   could later forget to apply. */
+function projectSelf(me, photoDataUrl) {
+  return {
+    v: 1,
+    name: me.name,
+    photo: photoDataUrl || '',
+    birthday: me.birthday || '',
+    summary: me.summary || '',
+    seasons: me.events.filter(r => r.shared && r.type === 'season' && !r.endDate).map(publishedFields),
+    upcoming: me.events.filter(r => r.shared && r.type === 'upcoming').map(publishedFields),
+    history: me.events.filter(r => r.shared && (r.type === 'history' || (r.type === 'season' && r.endDate))).map(publishedFields),
+    prayers: me.prayers.filter(pr => pr.shared && !pr.answeredAt && !pr.releasedAt)
+      .map(pr => ({ id: pr.id, text: pr.text, createdAt: pr.createdAt })),
+  };
+}
+
+/* Run back through the same downscale a new photo gets, to a size meant for
+   a small circle rather than a full crop — a published face costs 5–8KB
+   this way instead of the 30–60KB the local one is. Kept inside the payload
+   itself rather than in storage, which avoids touching the photo bucket's
+   policies at all and keeps sync()'s own photo reconciliation, which only
+   ever looks at <uid>/, from needing to learn about a second convention. */
+async function projectPhoto(me) {
+  const src = Kindred.photos[me.id];
+  if (!src) return '';
+  try {
+    const img = await Kindred.loadImage(src);
+    return Kindred.downscale(img, 160, 0.7);
+  } catch { return ''; }   // a photo that will not load is not worth failing a sync over
+}
+
+async function publishMine(uid) {
+  const me = Kindred.self;
+
+  if (!me) {
+    /* No profile now, but something was published before it was removed.
+       Left alone, whoever you linked with would go on seeing a person who
+       no longer exists here — so taking the profile down travels with
+       taking it down locally, not as a separate step to remember. */
+    if (localStorage.getItem('kindred:publishedMark')) {
+      const r = await api(rest('profiles', `?user_id=eq.${uid}`), { method: 'DELETE' });
+      if (r.ok) localStorage.removeItem('kindred:publishedMark');
+    }
+    return;
+  }
+
+  const payload = projectSelf(me, await projectPhoto(me));
+  const body = JSON.stringify(payload);
+  /* The same cheap content mark photos already use, run over the whole
+     payload — sharing nothing new is the ordinary case on most syncs, and
+     this is what keeps that case a single comparison rather than a request. */
+  const mark = photoMark(body);
+  if (mark === localStorage.getItem('kindred:publishedMark')) return;
+
+  const r = await api(rest('profiles'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates,return=minimal' },
+    body: JSON.stringify([{ user_id: uid, payload }]),
+  });
+  if (!r.ok) throw new Error('profiles: ' + (await r.text()).slice(0, 140));
+  localStorage.setItem('kindred:publishedMark', mark);
+}
+
+async function pullShared(uid) {
+  /* Read whole rather than incrementally, and it has to be: a link that
+     ended leaves no row behind for an incremental pull to notice, so the
+     live list is the only thing that can say a partner is no longer one.
+     It is at most a handful of rows — nothing about reading it needs to be
+     cheap the way five tables of records do. */
+  const lr = await api(rest('links', '?select=a,b'));
+  if (!lr.ok) throw new Error('links: ' + (await lr.text()).slice(0, 140));
+  const partners = new Set((await lr.json()).map(row => (row.a === uid ? row.b : row.a)));
+
+  const since = localStorage.getItem('kindred:sharedAt') || '1970-01-01T00:00:00Z';
+  const pr = await api(rest('profiles', `?select=user_id,payload,updated_at&updated_at=gt.${encodeURIComponent(since)}`));
+  if (!pr.ok) throw new Error('profiles: ' + (await pr.text()).slice(0, 140));
+
+  const cached = (await Kindred.Store.loadShared()) || {};
+  const next = { ...cached };
+  let mark = since;
+  for (const row of await pr.json()) {
+    if (row.updated_at > mark) mark = row.updated_at;
+    if (row.user_id === uid) continue;      // your own row comes back too
+    next[row.user_id] = { ...row.payload, at: row.updated_at };
+  }
+  /* Ended links stop being read here rather than being told to leave —
+     nobody sends a tombstone for a friendship, the row for it just stops
+     coming back, so the cache is pruned against who is still a partner. */
+  for (const k of Object.keys(next)) if (!partners.has(k)) delete next[k];
+
+  Kindred.shared = next;
+  await Kindred.Store.saveShared(next);
+  // the same small rewind the main watermark uses, and for the same reason
+  localStorage.setItem('kindred:sharedAt',
+    new Date(Date.parse(mark) - 2000).toISOString());
+}
+
 /* ─────────────────────────── the sync ─────────────────────────── */
 
 const TABLES = ['people', 'records', 'prayers', 'touches', 'health'];
+
+/* One empty bucket per table. A snapshot that is missing a table is not an
+   empty snapshot, it is a broken one — every consumer below assumes a map is
+   there to read. */
+const emptyRows = () => Object.fromEntries(TABLES.map(t => [t, {}]));
 
 let syncing = false;
 let queued = false;
@@ -384,7 +689,13 @@ async function sync({ manual = false } = {}) {
     const people = Kindred.people;
     const photos = Kindred.photos;
     const { rows: local, photoLens } = flatten(people, photos);
-    const snap = (await Kindred.Store.loadSnapshot()) || { rows: { people: {}, records: {}, prayers: {}, touches: {} }, photoLens: {} };
+    /* Built from TABLES rather than written out again. The hand-written version
+       of this had lost `health` when that table was added, and planPush reaches
+       Object.keys(snap) unconditionally — so a device with no snapshot yet threw
+       on its very first sync, never wrote a snapshot, and threw identically ever
+       after. It only ever showed on a brand new account or a fresh sign-in,
+       which is exactly the moment nothing else has gone wrong yet. */
+    const snap = (await Kindred.Store.loadSnapshot()) || { rows: emptyRows(), photoLens: {} };
 
     /* 1 ─ pull everything the server has seen since we last agreed */
     const remote = {};
@@ -397,8 +708,11 @@ async function sync({ manual = false } = {}) {
     /* 2 ─ merge, and 3 ─ work out what we owe the server */
     const merged = {}, pushes = {}, tombstones = {};
     for (const t of TABLES) {
-      merged[t] = mergeTable(local[t], snap.rows[t], remote[t]);
-      const plan = planPush(merged[t], snap.rows[t], remote[t], uid);
+      /* A snapshot written before a table existed has no bucket for it, and a
+         missing bucket is the same thing as having agreed nothing about it. */
+      const was = snap.rows[t] || {};
+      merged[t] = mergeTable(local[t], was, remote[t]);
+      const plan = planPush(merged[t], was, remote[t], uid);
       pushes[t] = plan.upserts;
       tombstones[t] = plan.tombstones;
     }
@@ -452,6 +766,16 @@ async function sync({ manual = false } = {}) {
     localStorage.setItem('kindred:syncedAt',
       new Date(Date.parse(watermark) - 2000).toISOString());
 
+    /* 6 ─ what you publish, and what the people you linked with publish.
+       Its own try/catch on purpose: a database that has not had share.sql
+       run against it answers 404 here, and that must never be allowed to
+       take five tables of ordinary syncing down with it. A new app talking
+       to an old database has to behave exactly as the old app did. */
+    try {
+      await publishMine(uid);
+      await pullShared(uid);
+    } catch (e) { console.warn('[sync] linking', e.message || e); }
+
     Kindred.render();
     setStatus({ state: 'ok', at: Date.now(), error: null });
   } catch (e) {
@@ -504,8 +828,29 @@ function timeAgo(ms) {
   return Math.round(s / 3600) + ' h ago';
 }
 
-function openSignIn() {
+/* Which of the two things the one form is currently doing. */
+let authMode = 'in';
+
+function paintAuthMode() {
+  const making = authMode === 'up';
+  $('#auth-title').textContent = making ? 'Create an account' : 'Sign in';
+  $('#auth-lede').textContent = making
+    ? 'An account is what lets your circle reach your other devices, and later lets you link with someone. Your people stay on this device either way.'
+    : 'So this device and your phone hold the same circle. Your people stay on the device either way — signing in just keeps them in step.';
+  $('#auth-submit').textContent = making ? 'Create account' : 'Sign in';
+  $('#auth-swap-text').textContent = making ? 'Already have one?' : 'New here?';
+  $('#auth-swap').textContent = making ? 'Sign in instead' : 'Create an account';
+  /* Nothing to have forgotten yet. */
+  $('#auth-forgot').hidden = making;
+  /* A new password is not the one the browser has saved for this site. */
+  $('#auth-password').autocomplete = making ? 'new-password' : 'current-password';
   $('#auth-error').textContent = '';
+  $('#auth-error').classList.remove('is-note');
+}
+
+function openSignIn(mode = 'in') {
+  authMode = mode;
+  paintAuthMode();
   $('#auth-email').value = Session.user?.email || '';
   $('#auth-password').value = '';
   $('#dlg-auth').showModal();
@@ -513,25 +858,99 @@ function openSignIn() {
 }
 
 function wire() {
+  $('#auth-swap').onclick = () => {
+    authMode = authMode === 'up' ? 'in' : 'up';
+    paintAuthMode();
+    $('#auth-password').value = '';
+  };
+
+  $('#auth-forgot').onclick = async () => {
+    const err = $('#auth-error');
+    const email = $('#auth-email').value.trim();
+    if (!email) {
+      err.classList.remove('is-note');
+      err.textContent = 'Put your email in first and I will send a way back in.';
+      $('#auth-email').focus();
+      return;
+    }
+    const btn = $('#auth-forgot');
+    btn.disabled = true;
+    try {
+      await recover(email);
+      err.classList.add('is-note');
+      err.textContent = `Sent — open the link in ${email} to set a new password.`;
+    } catch (ex) {
+      err.classList.remove('is-note');
+      err.textContent = ex.message;
+    } finally {
+      btn.disabled = false;
+    }
+  };
+
   $('#form-auth').onsubmit = async e => {
     e.preventDefault();
+    const making = authMode === 'up';
     const btn = $('#auth-submit');
     const err = $('#auth-error');
     err.textContent = '';
     btn.disabled = true;
-    btn.textContent = 'Signing in…';
+    btn.textContent = making ? 'Creating…' : 'Signing in…';
     try {
-      await signIn($('#auth-email').value.trim(), $('#auth-password').value);
+      const email = $('#auth-email').value.trim();
+      const password = $('#auth-password').value;
+
+      if (making) {
+        /* Signing out leaves everyone on the device, which is right — they are
+           yours and the app works signed out. But it means a second person
+           making an account on a borrowed phone would push the first person's
+           whole circle into their own account on the first sync. Asked before
+           the account exists, so answering no costs nothing. */
+        const held = Kindred.people.length;
+        if (held && !confirm(
+          `There ${held === 1 ? 'is 1 person' : `are ${held} people`} on this device already. `
+          + `They will move into the new account.\n\nIf this is not your device, cancel and clear them first.`)) {
+          return;
+        }
+
+        const { state } = await signUp(email, password);
+        $('#auth-password').value = '';
+
+        if (state === 'exists') {
+          authMode = 'in';
+          paintAuthMode();
+          err.textContent = 'There is already an account on that address. Sign in instead.';
+          return;
+        }
+        if (state === 'sent') {
+          /* The account exists but cannot be used yet, so the dialog stays put
+             and says so — closing it would look like it had worked. Flipped to
+             sign-in first, because that is what they have to do next, and the
+             message is written after because painting the mode clears it. */
+          authMode = 'in';
+          paintAuthMode();
+          err.classList.add('is-note');
+          err.textContent = `Almost — open the link we sent to ${email}, then sign in.`;
+          return;
+        }
+        $('#dlg-auth').close();
+        paintStatus();
+        Kindred.toast('Account made — your circle will sync from here');
+        await sync({ manual: true });
+        return;
+      }
+
+      await signIn(email, password);
       $('#auth-password').value = '';
       $('#dlg-auth').close();
       paintStatus();
       Kindred.toast('Signed in — syncing your circle');
       await sync({ manual: true });
     } catch (ex) {
+      err.classList.remove('is-note');
       err.textContent = ex.message;
     } finally {
       btn.disabled = false;
-      btn.textContent = 'Sign in';
+      btn.textContent = authMode === 'up' ? 'Create account' : 'Sign in';
       paintStatus();
     }
   };
@@ -568,7 +987,9 @@ if (document.readyState === 'loading') document.addEventListener('DOMContentLoad
 else boot();
 
 window.KindredSync = {
-  sync, signIn, signOut, Session, status: () => status,
+  sync, signIn, signUp, recover, signOut, Session, status: () => status, openSignIn,
+  createInvite, claimInvite, listLinks, listInvites, revokeInvite, unlink, joinUrl,
+  projectSelf, publishMine, pullShared,
   flatten, nest, mergeTable, planPush,   // exported so the rules can be tested
 };
 })();

@@ -70,9 +70,14 @@
 <div class="shell">
 
 <header class="masthead">
-  <p class="eyebrow">kept close</p>
-  <h1>Fellowship</h1>
-  <p class="tagline" id="tagline">the people I hold, and how they are</p>
+  <div class="masthead-words">
+    <p class="eyebrow">kept close</p>
+    <h1>Fellowship</h1>
+    <p class="tagline" id="tagline">the people I hold, and how they are</p>
+  </div>
+  <!-- You. Deliberately not a face in the circle: the circle is the people you
+       are holding, and you are not one of them. Filled by app.js. -->
+  <button type="button" class="me-btn" id="btn-me" aria-label="Your profile"></button>
 </header>
 
 <main>
@@ -387,6 +392,42 @@
   </div>
 </dialog>
 
+<!-- ─────────── INVITE SOMEONE ───────────
+     Declared here rather than built when needed: wireDialogLayers enumerates
+     dialog.dlg once at boot, so a dialog made later never gets the Android
+     back button. -->
+<dialog class="dlg" id="dlg-invite">
+  <h2 class="dlg-title" id="invite-title">Invite someone</h2>
+  <p class="dlg-lede" id="invite-lede">Send them this link. When they open it, the two of you are linked, and each of you decides separately what the other gets to see.</p>
+
+  <div class="invite-link" id="invite-link" aria-live="polite"></div>
+
+  <p class="hint">Anyone who opens this link can accept it, so send it to one person. It stops working in seven days, or as soon as it is taken up.</p>
+  <p class="auth-error" id="invite-error" role="alert"></p>
+
+  <div class="dlg-actions">
+    <button type="button" class="btn btn-quiet" id="btn-invite-copy">Copy link</button>
+    <span class="spacer"></span>
+    <button type="button" class="btn btn-quiet" id="btn-invite-close">Done</button>
+    <button type="button" class="btn btn-primary" id="btn-invite-wa">Send on WhatsApp</button>
+  </div>
+</dialog>
+
+<!-- ─────────── SOMEONE INVITED YOU ─────────── -->
+<dialog class="dlg" id="dlg-join">
+  <h2 class="dlg-title" id="join-title">Someone wants to link with you</h2>
+  <p class="dlg-lede" id="join-lede">Once you are linked, each of you chooses what the other can see. Nothing of yours is shared until you mark it.</p>
+
+  <div id="join-body"></div>
+  <p class="auth-error" id="join-error" role="alert"></p>
+
+  <div class="dlg-actions">
+    <span class="spacer"></span>
+    <button type="button" class="btn btn-quiet" id="btn-join-no">Not now</button>
+    <button type="button" class="btn btn-primary" id="btn-join-yes">Accept</button>
+  </div>
+</dialog>
+
 <!-- ─────────── WHO TO SHOW (phone) ─────────── -->
 <dialog class="dlg" id="dlg-filter">
   <h2 class="dlg-title">Who to show</h2>
@@ -579,8 +620,8 @@
 <!-- ─────────── SIGN IN ─────────── -->
 <dialog class="dlg" id="dlg-auth">
   <form id="form-auth" method="dialog">
-    <h2 class="dlg-title">Sign in</h2>
-    <p class="dlg-lede">So this device and your phone hold the same circle. Your people stay on the device either way — signing in just keeps them in step.</p>
+    <h2 class="dlg-title" id="auth-title">Sign in</h2>
+    <p class="dlg-lede" id="auth-lede">So this device and your phone hold the same circle. Your people stay on the device either way — signing in just keeps them in step.</p>
 
     <label class="field">
       <span>Email</span>
@@ -588,10 +629,20 @@
     </label>
     <label class="field">
       <span>Password</span>
-      <input type="password" id="auth-password" autocomplete="current-password" required>
+      <input type="password" id="auth-password" autocomplete="current-password" required minlength="6">
     </label>
 
     <p class="auth-error" id="auth-error" role="alert"></p>
+
+    <!-- One form, two jobs. Making an account and signing in ask for exactly
+         the same two things, so a second dialog would have been the same
+         dialog with a different title. -->
+    <p class="auth-swap">
+      <span id="auth-swap-text">New here?</span>
+      <button type="button" class="link-btn" id="auth-swap">Create an account</button>
+      <span class="spacer"></span>
+      <button type="button" class="link-btn" id="auth-forgot">Forgotten it?</button>
+    </p>
 
     <div class="dlg-actions">
       <span class="spacer"></span>

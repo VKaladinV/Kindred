@@ -204,7 +204,7 @@ function hashCode(str) {
 
 const Store = (() => {
   let db = null, mode = 'memory', blocked = false;
-  const mem = { people: null, photos: {}, snapshot: null };
+  const mem = { people: null, photos: {}, snapshot: null, shared: {} };
 
   function openDb() {
     return new Promise(resolve => {
@@ -355,6 +355,30 @@ const Store = (() => {
       mem.snapshot = snap;
     },
 
+    /* What the people you have linked with have published, keyed by their
+       account. Kept apart from `people` on purpose: it is theirs, it is
+       read-only, and it must never find its way into the snapshot the push
+       is planned from. Losing it costs nothing — the next sync fetches it
+       again — so it is cached for the sake of opening the app offline and
+       for no other reason. */
+    async loadShared() {
+      if (mode === 'indexeddb') return (await idb('kv', s => s.get('shared'))) || {};
+      if (mode === 'localstorage') {
+        try { return JSON.parse(localStorage.getItem('kindred:shared') || '{}'); }
+        catch { return {}; }
+      }
+      return mem.shared || {};
+    },
+
+    async saveShared(map) {
+      if (mode === 'indexeddb') return idb('kv', s => s.put(map || {}, 'shared'), true);
+      if (mode === 'localstorage') {
+        try { return localStorage.setItem('kindred:shared', JSON.stringify(map || {})); }
+        catch { return; }        // a full quota must not break a sync
+      }
+      mem.shared = map || {};
+    },
+
     getPref(k, d = null) {
       try { return localStorage.getItem('kindred:' + k) ?? d; } catch { return d; }
     },
@@ -368,13 +392,47 @@ const Store = (() => {
 
 let people = [];
 let photos = {};
+/* What the people you have linked with publish, keyed by their account id.
+   Never written by anything in this file — sync.js is the only writer, and
+   the only reader besides the sheet is the bridge below. */
+let shared = {};
 let openId = null;
 const filterGroups = new Set();   // empty means everyone
 const filterFocus = new Set();    // empty means nothing narrowed beyond the groups
 let query = '';
 let saveTimer = null;
 
-const byId = id => people.find(p => p.id === id);
+/* ── you, kept to one side ──────────────────────────────────────
+   Your own profile is an ordinary person record: the same fields, the same
+   dialog, the same page, and it rides the existing sync and photo storage
+   without either of them learning a thing.
+
+   What it must never be is one of `people`. That array is walked by the
+   circle, the sort, the overdue list, the filter counts, Today, the calendar,
+   the prayer list and the footer — and you belong in none of them. Filtering
+   you out at each of those was the other way to do this, and it would have
+   been a tax every future renderer had to remember to pay.
+
+   So the split happens here instead, and `people` goes on meaning exactly
+   what it has always meant: the others. Only the bridge that sync.js reads
+   ever sees the two together. */
+let me = null;
+
+function setRoster(list) {
+  const all = list.map(normalise);
+  const mine = all.filter(p => p.isSelf);
+  me = mine[0] || null;
+  /* Two devices can each have made a profile before they ever met. Keep the
+     first and let the rest fall into the circle as ordinary people, rather
+     than dropping somebody on the floor to enforce a rule. */
+  people = all.filter(p => !p.isSelf)
+    .concat(mine.slice(1).map(p => ({ ...p, isSelf: false })));
+}
+
+const roster = () => (me ? [...people, me] : people);
+const saveRoster = () => Store.savePeople(roster());
+
+const byId = id => (me && me.id === id ? me : people.find(p => p.id === id));
 
 /* sync.js listens here so it never has to trust each mutation site to
    announce itself — everything that changes data ends up in one of these. */
@@ -385,7 +443,7 @@ function notifyMutate() {
 
 function queueSave() {
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => Store.savePeople(people).catch(e => {
+  saveTimer = setTimeout(() => saveRoster().catch(e => {
     toast('Could not save — storage may be full');
     console.error(e);
   }), 350);
@@ -406,6 +464,10 @@ function normaliseRecord(r) {
     title: (r.title || '').trim() || 'Untitled',
     note: r.note || '',
     repeatsYearly: type === 'upcoming' ? !!r.repeatsYearly : false,
+    /* Whether this is one of the things you let the people you have linked
+       with see. Only ever true on your own profile, and false unless you have
+       said otherwise — nothing here goes anywhere by default. */
+    shared: !!r.shared,
   };
 }
 
@@ -462,6 +524,7 @@ function normalisePrayer(pr) {
     answerNote: pr?.answerNote || '',
     prayedAt: pr?.prayedAt || '',
     releasedAt: pr?.releasedAt || '',
+    shared: !!pr?.shared,        // see normaliseRecord — private unless you say so
   };
 }
 
@@ -481,6 +544,14 @@ function normalise(p) {
     medications: Array.isArray(p.medications) ? p.medications.map(normaliseHealth) : [],
     conditions: Array.isArray(p.conditions) ? p.conditions.map(normaliseHealth) : [],
     createdAt: p.createdAt || today(),
+    /* The one person in here who is you. This is a whitelist — a field not
+       named here is dropped on every load, every import and every sync
+       landing, so a flag that lives anywhere else lasts until the next
+       reload and no longer. */
+    isSelf: !!p.isSelf,
+    /* Which account this card belongs to, once you have linked with them.
+       Null for everyone you have only written down. */
+    linkedUid: p.linkedUid || null,
   };
 }
 
@@ -1340,6 +1411,42 @@ function renderCircle() {
    list it records that you prayed today, and in either archive it brings the
    prayer back. Closing a prayer is deliberate and goes through the dialog —
    a single stray tap used to delete one outright. */
+/* ── what you let others see ────────────────────────────────────
+   Only ever on your own page, and only ever off unless you have said so.
+   Nothing here is shared because it exists; it is shared because you marked
+   that one thing, which is what makes your own profile somewhere you can
+   also keep what you are not ready to say out loud.
+
+   The pill is both the saying and the record of it. Until you have linked
+   with anybody it is a promise about a future audience rather than a live
+   broadcast, and it says so. */
+const sharedCount = p => !p?.isSelf ? 0
+  : p.prayers.filter(x => x.shared && !x.answeredAt && !x.releasedAt).length
+  + p.events.filter(x => x.shared).length;
+
+function toggleShared(personId, kind, recId) {
+  const per = byId(personId);
+  if (!per || !per.isSelf) return;
+  const rec = (kind === 'prayer' ? per.prayers : per.events).find(x => x.id === recId);
+  if (!rec) return;
+  rec.shared = !rec.shared;
+  queueSave();
+  renderAll();
+}
+
+function sharePill(p, kind, rec) {
+  const b = el('button', 'share-pill' + (rec.shared ? ' is-on' : ''));
+  b.type = 'button';
+  b.setAttribute('aria-pressed', String(!!rec.shared));
+  b.append(el('span', 'glyph', rec.shared ? '◉' : '◌'),
+           document.createTextNode(rec.shared ? 'shared' : 'private'));
+  b.title = rec.shared
+    ? 'The people you link with will see this. Tap to keep it to yourself.'
+    : 'Only you can see this. Tap to let the people you link with see it.';
+  b.onclick = () => toggleShared(p.id, kind, rec.id);
+  return b;
+}
+
 function prayerLine(p, pr, state = 'open') {
   const line = el('div', 'prayer-line is-' + state);
 
@@ -1362,6 +1469,10 @@ function prayerLine(p, pr, state = 'open') {
   if (state === 'open' && pr.prayedAt) {
     body.append(el('p', 'prayed-note', prayedNow ? 'prayed today' : `last prayed ${agoWords(pr.prayedAt)}`));
   }
+  /* Only what you are still carrying can be shared. Something answered or let
+     go is a closed thing, and publishing it later would be a strange way to
+     tell somebody. */
+  if (p.isSelf && state === 'open') body.append(sharePill(p, 'prayer', pr));
 
   const age = el('span', 'prayer-age',
     state === 'answered' ? prettyDate(pr.answeredAt)
@@ -1939,6 +2050,12 @@ function healthBlock(p, key) {
   const block = el('div', 'sheet-block');
   block.append(blockHead(meta.title, meta.addLabel, () => healthDialog(p.id, key, null)));
 
+  /* There is no pill on these and there never will be. Everything else on
+     your page can be shared one item at a time; this cannot be shared at all,
+     and saying so here is worth more than leaving it to be inferred from the
+     absence of a button. */
+  if (p.isSelf) block.append(el('p', 'block-note', 'Stays on your devices. Never shared, whoever you link with.'));
+
   if (!p[key].length) {
     block.append(el('p', 'quiet-note', meta.empty));
     return block;
@@ -1960,6 +2077,67 @@ function healthBlock(p, key) {
   });
   block.append(list);
   return block;
+}
+
+/* What p's linked account has chosen to publish. `pub` is the payload as it
+   arrived from the server — see projectSelf in sync.js for its shape — and
+   everything drawn from it is read-only: no title is clickable, no row has
+   a tick or a cross, no form invites a line to be added. The one door
+   through is copying a prayer onto your own list, which is a real write on
+   your side and none at all on theirs. */
+function fromThemBlock(root, p, pub) {
+  const block = el('div', 'sheet-block is-theirs');
+  const head = el('div', 'block-head');
+  head.append(el('h3', null, `From ${(pub.name || p.name).split(' ')[0]}`));
+  block.append(head);
+  block.append(el('p', 'theirs-sub', 'Theirs, not yours — it changes when they change it.'));
+
+  if (pub.summary) block.append(el('p', 'theirs-summary', pub.summary));
+
+  const dated = [...(pub.seasons || []), ...(pub.upcoming || [])];
+  if (dated.length) {
+    const list = el('div', 'theirs-dates');
+    dated.forEach(r => {
+      const row = el('div', 'theirs-date-row');
+      row.append(el('span', 'glyph', (KINDS[r.kind] || KINDS.other).glyph));
+      const body = el('span');
+      body.append(el('b', null, r.title));
+      const when = r.type === 'season'
+        ? `since ${monthYear(r.date)}`
+        : prettyDate(r.date);
+      body.append(document.createTextNode(' — ' + when));
+      row.append(body);
+      list.append(row);
+    });
+    block.append(list);
+  }
+
+  if (pub.prayers?.length) {
+    const list = el('div', 'theirs-prayers');
+    pub.prayers.forEach(pr => {
+      const row = el('div', 'theirs-prayer-row');
+      row.append(el('span', 'prayer-text', pr.text));
+      const already = p.prayers.some(x => x.id === pr.id || x.text.trim() === pr.text.trim());
+      const add = el('button', 'link-btn', already ? 'on your list' : 'add to my prayer list');
+      add.type = 'button';
+      add.disabled = already;
+      if (!already) add.onclick = () => {
+        byId(p.id).prayers.push(normalisePrayer({ text: pr.text }));
+        queueSave();
+        renderAll();
+        toast('Added to your prayer list');
+      };
+      row.append(add);
+      list.append(row);
+    });
+    block.append(list);
+  }
+
+  if (!pub.summary && !dated.length && !pub.prayers?.length) {
+    block.append(el('p', 'quiet-note', 'Nothing shared yet.'));
+  }
+
+  root.append(block);
 }
 
 function renderSheet() {
@@ -2026,10 +2204,58 @@ function renderSheet() {
   edit.onclick = () => personDialog(p);
   idBox.append(edit);
 
+  /* Linking, on the page of the person it would be with. Only for somebody
+     else, only once there is a sync layer to do it through, and only while
+     they are not already linked — after that it says so instead. */
+  if (!p.isSelf && linkApi()) {
+    const row = el('div', 'link-row');
+    if (p.linkedUid) {
+      row.append(el('span', 'pill pill-linked', '⇄ linked'));
+      const cut = el('button', 'link-btn', 'unlink');
+      cut.type = 'button';
+      cut.onclick = () => unlinkPerson(p.id);
+      row.append(cut);
+    } else {
+      const inv = el('button', 'link-btn', `invite ${p.name.split(' ')[0]} to share with you`);
+      inv.type = 'button';
+      inv.onclick = () => inviteDialog(p.id);
+      row.append(inv);
+    }
+    idBox.append(row);
+  }
+
   head.append(idBox);
   root.append(head);
 
-  /* ── check-in bar ── */
+  /* ── from them ──
+     Above your own material, because it is the newer thing and often the
+     reason you opened the page. No edit affordance anywhere in it — read-only
+     is kept by never building the buttons, not by disabling them — and one
+     exception: a shared prayer can be copied onto your own list, because
+     praying for someone is the point and copying it makes it an ordinary row
+     of yours from then on, which is the one bridge between the two worlds. */
+  if (p.linkedUid && shared[p.linkedUid]) fromThemBlock(root, p, shared[p.linkedUid]);
+
+  /* ── check-in bar ──
+     Not for yourself: there is no rhythm to be behind on with the person
+     holding the phone, and every part of this bar — the days since, the
+     cadence, the beads, the button — is about somebody else. What stands
+     here instead says who can see this page. */
+  if (p.isSelf) {
+    const mine = el('div', 'touch-bar is-mine');
+    const st = el('div', 'touch-status');
+    st.append(el('span', 'big', 'This is your page'));
+    st.append(el('span', 'sub', sharedCount(p)
+      ? `${plural(sharedCount(p), 'thing', 'things')} marked to share`
+      : 'Nothing here is shared yet'));
+    mine.append(st);
+    const editMine = el('button', 'btn btn-quiet', 'Edit your details');
+    editMine.type = 'button';
+    editMine.onclick = () => personDialog(p);
+    mine.append(editMine);
+    root.append(mine);
+  } else {
+
   const bar = el('div', 'touch-bar');
   const st = el('div', 'touch-status');
   st.append(el('span', 'big', last ? `Last connected ${agoWords(last)}` : 'Not connected yet'));
@@ -2072,8 +2298,12 @@ function renderSheet() {
   }
   root.append(bar);
 
-  /* ── medical: only for the people you are carrying that way ── */
-  if (isMedical(p)) {
+  }   /* end of the not-yourself branch */
+
+  /* ── medical: only for the people you are carrying that way ──
+     Yours is always here rather than waiting on a group, because the group
+     is how you sort other people and says nothing about yourself. */
+  if (isMedical(p) || p.isSelf) {
     root.append(healthBlock(p, 'medications'), healthBlock(p, 'conditions'));
   }
 
@@ -2094,17 +2324,20 @@ function renderSheet() {
       endBtn.type = 'button';
       endBtn.onclick = () => endSeason(p.id, sn.id);
       card.append(endBtn);
+      if (p.isSelf) card.append(sharePill(p, 'record', sn));
       snBlock.append(card);
     });
   } else {
-    snBlock.append(el('p', 'quiet-note', 'Not in any season you have noted — grief, treatment, a new baby, a hard stretch at work.'));
+    snBlock.append(el('p', 'quiet-note', p.isSelf
+      ? 'Nothing you have named — grief, treatment, a new baby, a hard stretch at work.'
+      : 'Not in any season you have noted — grief, treatment, a new baby, a hard stretch at work.'));
   }
   root.append(snBlock);
 
   /* ── summary ── */
   const sumBlock = el('div', 'sheet-block');
   const sumHead = el('div', 'block-head');
-  sumHead.append(el('h3', null, 'Who they are'));
+  sumHead.append(el('h3', null, p.isSelf ? 'How you are' : 'Who they are'));
   const flash = el('span', 'saved-flash', 'saved');
   flash.setAttribute('aria-hidden', 'true');
   sumHead.append(flash);
@@ -2112,7 +2345,9 @@ function renderSheet() {
 
   const ta = el('textarea', 'summary-area');
   ta.value = p.summary;
-  ta.placeholder = 'What matters about them right now — what they are carrying, what they love, what you keep forgetting to ask about.';
+  ta.placeholder = p.isSelf
+    ? 'Where you are at the moment — what you are carrying, what you are glad of, what you would tell someone who asked properly.'
+    : 'What matters about them right now — what they are carrying, what they love, what you keep forgetting to ask about.';
   ta.setAttribute('aria-label', 'Summary');
   let flashTimer;
   ta.oninput = () => {
@@ -2206,6 +2441,7 @@ function renderSheet() {
         mv.onclick = () => moveToHistory(p.id, r.id);
         bodyBox.append(mv);
       }
+      if (p.isSelf) bodyBox.append(sharePill(p, 'record', r));
       item.append(bodyBox);
       upBlock.append(item);
     });
@@ -2240,6 +2476,7 @@ function renderSheet() {
       t.onclick = () => eventDialog(p.id, ev.id);
       item.append(t);
       if (ev.note) item.append(el('p', 'tl-note', ev.note));
+      if (p.isSelf) item.append(sharePill(p, 'record', ev));
       tl.append(item);
     });
     evBlock.append(tl);
@@ -2255,7 +2492,11 @@ function renderSheet() {
    coffee this evening corrects this morning's WhatsApp rather than adding to
    it. That keeps a day to one row, which is what the sync's person-and-date
    key has always assumed. */
-function markConnected(id, kind = '') {
+/* The toast's one action slot is Undo by default, but chooseHow hands in
+   something else when there is a chat or a call waiting to be offered —
+   the two are never both wanted at once, and undo stays reachable from the
+   check-in bar itself for as long as today's check-in stands. */
+function markConnected(id, kind = '', toastAction = null) {
   const p = byId(id);
   if (!p) return;
 
@@ -2272,7 +2513,7 @@ function markConnected(id, kind = '') {
   renderAll();
   const how = TOUCH_KINDS[kind] ? ` by ${TOUCH_KINDS[kind].label.toLowerCase()}` : '';
   toast(`Noted — you connected with ${p.name.split(' ')[0]} today${how}`,
-    { label: 'Undo', run: () => undoConnected(id) });
+    toastAction || { label: 'Undo', run: () => undoConnected(id) });
 }
 
 /* The other half of it, for the tap you did not mean. Only today's is taken
@@ -2299,9 +2540,10 @@ function howDialog(id) {
   const current = touchOn(p, today())?.kind || '';
   $('#dlg-how-title').textContent = `How did you connect with ${p.name.split(' ')[0]}?`;
   /* Every option records either way. Only the jumping-off part needs a
-     number, so that is the only part the hint promises. */
+     number, so that is the only part the hint promises — and now only as an
+     offer afterwards, not something this tap does on its own. */
   $('#how-hint').textContent = dialNumber(p.contact)
-    ? 'WhatsApp and a call will take you straight there.'
+    ? 'WhatsApp and a call will offer to take you there, once it is noted.'
     : 'No number saved for them, so these only make a note.';
 
   const pick = $('#how-pick');
@@ -2320,15 +2562,22 @@ function howDialog(id) {
 
 /* The note is made before leaving, so it survives whether or not you come
    back — the app cannot watch you send the message, and waiting to be told
-   would mean losing the check-in every time you got distracted. */
+   would mean losing the check-in every time you got distracted.
+
+   Leaving itself used to happen in the same tap, straight to WhatsApp or the
+   dialler, before the person had a chance to mean it. Now the tap only ever
+   tags it, and going is the toast's offer rather than a foregone conclusion —
+   letting it pass is answering "no", not missing a step, and the tag already
+   made stands either way. */
 function chooseHow(kind) {
   const p = byId(howPersonId);
   if (!p) return;
   const dial = dialNumber(p.contact);
-  markConnected(p.id, kind);
+  const open = kind === 'whatsapp' && dial ? { label: 'Open WhatsApp', run: () => openOut(waLink(dial)) }
+             : kind === 'call' && dial     ? { label: 'Call', run: () => openOut(telLink(dial)) }
+             : null;
+  markConnected(p.id, kind, open);
   $('#dlg-how').close();
-  if (kind === 'whatsapp' && dial) openOut(waLink(dial));
-  if (kind === 'call' && dial) openOut(telLink(dial));
 }
 
 function openOut(href) {
@@ -2340,6 +2589,285 @@ function openOut(href) {
   document.body.append(a);
   a.click();
   a.remove();
+}
+
+/* ═══════════════════════ LINKING TWO PEOPLE ════════════════
+   sync.js is optional — the app runs unchanged without it — so nothing here
+   may assume it is loaded, and everything degrades to the app as it was. */
+
+const linkApi = () => window.KindredSync || null;
+const signedIn = () => !!linkApi()?.Session?.signedIn;
+const PENDING_JOIN = 'kindred:pendingJoin';
+
+/* An invitation arrives as a fragment. Read once, taken out of the address
+   bar immediately, and held in storage until there is somewhere to put it.
+   history.state is passed straight back through: boot reads kindredLayer off
+   it to put an open person back after a reload, and replacing it with an
+   empty object would quietly break that. */
+function takeLaunchFragment() {
+  let token = '';
+  try {
+    token = new URLSearchParams(location.hash.slice(1)).get('join') || '';
+  } catch { token = ''; }
+  if (!token) return;
+  try { localStorage.setItem(PENDING_JOIN, token); } catch { /* private mode */ }
+  try { history.replaceState(history.state, '', location.pathname + location.search); } catch {}
+}
+
+/* Tapping a link while the app is already open changes the fragment without
+   reloading anything, so boot never runs again and the invitation would sit
+   in the address bar unread. On a phone this is the ordinary case, not the
+   odd one: the app is already in the task switcher when the message arrives. */
+window.addEventListener('hashchange', () => {
+  if (!location.hash.includes('join=')) return;
+  takeLaunchFragment();
+  if (!locked) offerPendingJoin();
+});
+
+const pendingJoin = () => { try { return localStorage.getItem(PENDING_JOIN) || ''; } catch { return ''; } };
+const clearPendingJoin = () => { try { localStorage.removeItem(PENDING_JOIN); } catch {} };
+
+/* ── sending one ─────────────────────────────────────────────── */
+
+let invitingPersonId = null;
+
+/* Which of your people each invitation was for. Local, because the server
+   holds two account ids and a hash and should go on holding nothing else —
+   who they are to you is the part worth keeping off it. */
+const INVITED_FOR = 'kindred:invitedFor';
+const invitedFor = () => { try { return JSON.parse(localStorage.getItem(INVITED_FOR) || '{}'); } catch { return {}; } };
+function rememberInviteFor(inviteId, personId) {
+  try {
+    const m = invitedFor();
+    m[inviteId] = personId;
+    /* Trimmed so this cannot grow without bound on a long-used device. */
+    const keys = Object.keys(m);
+    if (keys.length > 60) keys.slice(0, keys.length - 60).forEach(k => delete m[k]);
+    localStorage.setItem(INVITED_FOR, JSON.stringify(m));
+  } catch {}
+}
+
+async function inviteDialog(personId) {
+  const p = byId(personId);
+  const api = linkApi();
+  if (!p || !api) return;
+
+  if (!signedIn()) {
+    toast('Sign in first — linking needs an account', { label: 'Sign in', run: () => api.openSignIn() });
+    return;
+  }
+
+  invitingPersonId = personId;
+  $('#invite-title').textContent = `Invite ${p.name.split(' ')[0]}`;
+  $('#invite-error').textContent = '';
+  $('#invite-link').textContent = 'Making a link…';
+  $('#btn-invite-wa').disabled = true;
+  $('#btn-invite-copy').disabled = true;
+  $('#dlg-invite').showModal();
+
+  try {
+    const { id, url } = await api.createInvite(me?.name || '');
+    /* Who this was meant for, kept here rather than sent. The server has no
+       business knowing which of your people an invitation was for, and it
+       does not need to: the only thing that ever asks is this device, when
+       the invitation comes back claimed. */
+    rememberInviteFor(id, personId);
+    $('#invite-link').textContent = url;
+    $('#invite-link').dataset.url = url;
+    $('#btn-invite-copy').disabled = false;
+    /* WhatsApp only if there is a number to open it against. Without one the
+       link is still the link — it just has to be carried by hand. */
+    const dial = dialNumber(p.contact);
+    $('#btn-invite-wa').hidden = !dial;
+    $('#btn-invite-wa').disabled = !dial;
+  } catch (e) {
+    $('#invite-link').textContent = '';
+    $('#invite-error').textContent = e.message;
+    $('#btn-invite-wa').hidden = true;
+  }
+}
+
+function sendInviteOnWhatsApp() {
+  const p = byId(invitingPersonId);
+  const url = $('#invite-link').dataset.url;
+  const dial = p && dialNumber(p.contact);
+  if (!url || !dial) return;
+  const msg = `I keep track of the people I care about in an app called Fellowship. `
+    + `This link connects the two of us — you choose what I see, and I choose what you see.\n\n${url}`;
+  openOut(`${waLink(dial)}?text=${encodeURIComponent(msg)}`);
+  $('#dlg-invite').close();
+}
+
+/* ── receiving one ───────────────────────────────────────────── */
+
+let joining = null;   // { token, other, name, choice }
+
+/* Called once the app is up and the lock is passed — an invitation must not
+   be claimable by somebody holding a locked phone. */
+function offerPendingJoin() {
+  const token = pendingJoin();
+  const api = linkApi();
+  if (!token || !api) return;
+
+  if (!signedIn()) {
+    /* The token keeps. Making an account leaves and comes back, and this is
+       waiting when they return. */
+    $('#join-title').textContent = 'Someone wants to link with you';
+    $('#join-body').textContent = '';
+    $('#join-body').append(el('p', 'quiet-note',
+      'You need an account of your own first — it is what the two of you link between. Your people stay on this device either way.'));
+    $('#join-error').textContent = '';
+    $('#btn-join-yes').textContent = 'Make an account';
+    $('#btn-join-no').textContent = 'Not now';
+    joining = { token, needsAccount: true };
+    $('#dlg-join').showModal();
+    return;
+  }
+  claimAndAsk(token);
+}
+
+async function claimAndAsk(token) {
+  const api = linkApi();
+  $('#join-title').textContent = 'Someone wants to link with you';
+  $('#join-body').textContent = 'Opening the link…';
+  $('#join-error').textContent = '';
+  $('#btn-join-yes').textContent = 'Accept';
+  $('#btn-join-yes').disabled = true;
+  if (!$('#dlg-join').open) $('#dlg-join').showModal();
+
+  try {
+    const { other, name } = await api.claimInvite(token, me?.name || '');
+    /* Claimed. The link exists from here whatever happens next — saying who
+       they are is a separate question, and one you are allowed to defer. */
+    clearPendingJoin();
+    joining = { token, other, name: name || '' };
+    paintJoinPicker();
+  } catch (e) {
+    clearPendingJoin();
+    $('#join-body').textContent = '';
+    $('#join-error').textContent = e.message;
+    $('#btn-join-yes').hidden = true;
+    $('#btn-join-no').textContent = 'Close';
+  }
+}
+
+/* Which of your people this account belongs to. The number you already have
+   for somebody is the hint — compared here, on this device, and never sent
+   anywhere. A name match is only a suggestion and says so. */
+function paintJoinPicker() {
+  const { name } = joining;
+  const first = (name || '').split(' ')[0];
+  $('#join-title').textContent = name ? `${name} wants to link with you` : 'Someone wants to link with you';
+  $('#btn-join-yes').disabled = false;
+  $('#btn-join-yes').hidden = false;
+  $('#btn-join-yes').textContent = 'Save';
+  $('#btn-join-no').textContent = 'Later';
+
+  const box = $('#join-body');
+  box.textContent = '';
+  box.append(el('p', 'join-q', `Which of your people is ${first || 'this'}?`));
+
+  /* The best guess first. On the sending side that is whoever you actually
+     clicked invite on; on the receiving side there is no number to compare
+     against — the server is not told one — so a matching name is the only
+     hint available, and it is offered as a hint rather than as an answer. */
+  const meant = joining.choice ? byId(joining.choice) : null;
+  const hit = !meant && name ? matchExisting(name, '') : null;
+  const best = meant || hit?.person || null;
+  const already = people.filter(p => !p.linkedUid);
+  const ordered = best ? [best, ...already.filter(p => p.id !== best.id)] : already;
+
+  const list = el('div', 'join-pick');
+  const choose = (id, label) => {
+    const b = el('button', 'join-opt' + (joining.choice === id ? ' is-on' : ''));
+    b.type = 'button';
+    b.setAttribute('aria-pressed', String(joining.choice === id));
+    b.append(el('span', 'join-opt-name', label));
+    if (meant && id === meant.id) b.append(el('span', 'join-opt-why', 'who you invited'));
+    else if (hit && id === hit.person.id) b.append(el('span', 'join-opt-why', 'same name — probably them'));
+    b.onclick = () => { joining.choice = id; paintJoinPicker(); };
+    return b;
+  };
+
+  ordered.slice(0, 12).forEach(p => list.append(choose(p.id, p.name)));
+  list.append(choose('__new__', name ? `Add ${name} as someone new` : 'Add them as someone new'));
+  box.append(list);
+}
+
+async function finishJoin() {
+  const api = linkApi();
+
+  if (joining?.needsAccount) {
+    $('#dlg-join').close();
+    api?.openSignIn('up');
+    return;
+  }
+  if (!joining?.other) { $('#dlg-join').close(); return; }
+
+  const { other, name, choice } = joining;
+  if (!choice) { $('#join-error').textContent = 'Say who they are, or come back to it later.'; return; }
+
+  let target;
+  if (choice === '__new__') {
+    target = normalise({ name: name || 'Someone', linkedUid: other });
+    people.push(target);
+  } else {
+    target = byId(choice);
+    if (!target) { $('#dlg-join').close(); return; }
+    target.linkedUid = other;
+  }
+
+  await saveRoster();
+  notifyMutate();
+  $('#dlg-join').close();
+  joining = null;
+  renderAll();
+  toast(`Linked with ${target.name.split(' ')[0]}`);
+}
+
+/* Ending it. The link goes on the server and the mark comes off the card;
+   what you have written about them is yours and stays exactly as it was. */
+async function unlinkPerson(personId) {
+  const p = byId(personId);
+  const api = linkApi();
+  if (!p || !p.linkedUid) return;
+  if (!confirm(`Unlink ${p.name}? Everything you have written about them stays. You will stop seeing anything they share, and they will stop seeing anything of yours.`)) return;
+
+  const other = p.linkedUid;
+  p.linkedUid = null;
+  await saveRoster();
+  notifyMutate();
+  renderAll();
+  try { await api?.unlink(other); } catch (e) { toast('Unlinked here — the server did not answer, it will catch up'); return; }
+  toast(`Unlinked from ${p.name.split(' ')[0]}`);
+}
+
+/* Somebody took up an invitation you sent. There is no realtime channel and
+   this app does not want one, so it is noticed on the next sync — and always
+   asked rather than guessed, because you may have sent it from a device that
+   is not this one. */
+async function checkClaimedInvites() {
+  const api = linkApi();
+  if (!api || !signedIn()) return;
+  try {
+    const [invites, links] = await Promise.all([api.listInvites(), api.listLinks()]);
+    const known = new Set(people.map(p => p.linkedUid).filter(Boolean));
+    const mine = new Set(links.map(l => l.other));
+    const fresh = invites.find(i => i.claimed_by && mine.has(i.claimed_by) && !known.has(i.claimed_by));
+    if (!fresh) return;
+    /* You chose who to send it to, so this device already knows the answer —
+       offered as the choice rather than made silently, because the invitation
+       may have gone out from your other device, or been passed on. */
+    const meant = invitedFor()[fresh.id];
+    joining = {
+      other: fresh.claimed_by,
+      name: fresh.claimed_name || '',
+      choice: meant && byId(meant) && !byId(meant).linkedUid ? meant : undefined,
+    };
+    paintJoinPicker();
+    $('#join-error').textContent = '';
+    $('#dlg-join').showModal();
+  } catch { /* linking not set up, or offline — neither is worth a word */ }
 }
 
 function endSeason(personId, recId) {
@@ -2425,12 +2953,18 @@ let editingPersonId = null;
 let pendingPhoto = undefined;    // undefined = untouched, null = cleared, string = new
 let pendingOriginal = undefined; // the same three states, for the uncropped picture
 
-function personDialog(p) {
+/* Set when the dialog is opened to make your own profile, read back by
+   savePerson. Only meaningful while creating: editing reads the record. */
+let makingSelf = false;
+
+function personDialog(p, { self = false } = {}) {
   editingPersonId = p ? p.id : null;
+  makingSelf = p ? !!p.isSelf : self;
   pendingPhoto = undefined;
   pendingOriginal = undefined;
 
-  $('#dlg-person-title').textContent = p ? 'Edit details' : 'Someone new';
+  const mine = makingSelf;
+  $('#dlg-person-title').textContent = mine ? (p ? 'Your details' : 'About you') : (p ? 'Edit details' : 'Someone new');
   $('#f-name').value = p?.name || '';
   $('#f-relationship').value = p?.relationship || '';
   paintGroupPick(p?.groups || []);
@@ -2438,9 +2972,18 @@ function personDialog(p) {
   $('#f-contact').value = p?.contact || '';
   $('#f-cadence').value = String(p ? p.cadenceDays : 30);
   $('#btn-delete-person').hidden = !p;
+  if (p) $('#btn-delete-person').textContent = mine ? 'Remove your profile' : 'Remove this person';
+
+  /* How you know them, which group they are in and how often to be reminded
+     are all questions about somebody else. Asked of yourself they are either
+     nonsense or a reminder to phone yourself. */
+  $('#f-relationship').closest('.field').hidden = mine;
+  $('#f-groups').closest('.field').hidden = mine;
+  $('#f-cadence').closest('.field').hidden = mine;
+
   /* Only offered for someone new — editing is where you correct a name, not
-     overwrite it from elsewhere. */
-  $('#contact-pick').hidden = !!p || !canPickContacts();
+     overwrite it from elsewhere. Never for yourself. */
+  $('#contact-pick').hidden = mine || !!p || !canPickContacts();
   $('#photo-input').value = '';
 
   paintPhotoPreview(p && photos[p.id] ? photos[p.id] : null, p?.name || '');
@@ -2765,23 +3308,31 @@ async function savePerson(e) {
   const name = $('#f-name').value.trim();
   if (!name) return;
 
+  /* Editing keeps whatever the record already was; only a brand new one takes
+     it from which button opened the dialog. */
+  const editing = editingPersonId ? byId(editingPersonId) : null;
+  const self = editing ? editing.isSelf : makingSelf;
+
   const data = {
     name,
-    relationship: $('#f-relationship').value,
-    groups: readGroupPick(),
+    relationship: self ? '' : $('#f-relationship').value,
+    /* Both hidden in self mode, so their inputs hold whatever the last person
+       edited left behind. Forced rather than read. */
+    groups: self ? [] : readGroupPick(),
     birthday: $('#f-birthday').value,
     contact: $('#f-contact').value,
-    cadenceDays: Number($('#f-cadence').value),
+    cadenceDays: self ? 0 : Number($('#f-cadence').value),
+    isSelf: self,
   };
 
   const isNew = !editingPersonId;
   let target;
   if (editingPersonId) {
-    target = byId(editingPersonId);
+    target = editing;
     Object.assign(target, normalise({ ...target, ...data }));
   } else {
     target = normalise(data);
-    people.push(target);
+    if (self) me = target; else people.push(target);
   }
 
   if (pendingPhoto === null) {
@@ -2794,12 +3345,15 @@ async function savePerson(e) {
     if (pendingOriginal) await Store.saveOriginal(target.id, pendingOriginal);
   }
 
-  await Store.savePeople(people);
+  await saveRoster();
   notifyMutate();
   $('#dlg-person').close();
   renderAll();
   // a person's page opens only when their photo is tapped
-  if (isNew) toast(`${name.split(' ')[0]} is in your circle — tap their photo to add more`);
+  if (isNew) {
+    if (self) { openSheet(target.id); toast('Your profile is made — this is the page others will see once you link'); }
+    else toast(`${name.split(' ')[0]} is in your circle — tap their photo to add more`);
+  }
 }
 
 /* one dialog, three shapes */
@@ -2984,7 +3538,7 @@ async function exportAll() {
     app: 'kindred',
     version: 3,
     exportedAt: new Date().toISOString(),
-    people,
+    people: roster(),          // your own profile is part of what you are backing up
     photos: await Store.loadPhotos(),
   };
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
@@ -3005,7 +3559,13 @@ async function importAll(file) {
   let added = 0, merged = 0;
   for (const raw of data.people) {
     const incoming = normalise(raw);
-    const existing = people.find(p => p.name.toLowerCase() === incoming.name.toLowerCase());
+    /* A backup carries your own profile too, and it has to land on yours
+       rather than be matched by name against the circle — otherwise restoring
+       your own backup puts you in your own circle as a stranger who happens
+       to share your name. Matched on being the self, not on the name. */
+    const existing = incoming.isSelf
+      ? me
+      : people.find(p => !p.isSelf && p.name.toLowerCase() === incoming.name.toLowerCase());
     if (existing) {
       existing.summary = existing.summary || incoming.summary;
       existing.relationship = existing.relationship || incoming.relationship;
@@ -3035,7 +3595,7 @@ async function importAll(file) {
       }
       merged++;
     } else {
-      people.push(incoming);
+      if (incoming.isSelf) me = incoming; else people.push(incoming);
       if (data.photos?.[raw.id]) {
         photos[incoming.id] = data.photos[raw.id];
         await Store.savePhoto(incoming.id, data.photos[raw.id]);
@@ -3043,7 +3603,7 @@ async function importAll(file) {
       added++;
     }
   }
-  await Store.savePeople(people);
+  await saveRoster();
   notifyMutate();
   renderAll();
   toast(`${added} added, ${merged} merged`);
@@ -3292,6 +3852,9 @@ function unlock() {
   if (dlg.open) dlg.close();
   renderAll();
   nudgeIfDue();   // held back while locked, so it lands now instead
+  /* Held back for the same reason: an invitation waiting in storage is not
+     for whoever happened to be holding the phone. */
+  offerPendingJoin();
 }
 
 async function tryBio(auto = false) {
@@ -3526,11 +4089,30 @@ function switchView(name) {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
+/* The face in the corner of the title. Nothing there until you have made a
+   profile, and then the same avatar everyone else gets. */
+function renderMe() {
+  const b = $('#btn-me');
+  if (!b) return;
+  b.textContent = '';
+  b.classList.toggle('is-empty', !me);
+  if (me) {
+    b.append(avatar(me, 'badge-photo'));
+    b.setAttribute('aria-label', `Your profile — ${me.name}`);
+    b.title = 'Your profile';
+  } else {
+    b.append(document.createTextNode('＋'));
+    b.setAttribute('aria-label', 'Make a profile for yourself');
+    b.title = 'Make a profile for yourself';
+  }
+}
+
 function renderAll() {
   renderCircle();
   renderPrayers();
   renderToday();
   renderCalendar();
+  renderMe();
   if (openId) renderSheet();
 }
 
@@ -3582,6 +4164,27 @@ function wire() {
     if (file) pickPhoto(file);
     e.target.value = '';   // so choosing the same file twice still fires
   };
+  $('#btn-me').onclick = () => { if (me) openSheet(me.id); else personDialog(null, { self: true }); };
+
+  $('#btn-invite-close').onclick = () => $('#dlg-invite').close();
+  $('#btn-invite-wa').onclick = sendInviteOnWhatsApp;
+  $('#btn-invite-copy').onclick = async () => {
+    const url = $('#invite-link').dataset.url;
+    if (!url) return;
+    try { await navigator.clipboard.writeText(url); toast('Link copied'); }
+    catch { toast('Could not copy — the link is on screen to take by hand'); }
+  };
+
+  $('#btn-join-yes').onclick = finishJoin;
+  $('#btn-join-no').onclick = () => {
+    /* Declining before claiming leaves the invitation unused, so it can still
+       be opened later or simply expire. Declining after only defers saying
+       who they are — the link itself is already made. */
+    if (joining?.needsAccount) clearPendingJoin();
+    $('#dlg-join').close();
+    joining = null;
+  };
+
   $('#btn-contact-pick').onclick = fillFromContact;
   $('#photo-adjust').onclick = adjustPhoto;
   $('#photo-clear').onclick = () => {
@@ -3595,17 +4198,20 @@ function wire() {
   $('#btn-delete-person').onclick = async () => {
     const p = byId(editingPersonId);
     if (!p) return;
-    if (!confirm(`Remove ${p.name} and everything recorded about them? This cannot be undone.`)) return;
-    people = people.filter(x => x.id !== p.id);
+    const ask = p.isSelf
+      ? 'Remove your profile and everything on it? This cannot be undone.'
+      : `Remove ${p.name} and everything recorded about them? This cannot be undone.`;
+    if (!confirm(ask)) return;
+    if (p.isSelf) me = null; else people = people.filter(x => x.id !== p.id);
     delete photos[p.id];
     await Store.deletePhoto(p.id);
     await Store.deleteOriginal(p.id);
-    await Store.savePeople(people);
+    await saveRoster();
     notifyMutate();
     $('#dlg-person').close();
     closeSheet();
     renderAll();
-    toast(`${p.name} removed`);
+    toast(p.isSelf ? 'Your profile is gone' : `${p.name} removed`);
   };
 
   $('#form-event').onsubmit = saveEvent;
@@ -3750,6 +4356,9 @@ function wire() {
     renderAll();
     if (!locked) nudgeIfDue();
     checkForUpdate();
+    /* Coming back to the app is when you find out somebody took up an
+       invitation, since nothing here listens for it while you are away. */
+    if (!locked) checkClaimedInvites();
   });
 
   wireDialogLayers();
@@ -3809,14 +4418,23 @@ async function checkForUpdate() {
 /* ─────────────────────────── boot ─────────────────────────── */
 
 async function boot() {
-  /* Before anything else. Reading the lock is synchronous, so the screen is
-     up ahead of the first paint and no face is ever drawn uncovered. */
+  /* First of all, before the lock and before any layer is pushed: an
+     invitation in the address bar has to come out of it straight away. A
+     reload must not try to claim it twice, and it should not sit in the
+     screenshot the task switcher takes. Parked in storage rather than a
+     variable because making an account sends you away to an email and back
+     to an entirely different URL, and the invitation has to survive that. */
+  takeLaunchFragment();
+
+  /* Reading the lock is synchronous, so the screen is up ahead of the first
+     paint and no face is ever drawn uncovered. */
   wireLock();
   showLock();
 
   await Store.init();
-  people = (await Store.loadPeople()).map(normalise);
+  setRoster(await Store.loadPeople());   // splits you back out of the roster
   photos = await Store.loadPhotos();
+  shared = await Store.loadShared();
 
   fillSelects();
   wire();
@@ -3855,6 +4473,11 @@ async function boot() {
     if (held && byId(held)) openSheet(held);
   }
 
+  /* An invitation, once the app is standing and the lock is behind us — a
+     link must not be claimable by whoever is holding a locked phone. sync.js
+     loads after this file, so it is given a moment to bind first. */
+  if (!locked) setTimeout(() => { offerPendingJoin(); checkClaimedInvites(); }, 400);
+
   if (location.protocol.startsWith('http')) {
     if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
     checkForUpdate();
@@ -3864,12 +4487,25 @@ async function boot() {
 /* The only surface sync.js touches. Keeping it this narrow means the sync
    layer can be removed entirely and the app still runs, unchanged. */
 window.Kindred = {
-  get people() { return people; },
-  set people(v) { people = v; },
+  /* The roster, not the circle: sync carries your own profile the same way it
+     carries everyone else, and setRoster splits you back out on the way in.
+     This getter is the only place the two are ever seen together, which is
+     what keeps every renderer in this file honest about who it is drawing. */
+  get people() { return roster(); },
+  set people(v) { setRoster(v); },
+  get self() { return me; },
   get photos() { return photos; },
   set photos(v) { photos = v; },
+  /* What your linked people have published, keyed by their account id.
+     Entirely separate from `people` — sync's five-table pipeline has never
+     heard of this map and must never be given the chance to push it back. */
+  get shared() { return shared; },
+  set shared(v) { shared = v; },
+  get linkedUids() { return people.filter(p => p.linkedUid).map(p => p.linkedUid); },
   Store,
   normalise,
+  downscale,
+  loadImage,
   toast,
   render: () => renderAll(),
   onMutate: fn => mutateHooks.push(fn),
