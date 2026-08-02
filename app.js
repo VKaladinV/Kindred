@@ -2310,10 +2310,6 @@ function renderSheet() {
       ? `${plural(sharedCount(p), 'thing', 'things')} marked to share`
       : 'Nothing here is shared yet'));
     mine.append(st);
-    const editMine = el('button', 'btn btn-quiet', 'Edit your details');
-    editMine.type = 'button';
-    editMine.onclick = () => personDialog(p);
-    mine.append(editMine);
     root.append(mine);
   } else if (p.isFuture) {
     const box = el('div', 'touch-bar is-mine');

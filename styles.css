@@ -1192,7 +1192,7 @@ body.on-calendar .topbar { display: none; }
    things reads as quiet rather than as a column of switches. */
 .share-pill {
   display: inline-flex; align-items: center; gap: .3rem;
-  margin-top: .45rem;
+  margin-top: .65rem;
   padding: .2rem .6rem;
   border: 1px dashed var(--rule); border-radius: 999px;
   background: none; cursor: pointer;
