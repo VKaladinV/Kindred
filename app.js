@@ -431,25 +431,113 @@ const readyPromise = new Promise(r => { resolveReady = r; });
    ever sees the two together. */
 let me = null;
 
+/* How much of a profile has actually been written. Read only from the row
+   itself so that two devices score it identically without comparing notes. */
+const selfWeight = p =>
+  (p.name && p.name !== 'Unnamed' ? 1 : 0)
+  + (p.contact ? 1 : 0) + (p.birthday ? 1 : 0)
+  + (p.occupation ? 1 : 0) + (p.summary ? 1 : 0)
+  + p.events.length + p.prayers.length
+  + p.medications.length + p.conditions.length + p.touches.length;
+
+/* Fullest first, then the older one, then id. Every term comes out of the
+   rows, so this is the same answer everywhere without a negotiation. */
+const selfOrder = (a, b) =>
+  (selfWeight(b) - selfWeight(a))
+  || (a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : 0)
+  || (a.id < b.id ? -1 : 1);
+
+/* Two rows carrying isSelf are never two people. Nothing but making your own
+   profile sets that flag, and a linked partner's profile lives in another
+   table entirely — so this is one person written down twice, on two devices
+   that had not met yet.
+
+   What used to happen was that one of them won and the other was quietly
+   demoted into the circle. That answered "which is you" but it was the wrong
+   question: the demotion was written back and synced, so the losing profile
+   became an ordinary circle member permanently, still holding the photo and
+   everything typed on it, while the winner could be an empty shell made
+   first on a device that never got used. Putting them back together loses
+   nothing and needs no rule about which half to sacrifice. */
+function mergeSelves(mine) {
+  const [winner, ...rest] = mine;
+  if (!winner || !rest.length) return winner || null;
+
+  for (const other of rest) {
+    for (const f of ['name', 'contact', 'birthday', 'occupation', 'summary', 'relationship']) {
+      const held = f === 'name' && winner.name === 'Unnamed' ? '' : winner[f];
+      if (!held && other[f] && other[f] !== 'Unnamed') winner[f] = other[f];
+    }
+    if (!winner.cadenceDays) winner.cadenceDays = other.cadenceDays;
+    /* Everything written on the other one comes across. These all carry
+       their own ids, so the rows already on the server simply change which
+       person they hang from rather than being written again. */
+    for (const f of ['events', 'prayers', 'medications', 'conditions']) {
+      const have = new Set(winner[f].map(x => x.id));
+      winner[f].push(...other[f].filter(x => !have.has(x.id)));
+    }
+    const days = new Set(winner.touches.map(t => t.date));
+    winner.touches.push(...other.touches.filter(t => !days.has(t.date)));
+    /* Keep the earliest beginning: it is the truer answer to when you
+       started, and it keeps this stable if it ever runs again. */
+    if (other.createdAt && other.createdAt < winner.createdAt) winner.createdAt = other.createdAt;
+    /* A face is kept on the side, keyed by id, so it does not travel with
+       the fields above and has to be carried over deliberately. */
+    if (!photos[winner.id] && photos[other.id]) {
+      photos[winner.id] = photos[other.id];
+      Store.savePhoto(winner.id, photos[other.id]).catch(() => {});
+    }
+  }
+  winner.touches.sort((a, b) => a.date.localeCompare(b.date));
+  return winner;
+}
+
 function setRoster(list) {
   const all = list.map(normalise);
-  const mine = all.filter(p => p.isSelf);
-  /* Two devices can each have made a profile before they ever met, and once
-     they sync, both carry isSelf. Picking whichever came first in the array
-     meant the answer depended on merge order — different on every load — so
-     the phone and the PC could each decide the other's profile was "you",
-     and a sync would swap which one that was. Sorting by when each was made,
-     with id (also time-ordered) breaking a same-day tie, gives every device
-     the same answer without needing to compare notes first: the older
-     profile is always you, everywhere, from here on. */
-  mine.sort((a, b) => a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : (a.id < b.id ? -1 : 1));
-  me = mine[0] || null;
-  /* The rest fall into the circle as ordinary people, rather than dropping
-     somebody on the floor to enforce a rule. */
-  const rest = all.filter(p => !p.isSelf)
-    .concat(mine.slice(1).map(p => ({ ...p, isSelf: false })));
+  const mine = all.filter(p => p.isSelf).sort(selfOrder);
+  me = mergeSelves(mine);
+  /* The duplicates are gone rather than demoted — their contents are in
+     `me` now, so leaving the empty husks behind would put a second copy of
+     you in your own circle. */
+  const rest = all.filter(p => !p.isSelf);
   futures = rest.filter(p => p.isFuture);
   people = rest.filter(p => !p.isFuture);
+}
+
+/* The way back, for a profile that was demoted into the circle before
+   mergeSelves existed and had that demotion synced — the flag is gone from
+   it by then, so nothing above can recognise it, and only you can say so.
+   Offered narrowly (see the sheet) rather than on everybody's page. */
+async function claimAsSelf(personId) {
+  const p = byId(personId);
+  if (!p || p.isSelf) return;
+  const had = me && me.id !== p.id ? me : null;
+  if (!confirm(
+    `Make ${p.name} your own profile?\n\n`
+    + 'The photo and everything written on this page becomes yours'
+    + (had ? ', and what your profile holds now is folded in with it' : '')
+    + '. They stop being someone in your circle.')) return;
+
+  people = people.filter(x => x.id !== p.id);
+  futures = futures.filter(x => x.id !== p.id);
+  p.isSelf = true;
+  p.isFuture = false;
+  /* This card is named as the winner rather than scored against the old
+     profile: it keeps its id, and with it the photo already stored under
+     that id, which is the whole reason for doing this. */
+  me = mergeSelves(had ? [p, { ...had, isSelf: true }] : [p]);
+  /* How you know them, which group they are in and how often to be nudged
+     are all questions about somebody else — savePerson forces them empty on
+     your own profile, and this has to agree. */
+  me.relationship = '';
+  me.groups = [];
+  me.cadenceDays = 0;
+
+  await saveRoster();
+  notifyMutate();
+  renderAll();
+  openSheet(me.id);
+  toast('That is your profile now');
 }
 
 const roster = () => [...people, ...futures, ...(me ? [me] : [])];
@@ -2296,6 +2384,23 @@ function renderSheet() {
       row.append(inv);
     }
     idBox.append(row);
+  }
+
+  /* A duplicate of you that an older version demoted into the circle, and
+     synced — the isSelf flag is off it now, so nothing can spot it on its
+     own. Offered only where it could plausibly be true: you have no profile
+     yet, or the one you have is bare, or this card carries your own name.
+     Never on somebody already tied to another account, since that is proof
+     they are not you. */
+  const couldBeMe = !me || selfWeight(me) <= 1
+    || me.name.trim().toLowerCase() === p.name.trim().toLowerCase();
+  if (!p.isSelf && !p.linkedUid && couldBeMe) {
+    const mineRow = el('div', 'link-row');
+    const claim = el('button', 'link-btn', 'this is actually me');
+    claim.type = 'button';
+    claim.onclick = () => claimAsSelf(p.id);
+    mineRow.append(claim);
+    idBox.append(mineRow);
   }
 
   head.append(idBox);
