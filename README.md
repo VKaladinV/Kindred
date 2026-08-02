@@ -3,8 +3,10 @@
 A small private app for remembering the people you care about — a circle of photo
 badges, and behind each one a summary, a life-events timeline, and a prayer list.
 
-Everything is stored on your own device. Nothing is uploaded anywhere, there is no
-account, and it works with no internet once it has loaded.
+It's local-first — everything is stored on your own device and it works with no
+internet once it has loaded, no account required. Sign in and it also syncs to
+your own private Supabase account, so the same circle — including phone numbers,
+photos, medications, prayers, everything — reaches your other devices too.
 
 ---
 

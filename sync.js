@@ -797,6 +797,7 @@ function paintStatus() {
   const box = $('#sync-state');
   const btn = $('#btn-auth');
   const line = $('#account-line');
+  const foot = $('#footer-sync');
   if (!box) return;
 
   const s = Session.get();
@@ -805,10 +806,12 @@ function paintStatus() {
     box.dataset.state = 'off';
     if (btn) btn.textContent = 'Sign in';
     if (line) line.textContent = 'Sign in to sync this device with your phone.';
+    if (foot) foot.textContent = 'kept on this device';
     return;
   }
   if (btn) btn.textContent = 'Sign out';
   if (line) line.textContent = s.user.email;
+  if (foot) foot.textContent = 'synced to your account';
 
   const map = {
     idle:    'Waiting to sync',
