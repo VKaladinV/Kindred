@@ -347,6 +347,7 @@ function flatten(people, photos) {
       birthday: d(p.birthday), contact: p.contact, summary: p.summary,
       cadence_days: p.cadenceDays, created_on: d(p.createdAt),
       is_self: !!p.isSelf, linked_uid: p.linkedUid || null,
+      occupation: p.occupation, is_future: !!p.isFuture,
     };
     for (const [key, type] of [['medications', 'medication'], ['conditions', 'condition']]) {
       for (const h of p[key]) {
@@ -407,6 +408,7 @@ function nest(rows) {
          and not read is not merely lost between devices — it is wiped on this
          one, seconds later. */
       isSelf: !!r.is_self, linkedUid: r.linked_uid || null,
+      occupation: r.occupation || '', isFuture: !!r.is_future,
     };
     byId[r.id] = p;
     return p;

@@ -62,6 +62,15 @@ alter table public.people add column if not exists circles text[] not null defau
 alter table public.people add column if not exists is_self    boolean not null default false;
 alter table public.people add column if not exists linked_uid uuid;
 
+-- What someone does — asked of everyone now, not only people already in the
+-- circle, so it belongs on the base table rather than a bolt-on.
+alter table public.people add column if not exists occupation text not null default '';
+
+-- Flagged as a possible future connection rather than someone you are
+-- actively keeping in touch with yet — no cadence, no seasons, no history
+-- until they are moved into the circle. Rides the same sync as is_self.
+alter table public.people add column if not exists is_future boolean not null default false;
+
 -- ── medications and conditions ───────────────────────────────────────
 -- One table for both, the way records carries three types: the shape is
 -- identical and only the wording around it differs.

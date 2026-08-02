@@ -391,6 +391,10 @@ const Store = (() => {
 /* ─────────────────────────── state ─────────────────────────── */
 
 let people = [];
+/* Flagged as a possible future connection — someone you'd like to get to
+   know, not yet someone you're keeping in touch with. Split out the same
+   way `me` is, below, and for the same reason. */
+let futures = [];
 let photos = {};
 /* What the people you have linked with publish, keyed by their account id.
    Never written by anything in this file — sync.js is the only writer, and
@@ -425,14 +429,16 @@ function setRoster(list) {
   /* Two devices can each have made a profile before they ever met. Keep the
      first and let the rest fall into the circle as ordinary people, rather
      than dropping somebody on the floor to enforce a rule. */
-  people = all.filter(p => !p.isSelf)
+  const rest = all.filter(p => !p.isSelf)
     .concat(mine.slice(1).map(p => ({ ...p, isSelf: false })));
+  futures = rest.filter(p => p.isFuture);
+  people = rest.filter(p => !p.isFuture);
 }
 
-const roster = () => (me ? [...people, me] : people);
+const roster = () => [...people, ...futures, ...(me ? [me] : [])];
 const saveRoster = () => Store.savePeople(roster());
 
-const byId = id => (me && me.id === id ? me : people.find(p => p.id === id));
+const byId = id => (me && me.id === id ? me : people.find(p => p.id === id) || futures.find(p => p.id === id));
 
 /* sync.js listens here so it never has to trust each mutation site to
    announce itself — everything that changes data ends up in one of these. */
@@ -533,6 +539,7 @@ function normalise(p) {
     id: p.id || uid(),
     name: (p.name || 'Unnamed').trim(),
     relationship: (p.relationship || '').trim(),
+    occupation: (p.occupation || '').trim(),
     groups: normaliseGroups(p),
     birthday: p.birthday || '',
     contact: (p.contact || '').trim(),
@@ -549,6 +556,10 @@ function normalise(p) {
        landing, so a flag that lives anywhere else lasts until the next
        reload and no longer. */
     isSelf: !!p.isSelf,
+    /* Someone you'd like to get to know, not yet someone you're keeping in
+       touch with — no cadence, no seasons, no history until they move into
+       the circle. */
+    isFuture: !!p.isFuture,
     /* Which account this card belongs to, once you have linked with them.
        Null for everyone you have only written down. */
     linkedUid: p.linkedUid || null,
@@ -1010,6 +1021,36 @@ function badge(p, i, scale = badgeScale(p)) {
   return b;
 }
 
+/* A future connection has no check-in rhythm to ring, size or caption — the
+   ring, the since-caption and the season mark all model an ongoing
+   relationship this person isn't in yet. So this skips badge() entirely
+   rather than reusing it with a fixed scale: no --scale set means --frame
+   falls back to full size on its own (styles.css), and no dataset.state
+   means the ring is neutralised by the .no-ring class instead of colored. */
+function futureBadge(p) {
+  const b = el('div', 'badge no-ring');
+  b.dataset.id = p.id;
+
+  const frame = el('button', 'badge-frame');
+  frame.type = 'button';
+  frame.setAttribute('aria-label', `Open ${p.name}`);
+  frame.style.setProperty('--tilt', ((hashCode(p.id) % 7) - 3) + 'deg');
+  frame.onclick = () => openSheet(p.id);
+  frame.append(avatar(p, 'badge-photo'));
+
+  const nOpen = openPrayers(p).length;
+  if (nOpen) {
+    const flag = el('div', 'badge-flag', '✜');
+    flag.title = plural(nOpen, 'open prayer', 'open prayers');
+    frame.append(flag);
+  }
+
+  b.append(frame, el('div', 'badge-name', p.name));
+  if (p.occupation) b.append(el('div', 'badge-meta', p.occupation));
+
+  return b;
+}
+
 /* ── how big a face is, and how many fit ────────────────────────
    The size lives in one CSS variable, so changing it is a variable to set
    rather than anything to redraw — on a computer the grid reflows itself and
@@ -1405,6 +1446,18 @@ function renderCircle() {
   $('#tagline').textContent = n ? 'the people I hold, and how they are' : 'a quiet place to begin';
 }
 
+/* Every future-connection badge is the same full size, so unlike the circle
+   this needs no per-render scale map and no phone tessellation — the plain
+   CSS grid packs same-sized faces on its own. */
+function renderFuture() {
+  const grid = $('#grid-future');
+  grid.textContent = '';
+  const list = [...futures].sort((a, b) => a.name.localeCompare(b.name));
+  list.forEach(p => grid.append(futureBadge(p)));
+  $('#blank-future').hidden = futures.length > 0;
+  grid.hidden = futures.length === 0;
+}
+
 /* ═══════════════════════════ RENDER: PRAYERS ══════════════ */
 
 /* One row, three states. The tick means something different in each: on the
@@ -1495,9 +1548,9 @@ function prayerLine(p, pr, state = 'open') {
 
 /* An archive card: the same person's head, and their closed prayers under it.
    Both archives are built the same way and differ only in what they hold. */
-function archiveCards(box, pick, sortKey, state) {
+function archiveCards(box, pick, sortKey, state, list = people) {
   let count = 0;
-  people
+  list
     .filter(p => pick(p).length)
     .sort((a, b) => a.name.localeCompare(b.name))
     .forEach(p => {
@@ -1524,7 +1577,10 @@ function renderPrayers() {
   ansWrap.textContent = '';
   relWrap.textContent = '';
 
-  const withOpen = people.filter(p => openPrayers(p).length).sort((a, b) => a.name.localeCompare(b.name));
+  /* Someone flagged as a future connection can still carry a prayer — this is
+     the one place their list joins the ordinary circle's, since a unified
+     "everything I'm praying for" view is the point of this tab. */
+  const withOpen = [...people, ...futures].filter(p => openPrayers(p).length).sort((a, b) => a.name.localeCompare(b.name));
 
   withOpen.forEach((p, i) => {
     const card = el('div', 'pcard');
@@ -1547,8 +1603,9 @@ function renderPrayers() {
     openWrap.append(card);
   });
 
-  const answeredCount = archiveCards(ansWrap, answeredPrayers, 'answeredAt', 'answered');
-  const releasedCount = archiveCards(relWrap, releasedPrayers, 'releasedAt', 'released');
+  const withFutures = [...people, ...futures];
+  const answeredCount = archiveCards(ansWrap, answeredPrayers, 'answeredAt', 'answered', withFutures);
+  const releasedCount = archiveCards(relWrap, releasedPrayers, 'releasedAt', 'released', withFutures);
 
   $('#answered-wrap').hidden = answeredCount === 0;
   $('#answered-count').textContent = answeredCount;
@@ -2154,7 +2211,11 @@ function renderSheet() {
   head.append(avatar(p, 'person-photo'));
   const idBox = el('div', 'person-id');
   idBox.append(el('h2', null, p.name));
-  if (p.relationship) idBox.append(el('p', 'person-rel', p.relationship));
+  /* Joined rather than separate fields on screen: for most people this reads
+     as "grandmother · Retired teacher", and for a future connection — who has
+     no relationship yet — it's just the occupation, alone, in the same spot. */
+  const idLine = [p.relationship, p.occupation].filter(Boolean).join(' · ');
+  if (idLine) idBox.append(el('p', 'person-rel', idLine));
 
   const facts = el('div', 'person-facts');
   const bd = nextBirthday(p);
@@ -2207,7 +2268,7 @@ function renderSheet() {
   /* Linking, on the page of the person it would be with. Only for somebody
      else, only once there is a sync layer to do it through, and only while
      they are not already linked — after that it says so instead. */
-  if (!p.isSelf && linkApi()) {
+  if (!p.isSelf && !p.isFuture && linkApi()) {
     const row = el('div', 'link-row');
     if (p.linkedUid) {
       row.append(el('span', 'pill pill-linked', '⇄ linked'));
@@ -2254,6 +2315,17 @@ function renderSheet() {
     editMine.onclick = () => personDialog(p);
     mine.append(editMine);
     root.append(mine);
+  } else if (p.isFuture) {
+    const box = el('div', 'touch-bar is-mine');
+    const st = el('div', 'touch-status');
+    st.append(el('span', 'big', 'Not in your circle yet'));
+    st.append(el('span', 'sub', 'Add them once you would like to start keeping in touch.'));
+    box.append(st);
+    const promote = el('button', 'btn btn-sage', 'Add to your circle');
+    promote.type = 'button';
+    promote.onclick = () => promoteToCircle(p.id);
+    box.append(promote);
+    root.append(box);
   } else {
 
   const bar = el('div', 'touch-bar');
@@ -2307,7 +2379,10 @@ function renderSheet() {
     root.append(healthBlock(p, 'medications'), healthBlock(p, 'conditions'));
   }
 
-  /* ── right now: seasons ── */
+  /* ── right now: seasons ──
+     Not for a future connection — seasons, coming up and history all model
+     an ongoing story with them that starts once they're in the circle. */
+  if (!p.isFuture) {
   const snBlock = el('div', 'sheet-block');
   snBlock.append(blockHead('Right now', '+ start a season', () => eventDialog(p.id, null, 'season')));
   if (seasons.length) {
@@ -2333,11 +2408,12 @@ function renderSheet() {
       : 'Not in any season you have noted — grief, treatment, a new baby, a hard stretch at work.'));
   }
   root.append(snBlock);
+  }
 
   /* ── summary ── */
   const sumBlock = el('div', 'sheet-block');
   const sumHead = el('div', 'block-head');
-  sumHead.append(el('h3', null, p.isSelf ? 'How you are' : 'Who they are'));
+  sumHead.append(el('h3', null, p.isSelf ? 'How you are' : p.isFuture ? 'Information about them' : 'Who they are'));
   const flash = el('span', 'saved-flash', 'saved');
   flash.setAttribute('aria-hidden', 'true');
   sumHead.append(flash);
@@ -2347,6 +2423,8 @@ function renderSheet() {
   ta.value = p.summary;
   ta.placeholder = p.isSelf
     ? 'Where you are at the moment — what you are carrying, what you are glad of, what you would tell someone who asked properly.'
+    : p.isFuture
+    ? 'What you know about them, and why you would like to get to know them better.'
     : 'What matters about them right now — what they are carrying, what they love, what you keep forgetting to ask about.';
   ta.setAttribute('aria-label', 'Summary');
   let flashTimer;
@@ -2404,6 +2482,7 @@ function renderSheet() {
   root.append(prBlock);
 
   /* ── coming up ── */
+  if (!p.isFuture) {
   const upBlock = el('div', 'sheet-block');
   upBlock.append(blockHead('Coming up', '+ add a date', () => eventDialog(p.id, null, 'upcoming')));
   const ups = upcomingOf(p);
@@ -2449,8 +2528,10 @@ function renderSheet() {
     upBlock.append(el('p', 'quiet-note', 'Nothing on the calendar — appointments, a surgery date, an anniversary.'));
   }
   root.append(upBlock);
+  }
 
   /* ── history ── */
+  if (!p.isFuture) {
   const evBlock = el('div', 'sheet-block');
   evBlock.append(blockHead('History', '+ add to history', () => eventDialog(p.id, null, 'history')));
 
@@ -2484,6 +2565,7 @@ function renderSheet() {
     evBlock.append(el('p', 'quiet-note', 'Nothing recorded yet — births, diagnoses, new jobs, moves, losses, wins.'));
   }
   root.append(evBlock);
+  }
 }
 
 /* ─────────────────────────── mutations ─────────────────────── */
@@ -2953,33 +3035,41 @@ let editingPersonId = null;
 let pendingPhoto = undefined;    // undefined = untouched, null = cleared, string = new
 let pendingOriginal = undefined; // the same three states, for the uncropped picture
 
-/* Set when the dialog is opened to make your own profile, read back by
-   savePerson. Only meaningful while creating: editing reads the record. */
+/* Set when the dialog is opened to make your own profile, or to add a future
+   connection, and read back by savePerson. Only meaningful while creating:
+   editing reads the record. */
 let makingSelf = false;
+let makingFuture = false;
 
-function personDialog(p, { self = false } = {}) {
+function personDialog(p, { self = false, future = false } = {}) {
   editingPersonId = p ? p.id : null;
   makingSelf = p ? !!p.isSelf : self;
+  makingFuture = p ? !!p.isFuture : future;
   pendingPhoto = undefined;
   pendingOriginal = undefined;
 
-  const mine = makingSelf;
-  $('#dlg-person-title').textContent = mine ? (p ? 'Your details' : 'About you') : (p ? 'Edit details' : 'Someone new');
+  const mine = makingSelf, later = makingFuture;
+  $('#dlg-person-title').textContent = mine ? (p ? 'Your details' : 'About you')
+    : later ? (p ? 'Edit details' : 'Someone to meet')
+    : (p ? 'Edit details' : 'Someone new');
   $('#f-name').value = p?.name || '';
   $('#f-relationship').value = p?.relationship || '';
   paintGroupPick(p?.groups || []);
   $('#f-birthday').value = p?.birthday || '';
   $('#f-contact').value = p?.contact || '';
+  $('#f-occupation').value = p?.occupation || '';
   $('#f-cadence').value = String(p ? p.cadenceDays : 30);
   $('#btn-delete-person').hidden = !p;
-  if (p) $('#btn-delete-person').textContent = mine ? 'Remove your profile' : 'Remove this person';
+  if (p) $('#btn-delete-person').textContent = mine ? 'Remove your profile' : later ? 'Remove this connection' : 'Remove this person';
 
   /* How you know them, which group they are in and how often to be reminded
-     are all questions about somebody else. Asked of yourself they are either
-     nonsense or a reminder to phone yourself. */
-  $('#f-relationship').closest('.field').hidden = mine;
-  $('#f-groups').closest('.field').hidden = mine;
-  $('#f-cadence').closest('.field').hidden = mine;
+     are all questions about somebody already in your circle. Asked of
+     yourself they are nonsense; asked of someone you have only flagged to
+     meet, they are premature — a birthday too, until you actually know them. */
+  $('#f-relationship').closest('.field').hidden = mine || later;
+  $('#f-groups').closest('.field').hidden = mine || later;
+  $('#f-cadence').closest('.field').hidden = mine || later;
+  $('#f-birthday').closest('.field').hidden = later;
 
   /* Only offered for someone new — editing is where you correct a name, not
      overwrite it from elsewhere. Never for yourself. */
@@ -3312,17 +3402,20 @@ async function savePerson(e) {
      it from which button opened the dialog. */
   const editing = editingPersonId ? byId(editingPersonId) : null;
   const self = editing ? editing.isSelf : makingSelf;
+  const future = editing ? !!editing.isFuture : makingFuture;
 
   const data = {
     name,
-    relationship: self ? '' : $('#f-relationship').value,
-    /* Both hidden in self mode, so their inputs hold whatever the last person
-       edited left behind. Forced rather than read. */
-    groups: self ? [] : readGroupPick(),
-    birthday: $('#f-birthday').value,
+    relationship: (self || future) ? '' : $('#f-relationship').value,
+    /* All three hidden in self or future mode, so their inputs hold whatever
+       the last person edited left behind. Forced rather than read. */
+    groups: (self || future) ? [] : readGroupPick(),
+    birthday: future ? '' : $('#f-birthday').value,
     contact: $('#f-contact').value,
-    cadenceDays: self ? 0 : Number($('#f-cadence').value),
+    occupation: $('#f-occupation').value,
+    cadenceDays: (self || future) ? 0 : Number($('#f-cadence').value),
     isSelf: self,
+    isFuture: future,
   };
 
   const isNew = !editingPersonId;
@@ -3332,7 +3425,9 @@ async function savePerson(e) {
     Object.assign(target, normalise({ ...target, ...data }));
   } else {
     target = normalise(data);
-    if (self) me = target; else people.push(target);
+    if (self) me = target;
+    else if (future) futures.push(target);
+    else people.push(target);
   }
 
   if (pendingPhoto === null) {
@@ -3352,8 +3447,26 @@ async function savePerson(e) {
   // a person's page opens only when their photo is tapped
   if (isNew) {
     if (self) { openSheet(target.id); toast('Your profile is made — this is the page others will see once you link'); }
+    else if (future) toast(`${name.split(' ')[0]} is on your list — tap their photo to add more`);
     else toast(`${name.split(' ')[0]} is in your circle — tap their photo to add more`);
   }
+}
+
+/* "They go into the circle" — the one door out of the future-connections
+   list. Relationship, groups, cadence and birthday were hidden and empty
+   while they were a prospect, so the edit dialog reopens straight away to
+   fill them in rather than leaving a circle member with none of them set. */
+async function promoteToCircle(id) {
+  const p = futures.find(x => x.id === id);
+  if (!p) return;
+  futures = futures.filter(x => x.id !== id);
+  p.isFuture = false;
+  people.push(p);
+  await saveRoster();
+  notifyMutate();
+  renderAll();
+  toast(`${p.name.split(' ')[0]} is in your circle now`);
+  personDialog(p);
 }
 
 /* one dialog, three shapes */
@@ -3565,7 +3678,12 @@ async function importAll(file) {
        to share your name. Matched on being the self, not on the name. */
     const existing = incoming.isSelf
       ? me
-      : people.find(p => !p.isSelf && p.name.toLowerCase() === incoming.name.toLowerCase());
+      /* A future connection and a circle member never merge into each other
+         even if they happen to share a name — the category is part of who
+         they are matched against, not just a flag carried along afterwards. */
+      : [...people, ...futures].find(p => !p.isSelf
+          && p.isFuture === incoming.isFuture
+          && p.name.toLowerCase() === incoming.name.toLowerCase());
     if (existing) {
       existing.summary = existing.summary || incoming.summary;
       existing.relationship = existing.relationship || incoming.relationship;
@@ -3595,7 +3713,9 @@ async function importAll(file) {
       }
       merged++;
     } else {
-      if (incoming.isSelf) me = incoming; else people.push(incoming);
+      if (incoming.isSelf) me = incoming;
+      else if (incoming.isFuture) futures.push(incoming);
+      else people.push(incoming);
       if (data.photos?.[raw.id]) {
         photos[incoming.id] = data.photos[raw.id];
         await Store.savePhoto(incoming.id, data.photos[raw.id]);
@@ -4060,7 +4180,12 @@ async function toggleBio() {
 
 /* ─────────────────────────── views ─────────────────────────── */
 
+/* Which view is on screen, so the single "+" in the nav can add the right
+   kind of person without a second add button living in the future view. */
+let activeView = 'circle';
+
 function switchView(name) {
+  activeView = name;
   $$('.nav-item[data-view]').forEach(t => {
     const on = t.dataset.view === name;
     t.classList.toggle('is-active', on);
@@ -4109,6 +4234,7 @@ function renderMe() {
 
 function renderAll() {
   renderCircle();
+  renderFuture();
   renderPrayers();
   renderToday();
   renderCalendar();
@@ -4154,8 +4280,9 @@ function fillSelects() {
 function wire() {
   $$('.nav-item[data-view]').forEach(t => { t.onclick = () => switchView(t.dataset.view); });
 
-  $('#btn-add').onclick = () => personDialog(null);
+  $('#btn-add').onclick = () => personDialog(null, { future: activeView === 'future' });
   $('#btn-add-first').onclick = () => personDialog(null);
+  $('#btn-add-future-first').onclick = () => personDialog(null, { future: true });
   $('#form-person').onsubmit = savePerson;
   $('#btn-person-cancel').onclick = () => $('#dlg-person').close();
 
@@ -4202,7 +4329,9 @@ function wire() {
       ? 'Remove your profile and everything on it? This cannot be undone.'
       : `Remove ${p.name} and everything recorded about them? This cannot be undone.`;
     if (!confirm(ask)) return;
-    if (p.isSelf) me = null; else people = people.filter(x => x.id !== p.id);
+    if (p.isSelf) me = null;
+    else if (p.isFuture) futures = futures.filter(x => x.id !== p.id);
+    else people = people.filter(x => x.id !== p.id);
     delete photos[p.id];
     await Store.deletePhoto(p.id);
     await Store.deleteOriginal(p.id);

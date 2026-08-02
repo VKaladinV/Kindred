@@ -241,16 +241,23 @@ body { padding-left: var(--rail); }
 }
 .masthead-words { min-width: 0; flex: 1 1 auto; }
 
-/* You, in the corner of the title rather than among the faces. Small on
-   purpose: it is a way back to your own page, not a thing to look at. */
-.me-btn {
+/* You, in the corner of the title rather than among the faces — a way back
+   to your own page, labelled so it reads as one at a glance. */
+.me-wrap {
   flex: 0 0 auto;
-  width: clamp(2.6rem, 9vw, 3.4rem); aspect-ratio: 1;
+  display: flex; flex-direction: column; align-items: center; gap: .4rem;
   margin-bottom: .35rem;
+}
+.me-btn {
+  width: clamp(3.6rem, 12vw, 4.6rem); aspect-ratio: 1;
   padding: 0; border: 0; background: none;
   border-radius: 50%; cursor: pointer;
   position: relative;
   transition: transform .3s var(--ease);
+}
+.me-label {
+  font-size: .68rem; font-weight: 600; letter-spacing: .01em;
+  color: var(--ink-faint); text-align: center; white-space: nowrap;
 }
 .me-btn:hover { transform: translateY(-2px); }
 .me-btn::after {
@@ -510,6 +517,9 @@ main { padding-bottom: 1rem; }
 .badge[data-state="soon"] { --ring: var(--gold); }
 .badge[data-state="well"] { --ring: var(--sage); }
 .badge[data-state="none"] { --ring: var(--rule); }
+/* A future connection has no check-in state to ring, so the default ash
+   ring (.badge, above) is switched off rather than left implying one. */
+.badge.no-ring { --ring: transparent; }
 
 /* ── the phone tessellation ─────────────────────────────────────
    app.js fills these rows, because how wide a face is now depends on how

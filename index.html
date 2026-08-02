@@ -48,6 +48,11 @@
     <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5.5" width="17" height="15" rx="2.5"/><path d="M3.5 10.5h17M8 3.5v4M16 3.5v4M7.5 14h2M14.5 14h2M7.5 17.5h2M14.5 17.5h2"/></svg>
     <span>Calendar</span>
   </button>
+  <!-- Echoes the Circle icon, but dashed — not yet solid. -->
+  <button class="nav-item" data-view="future">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="9" r="3.6" stroke-dasharray="2.6 2.6"/><path d="M5.5 19.5a6.8 6.8 0 0 1 13 0" stroke-dasharray="2.6 2.6"/></svg>
+    <span>Future</span>
+  </button>
 
   <span class="nav-gap"></span>
 
@@ -77,7 +82,10 @@
   </div>
   <!-- You. Deliberately not a face in the circle: the circle is the people you
        are holding, and you are not one of them. Filled by app.js. -->
-  <button type="button" class="me-btn" id="btn-me" aria-label="Your profile"></button>
+  <div class="me-wrap">
+    <button type="button" class="me-btn" id="btn-me" aria-label="Your profile"></button>
+    <span class="me-label">My Profile</span>
+  </div>
 </header>
 
 <main>
@@ -157,6 +165,26 @@
     <div id="calendar-body"></div>
   </section>
 
+  <!-- ─────────── FUTURE CONNECTIONS ─────────── -->
+  <!-- The fringe: people you'd like to get to know, not yet kept in touch
+       with. Deliberately no toolbar, filter or search — just full-size faces,
+       since the list is meant to stay small. -->
+  <section class="view" id="view-future" aria-label="Future connections" hidden>
+    <div class="section-head">
+      <h2 class="section-title">Future connections</h2>
+      <p class="section-sub">People you would like to get to know</p>
+    </div>
+
+    <div class="circle-grid" id="grid-future"></div>
+
+    <div class="blank" id="blank-future" hidden>
+      <p class="blank-mark">◦</p>
+      <h2>No one here yet</h2>
+      <p>Add someone you would like to get to know. A name is all you need to begin.</p>
+      <button class="btn btn-primary" id="btn-add-future-first">Add someone</button>
+    </div>
+  </section>
+
 </main>
 
 <footer class="colophon">
@@ -216,6 +244,11 @@
         <input type="text" id="f-contact" maxlength="80" autocomplete="off" placeholder="+27 …">
       </label>
     </div>
+
+    <label class="field">
+      <span>Occupation <em>optional</em></span>
+      <input type="text" id="f-occupation" maxlength="60" autocomplete="off" placeholder="Retired teacher">
+    </label>
 
     <div class="field">
       <span>Groups <em>as many as fit</em></span>
