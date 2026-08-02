@@ -406,6 +406,15 @@ const filterFocus = new Set();    // empty means nothing narrowed beyond the gro
 let query = '';
 let saveTimer = null;
 
+/* Resolves once people/photos/shared are actually back from storage. sync.js
+   fires its first sync() on DOMContentLoaded, which races this file's async
+   boot() — IndexedDB reads are real I/O, not instant. A sync that runs before
+   this resolves sees empty roster/photo maps and reads that as "deleted
+   everywhere", which is how a photo (or, worse, a whole circle) got tombstoned
+   on the server while sitting untouched on disk the entire time. */
+let resolveReady;
+const readyPromise = new Promise(r => { resolveReady = r; });
+
 /* ── you, kept to one side ──────────────────────────────────────
    Your own profile is an ordinary person record: the same fields, the same
    dialog, the same page, and it rides the existing sync and photo storage
@@ -4564,6 +4573,7 @@ async function boot() {
   setRoster(await Store.loadPeople());   // splits you back out of the roster
   photos = await Store.loadPhotos();
   shared = await Store.loadShared();
+  resolveReady();
 
   fillSelects();
   wire();
@@ -4636,6 +4646,7 @@ window.Kindred = {
   downscale,
   loadImage,
   toast,
+  ready: readyPromise,
   render: () => renderAll(),
   onMutate: fn => mutateHooks.push(fn),
 };

@@ -679,6 +679,13 @@ let status = { state: 'idle', at: null, error: null };
 const setStatus = s => { status = { ...status, ...s }; listeners.forEach(f => f(status)); };
 
 async function sync({ manual = false } = {}) {
+  /* app.js's boot() reads people/photos/shared out of IndexedDB asynchronously.
+     This can fire before that finishes — the very first call always does, on
+     a fresh page load — and an empty roster read as "everything was deleted"
+     is indistinguishable from an actual deletion to the merge logic below.
+     Waiting here is what stops a slow IndexedDB read from tombstoning a
+     circle, or a photo, that never actually went anywhere. */
+  if (Kindred.ready) await Kindred.ready;
   if (!Session.signedIn) return;
   if (!navigator.onLine) { setStatus({ state: 'offline' }); return; }
   if (syncing) { queued = true; return; }
