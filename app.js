@@ -2857,8 +2857,8 @@ async function inviteDialog(personId) {
   paintInviteWho(p);
   $('#invite-error').textContent = '';
   $('#invite-link').textContent = 'Making a link…';
-  $('#btn-invite-wa').disabled = true;
-  $('#btn-invite-copy').disabled = true;
+  $('#invite-link').dataset.url = '';
+  paintInviteActions(null);
   $('#dlg-invite').showModal();
 
   try {
@@ -2878,17 +2878,43 @@ async function inviteDialog(personId) {
     if (photos[p.id]) api.uploadInvitePhoto(id, photos[p.id]).catch(() => {});   // best-effort
     $('#invite-link').textContent = url;
     $('#invite-link').dataset.url = url;
-    $('#btn-invite-copy').disabled = false;
-    /* WhatsApp only if there is a number to open it against. Without one the
-       link is still the link — it just has to be carried by hand. */
-    const dial = dialNumber(p.contact);
-    $('#btn-invite-wa').hidden = !dial;
-    $('#btn-invite-wa').disabled = !dial;
+    paintInviteActions(p);
   } catch (e) {
     $('#invite-link').textContent = '';
+    $('#invite-link').dataset.url = '';
     $('#invite-error').textContent = e.message;
-    $('#btn-invite-wa').hidden = true;
+    paintInviteActions(null);
   }
+}
+
+/* Which ways out of this dialog are real, decided in one place because they
+   answer each other: the share sheet is the big button where it exists, and
+   where it does not — plain http, desktop Firefox — Copy has to become it,
+   or the dialog is left with no obvious action at all. WhatsApp stays gated
+   on there being a number to open it against; without one the link is still
+   the link, it just goes by some other road.
+
+   `p` is null while the link is still being made and after it has failed, so
+   nothing is offered that would point at nothing. */
+function paintInviteActions(p) {
+  const ready = !!p && !!$('#invite-link').dataset.url;
+  const canShare = ready && !!navigator.share;
+  const dial = ready && dialNumber(p.contact);
+
+  $('#btn-invite-share').hidden = !canShare;
+  $('#btn-invite-share').disabled = !canShare;
+  $('#btn-invite-wa').hidden = !dial;
+  $('#btn-invite-wa').disabled = !dial;
+
+  /* Without a share sheet, Copy is the only way out and has to look like it —
+     wide and in the accent, standing where Share would have. Beside a share
+     sheet it steps back down to the quiet second option it should be. */
+  const copy = $('#btn-invite-copy');
+  copy.disabled = !ready;
+  copy.textContent = canShare ? 'Copy' : 'Copy link';
+  copy.classList.toggle('btn-primary', ready && !canShare);
+  copy.classList.toggle('btn-wide', ready && !canShare);
+  copy.classList.toggle('btn-quiet', !ready || canShare);
 }
 
 /* The face this link is for, so the dialog reads as being about somebody
@@ -2907,14 +2933,45 @@ function paintInviteWho(p) {
   }
 }
 
+/* What the invitation says when it goes out. Written once: WhatsApp puts it in
+   the message box, the share sheet hands it to whatever they pick instead, and
+   the two arriving worded differently would be the same invitation twice. */
+const inviteWords = () =>
+  `I keep track of the people I care about in an app called Fellowship. `
+  + `This link connects the two of us — you choose what I see, and I choose what you see.`;
+
+/* The share sheet, which is the ordinary way to send a link on a phone and
+   reaches whatever they actually use. Needs a secure context, so it is simply
+   absent on plain http and on desktop Firefox — inviteDialog checks for it and
+   promotes Copy in its place, and this falls back to copying anyway. */
+async function shareInviteLink() {
+  const url = $('#invite-link').dataset.url;
+  if (!url) return;
+  if (!navigator.share) { copyInviteLink(); return; }
+  try {
+    await navigator.share({ title: 'Fellowship', text: inviteWords(), url });
+  } catch (e) {
+    /* Opening the sheet and thinking better of it is not a failure, and
+       saying "could not share" at somebody who simply changed their mind is
+       how an app teaches people to distrust it. */
+    if (e?.name === 'AbortError') return;
+    copyInviteLink();
+  }
+}
+
+async function copyInviteLink() {
+  const url = $('#invite-link').dataset.url;
+  if (!url) return;
+  try { await navigator.clipboard.writeText(url); toast('Link copied'); }
+  catch { toast('Could not copy — the link is on screen to take by hand'); }
+}
+
 function sendInviteOnWhatsApp() {
   const p = byId(invitingPersonId);
   const url = $('#invite-link').dataset.url;
   const dial = p && dialNumber(p.contact);
   if (!url || !dial) return;
-  const msg = `I keep track of the people I care about in an app called Fellowship. `
-    + `This link connects the two of us — you choose what I see, and I choose what you see.\n\n${url}`;
-  openOut(`${waLink(dial)}?text=${encodeURIComponent(msg)}`);
+  openOut(`${waLink(dial)}?text=${encodeURIComponent(`${inviteWords()}\n\n${url}`)}`);
   $('#dlg-invite').close();
 }
 
@@ -2978,11 +3035,21 @@ async function claimAndAsk(token) {
     joining = { token, other: claim.other, name: claim.name || '', tel: claim.tel || '' };
     paintJoinPicker();
   } catch (e) {
-    clearPendingJoin();
+    /* Only a link the server has actually refused is gone. Anything else is
+       worth a second go — and the invitation stays in storage for it, so the
+       next unlock or reload picks it up again even if they close this now. */
     $('#join-body').textContent = '';
     $('#join-error').textContent = e.message;
-    $('#btn-join-yes').hidden = true;
     $('#btn-join-no').textContent = 'Close';
+    if (e.spent) {
+      clearPendingJoin();
+      $('#btn-join-yes').hidden = true;
+      return;
+    }
+    $('#btn-join-yes').hidden = false;
+    $('#btn-join-yes').disabled = false;
+    $('#btn-join-yes').textContent = 'Try again';
+    joining = { token, retry: true };
   }
 }
 
@@ -3077,6 +3144,9 @@ async function finishJoin() {
     api?.openSignIn('up');
     return;
   }
+  /* Last go at it failed on something passing. The token was kept for exactly
+     this, so ask the server again rather than making them find the message. */
+  if (joining?.retry) { claimAndAsk(joining.token); return; }
   if (!joining?.other) { $('#dlg-join').close(); return; }
 
   const { other, name, tel, choice } = joining;
@@ -4488,12 +4558,11 @@ function wire() {
 
   $('#btn-invite-close').onclick = () => $('#dlg-invite').close();
   $('#btn-invite-wa').onclick = sendInviteOnWhatsApp;
-  $('#btn-invite-copy').onclick = async () => {
-    const url = $('#invite-link').dataset.url;
-    if (!url) return;
-    try { await navigator.clipboard.writeText(url); toast('Link copied'); }
-    catch { toast('Could not copy — the link is on screen to take by hand'); }
-  };
+  $('#btn-invite-share').onclick = shareInviteLink;
+  $('#btn-invite-copy').onclick = copyInviteLink;
+  /* The link card itself, for the hand that goes straight for the thing
+     rather than for a button about it. */
+  $('#invite-link').onclick = copyInviteLink;
 
   $('#btn-join-yes').onclick = finishJoin;
   $('#btn-join-no').onclick = () => {

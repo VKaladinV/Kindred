@@ -438,17 +438,23 @@
     </div>
   </div>
 
-  <div class="invite-link" id="invite-link" aria-live="polite"></div>
+  <div class="invite-link" id="invite-link" aria-live="polite" title="Tap to copy"></div>
+
+  <!-- Every way of sending it in one row, directly under the thing being
+       sent, rather than a quiet one down in the footer beside Done. -->
+  <div class="invite-actions">
+    <button type="button" class="btn btn-primary btn-wide" id="btn-invite-share">Share link</button>
+    <button type="button" class="btn btn-quiet" id="btn-invite-copy">Copy</button>
+    <button type="button" class="btn btn-sage btn-wide btn-block" id="btn-invite-wa">Send on WhatsApp</button>
+  </div>
 
   <p class="hint">Anyone who opens this link can accept it, so send it to one person. It stops working in seven days, or as soon as it is taken up.</p>
   <p class="hint">Whatever you've noted for them here — number, birthday, occupation, photo — goes with it, so opening it can start their own profile already filled in.</p>
   <p class="auth-error" id="invite-error" role="alert"></p>
 
   <div class="dlg-actions">
-    <button type="button" class="btn btn-quiet" id="btn-invite-copy">Copy link</button>
     <span class="spacer"></span>
     <button type="button" class="btn btn-quiet" id="btn-invite-close">Done</button>
-    <button type="button" class="btn btn-primary" id="btn-invite-wa">Send on WhatsApp</button>
   </div>
 </dialog>
 

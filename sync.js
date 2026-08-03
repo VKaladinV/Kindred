@@ -73,7 +73,7 @@ function setSession(body) {
    what it says is written for a developer reading a console. This is the one
    place that turns it into something worth reading on a phone. */
 function authWords(body, fallback) {
-  const raw = (body?.error_code || body?.msg || body?.error_description || body?.error || '').toLowerCase();
+  const raw = (body?.error_code || body?.msg || body?.message || body?.error_description || body?.error || '').toLowerCase();
   if (!raw) return fallback;
   if (raw.includes('invalid login') || raw.includes('invalid_credentials')) return "That email and password don't match.";
   if (raw.includes('not confirmed')) return 'Almost — the link in that email finishes it.';
@@ -81,7 +81,17 @@ function authWords(body, fallback) {
   if (raw.includes('password') && (raw.includes('short') || raw.includes('least') || raw.includes('weak'))) return 'That password is too short — six characters at least.';
   if (raw.includes('rate limit') || raw.includes('over_email_send')) return 'Too many emails just now. Try again in a few minutes.';
   if (raw.includes('validate email') || raw.includes('invalid email') || raw.includes('invalid format')) return 'That does not look like an email address.';
-  return body?.msg || body?.error_description || fallback;
+  /* New accounts turned off in the Supabase dashboard, which reads to whoever
+     is standing there as the app being broken — it is not, and saying so is
+     the difference between them giving up and them sending you a message. */
+  if (raw.includes('signup_disabled') || raw.includes('signups not allowed')
+    || raw.includes('email_provider_disabled') || raw.includes('signups are disabled')) {
+    return 'New accounts are switched off on this server just now. Nothing is wrong with your link — ask whoever set up Fellowship to turn sign-ups back on.';
+  }
+  if (raw.includes('unexpected_failure') || raw.includes('database error')) {
+    return 'The server stumbled on that. Nothing you typed is wrong — try again in a minute.';
+  }
+  return body?.msg || body?.message || body?.error_description || fallback;
 }
 
 async function signIn(email, password) {
@@ -103,9 +113,16 @@ async function signIn(email, password) {
    carries a user and no session, because the account is not usable until the
    link in the email is followed. That is a success, not a failure, and it has
    to be reported as one — so the two cases are told apart by whether a token
-   came back, and the caller is told which happened. */
+   came back, and the caller is told which happened.
+
+   redirect_to for the same reason recover() carries one, and with more riding
+   on it: an invitation is waiting in this origin's localStorage, and a confirm
+   link that lands on some other address the dashboard happens to hold leaves
+   it there unreachable. Sending them back where they started is what keeps the
+   invitation and the account the same story. */
 async function signUp(email, password) {
-  const r = await fetch(`${API}/auth/v1/signup`, {
+  const redirect = encodeURIComponent(`${location.origin}${location.pathname}`);
+  const r = await fetch(`${API}/auth/v1/signup?redirect_to=${redirect}`, {
     method: 'POST',
     headers: { apikey: ANON, 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password }),
@@ -308,7 +325,17 @@ async function claimInvite(token, myName, myTel) {
     body: JSON.stringify({ token, my_name: myName || '', my_tel: myTel || '' }),
   });
   const text = await r.text();
-  if (!r.ok) throw new Error(linkWords(text));
+  if (!r.ok) {
+    /* Spent means the server looked the link up and refused it — expired,
+       revoked, or already taken (claim_invite's own raise in share.sql).
+       That is the only answer worth throwing the invitation away over.
+       Everything else — offline, a lapsed session, share.sql not run yet —
+       is this minute's problem, and the token has to survive it, because the
+       copy in their messages may be long since scrolled past. */
+    const err = new Error(linkWords(text));
+    err.spent = /cannot be used/i.test(text);
+    throw err;
+  }
   return JSON.parse(text);
 }
 

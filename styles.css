@@ -1248,11 +1248,12 @@ body.on-calendar .topbar { display: none; }
 .invite-who-text .dlg-title { font-size: 1.3rem; margin: 0 0 .2rem; }
 .invite-who-text .dlg-lede { margin: 0; }
 
-/* The link itself, shown rather than hidden behind a button: it is the
-   thing being sent, and seeing it is how you know what you are sending.
-   Sized and framed as the one thing on this dialog worth pausing on,
-   rather than a line of fine print — a raised card with the accent colour
-   down the side, not a sunken caption. */
+/* The link itself, still shown rather than hidden behind a button: it is the
+   thing being sent, and seeing it is how you know what you are sending. It is
+   no longer the only way to take it, though — the buttons below carry it now,
+   and this is the copy of last resort, so it is tappable in its own right and
+   selects whole rather than by word, for the case where the clipboard is not
+   allowed and it has to come off the screen by hand. */
 .invite-link {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: .86rem; line-height: 1.6; letter-spacing: -.01em;
@@ -1263,6 +1264,16 @@ body.on-calendar .topbar { display: none; }
   background: var(--paper-raise); color: var(--ink);
   box-shadow: var(--shadow-lift);
   min-height: 2.6rem;
+  cursor: pointer; user-select: all; -webkit-user-select: all;
+}
+
+/* Sending it, directly under the thing being sent: the big way and the quiet
+   way share the first line, and WhatsApp — which is there or not depending on
+   whether a number was ever written down — takes a line of its own, so the
+   row above keeps the same shape either way. */
+.invite-actions {
+  display: flex; gap: .5rem; flex-wrap: wrap;
+  margin-bottom: 1.1rem;
 }
 
 .join-q { margin: 0 0 .7rem; font-size: .9rem; color: var(--ink); font-weight: 600; }
@@ -1334,6 +1345,15 @@ body.on-calendar .topbar { display: none; }
 .btn-sage { background: none; border-color: color-mix(in oklab, var(--sage) 55%, transparent); color: var(--sage-ink); }
 .btn-sage:hover { background: var(--sage); border-color: var(--sage); color: var(--paper); }
 .btn-tiny { font-size: .72rem; padding: .34rem .8rem; }
+/* Grows to fill the row it is in, and centres its own label rather than
+   inheriting the inline-flex hug — for a button that is the whole point of
+   the dialog it sits on. The basis is small enough that a wide one and a
+   quiet one still share a line on a narrow phone, rather than the quiet one
+   wrapping underneath and reading as an afterthought. */
+.btn-wide { flex: 1 1 8rem; justify-content: center; padding-top: .72rem; padding-bottom: .72rem; }
+/* A whole line to itself at every width, so the row above it does not
+   rearrange itself depending on whether this one is there. */
+.btn-block { flex-basis: 100%; }
 
 /* ── dialogs ────────────────────────────────────────────────── */
 
