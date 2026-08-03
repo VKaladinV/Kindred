@@ -3033,6 +3033,14 @@ async function claimAndAsk(token) {
        in directly instead of putting a one-choice picker in front of them. */
     if (!me) { await provisionFromInvite(claim); return; }
     joining = { token, other: claim.other, name: claim.name || '', tel: claim.tel || '' };
+    /* A profile already exists here, but there is nobody in it yet to ask
+       "which of your people is this?" about — the picker's only real answer
+       would be its own last option. Skip straight to it rather than making
+       the one honest choice look like a decision to make. Once there is
+       somebody to possibly match against, the picker is a real question and
+       stays. */
+    const already = [...people, ...futures].filter(p => !p.linkedUid);
+    if (!already.length) { joining.choice = '__new__'; await finishJoin(); return; }
     paintJoinPicker();
   } catch (e) {
     /* Only a link the server has actually refused is gone. Anything else is

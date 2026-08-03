@@ -164,31 +164,35 @@ async function recover(email) {
   return true;
 }
 
-/* The other end of recover(): the email's link redirects here carrying a
+/* The other end of recover() — or of signUp() waiting on confirmation, or a
+   magic link, any of GoTrue's own emails: the link redirects here carrying a
    short-lived access token in the fragment rather than the query string,
-   GoTrue's own choice this time, not this app's — and it is taken out of
-   the address bar the same way an invitation's token is, since a token is
-   not something to leave sitting in browser history. It proves who they
-   are on its own; nothing here asks for the password being replaced. */
-async function takeRecoveryFragment() {
+   its choice this time, not this app's — and it is taken out of the address
+   bar the same way an invitation's token is, since a token is not something
+   to leave sitting in browser history. It proves who they are on its own;
+   nothing here asks for a password. `type` tells the two apart — recovery
+   still needs a new password typed in, everything else is simply proof of
+   who signed in, indistinguishable from having typed one. */
+async function consumeAuthFragment() {
   const params = new URLSearchParams(location.hash.slice(1));
   const accessToken = params.get('access_token');
-  if (params.get('type') !== 'recovery' || !accessToken) return false;
+  const type = params.get('type');
+  if (!accessToken || !type) return null;
   try { history.replaceState(history.state, '', location.pathname + location.search); } catch {}
 
   try {
     const r = await fetch(`${API}/auth/v1/user`, {
       headers: { apikey: ANON, Authorization: `Bearer ${accessToken}` },
     });
-    if (!r.ok) return false;   // link expired, already used, or malformed
+    if (!r.ok) return null;   // link expired, already used, or malformed
     setSession({
       access_token: accessToken,
       refresh_token: params.get('refresh_token') || '',
       expires_in: Number(params.get('expires_in')) || 3600,
       user: await r.json(),
     });
-  } catch { return false; }    // offline, most likely — the email link still works if opened again
-  return true;
+  } catch { return null; }    // offline, most likely — the email link still works if opened again
+  return type;
 }
 
 async function refresh() {
@@ -851,12 +855,20 @@ async function sync({ manual = false } = {}) {
     /* 4 ─ photos */
     const nextPhotos = { ...photos };
     const remoteSet = await listRemotePhotos(uid);
+    /* An id lands here when its upload comes back not-ok — a network blip, a
+       transient 5xx, whatever. Left unmarked below, so the snapshot does not
+       claim the server has it: the next sync's localLen !== snapLen check
+       reads that as "changed since we agreed" and uploads it again on its
+       own, the same path an ordinary edit already takes. Recorded as synced
+       instead, one bad request would desync this photo permanently — nothing
+       else would ever notice it needed a retry. */
+    const failedUploads = new Set();
     if (remoteSet) {
       for (const id of Object.keys(merged.people)) {
         const localLen = photos[id] && photoMark(photos[id]);
         const snapLen = snap.photoLens[id];
         if (localLen && localLen !== snapLen) {
-          await uploadPhoto(uid, id, photos[id]);              // new or changed here
+          if (!(await uploadPhoto(uid, id, photos[id]))) failedUploads.add(id);   // new or changed here
         } else if (!localLen && remoteSet.has(id)) {
           const got = await downloadPhoto(uid, id);            // arrived from elsewhere
           if (got) { nextPhotos[id] = got; await Kindred.Store.savePhoto(id, got); }
@@ -875,11 +887,18 @@ async function sync({ manual = false } = {}) {
     for (const id of Object.keys(nextPhotos)) {
       if (!merged.people[id]) { delete nextPhotos[id]; await Kindred.Store.deletePhoto(id); }
     }
-    Kindred.people = nextPeople;
+    /* Photos before people: setting people runs setRoster, which merges any
+       duplicate self-rows and, while doing it, carries a photo across by
+       reading this same photos object directly (mergeSelves, in app.js).
+       Landing it here first means that carry-over reads what this sync just
+       decided rather than what was true before it ran — read the other way
+       round, whatever it decided was silently overwritten a line later. */
     Kindred.photos = nextPhotos;
+    Kindred.people = nextPeople;
     await Kindred.Store.savePeople(nextPeople);
 
     const settled = flatten(nextPeople, nextPhotos);
+    for (const id of failedUploads) delete settled.photoLens[id];
     await Kindred.Store.saveSnapshot(settled);
     // rewind the watermark slightly: if the other device wrote between our pull
     // and our push, that row would otherwise sit just under the mark and be
@@ -1096,7 +1115,7 @@ function wire() {
     btn.textContent = 'Saving…';
     try {
       /* api() rather than a bare fetch: it already knows how to attach the
-         session takeRecoveryFragment just set, and to refresh it first if
+         session consumeAuthFragment just set, and to refresh it first if
          the link sat in an inbox long enough to be close to expiring. */
       const r = await api('/auth/v1/user', {
         method: 'PUT',
@@ -1137,18 +1156,36 @@ function wire() {
   window.addEventListener('offline', () => setStatus({ state: 'offline' }));
   document.addEventListener('visibilitychange', () => { if (!document.hidden) sync(); });
   setInterval(paintStatus, 30000);
+  /* A safety net under the triggers above: a sync that failed on a network
+     blip has no further reason to run again until the next edit, the next
+     tab-foreground, or the next reconnect — any of which might be a while on
+     a phone left alone. sync() already guards itself against running while
+     offline, signed out, or already mid-sync, so this only ever does
+     anything on the cycles those triggers missed. */
+  setInterval(sync, 5 * 60 * 1000);
 }
 
 async function boot() {
   if (!$('#dlg-auth')) return;
   wire();
   paintStatus();
-  /* Ahead of the sign-in check below: the token this sets counts as one. */
-  if (await takeRecoveryFragment()) {
+  /* Ahead of the sign-in check below: the session this sets counts as one. */
+  const confirmed = await consumeAuthFragment();
+  if (confirmed === 'recovery') {
     paintStatus();
     $('#recover-error').textContent = '';
     $('#dlg-recover').showModal();
     setTimeout(() => $('#recover-password').focus(), 60);
+  } else if (confirmed) {
+    /* A signup confirmation or magic link — proof enough on its own, so this
+       finishes the same way an ordinary sign-in does: painted, synced, and
+       whatever invitation was waiting in storage for exactly this moment
+       picked back up, rather than left for the user to notice went nowhere. */
+    paintStatus();
+    Kindred.toast('Signed in — syncing your circle');
+    await sync({ manual: true });
+    Kindred.afterAuth?.();
+    return;
   }
   if (Session.signedIn) sync();
 }
