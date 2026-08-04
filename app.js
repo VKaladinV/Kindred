@@ -1501,6 +1501,7 @@ function renderCircle() {
   const flip = circleFlip;
   circleFlip = null;
 
+  grid.classList.toggle('no-entry', quiet);
   grid.textContent = '';
 
   const q = query.trim().toLowerCase();
@@ -1556,6 +1557,7 @@ function renderCircle() {
    CSS grid packs same-sized faces on its own. */
 function renderFuture() {
   const grid = $('#grid-future');
+  grid.classList.toggle('no-entry', quiet);
   grid.textContent = '';
   const list = [...futures].sort((a, b) => a.name.localeCompare(b.name));
   list.forEach(p => grid.append(futureBadge(p)));
@@ -1674,9 +1676,10 @@ function renderPrayers() {
   const openWrap = $('#prayer-open');
   const ansWrap = $('#prayer-answered');
   const relWrap = $('#prayer-released');
-  openWrap.textContent = '';
-  ansWrap.textContent = '';
-  relWrap.textContent = '';
+  [openWrap, ansWrap, relWrap].forEach(w => {
+    w.classList.toggle('no-entry', quiet);
+    w.textContent = '';
+  });
 
   /* Someone flagged as a future connection can still carry a prayer — this is
      the one place their list joins the ordinary circle's, since a unified
@@ -1754,6 +1757,7 @@ function block(title, count) {
 
 function renderToday() {
   const body = $('#today-body');
+  body.classList.toggle('no-entry', quiet);
   body.textContent = '';
   $('#today-date').textContent = new Date().toLocaleDateString(undefined,
     { weekday: 'long', day: 'numeric', month: 'long' });
@@ -2054,6 +2058,7 @@ function renderCalendar() {
      back to January every time anything anywhere was edited. */
   const frag = document.createDocumentFragment();
   months.forEach(m => frag.append(monthSectionFor(m, onDay)));
+  body.classList.toggle('no-entry', quiet);
   body.replaceChildren(frag);
 
   paintCalBar();
@@ -2156,7 +2161,14 @@ function wireDialogLayers() {
   const obs = new MutationObserver(list => list.forEach(m => {
     const d = m.target;
     if (d.open && !held.has(d)) held.set(d, openLayer(() => d.close()));
-    else if (!d.open && held.has(d)) { closeLayer(held.get(d)); held.delete(d); }
+    else if (!d.open && held.has(d)) {
+      closeLayer(held.get(d));
+      held.delete(d);
+      /* A sync that landed while this was open has been waiting for it to
+         close — closing it is the moment the page underneath is worth
+         redrawing, and the only moment anything is listening for. */
+      flushHeldRender();
+    }
   }));
   $$('dialog.dlg').forEach(d => obs.observe(d, { attributes: true, attributeFilter: ['open'] }));
 }
@@ -2303,6 +2315,8 @@ function renderSheet() {
   if (!p) return closeSheet();
 
   const root = $('#sheet-scroll');
+  const restore = keepPlace(root);
+  root.classList.toggle('no-entry', quiet);
   root.textContent = '';
   const s = statusOf(p);
   const last = lastTouchDate(p);
@@ -2541,7 +2555,13 @@ function renderSheet() {
   ta.setAttribute('aria-label', 'Summary');
   let flashTimer;
   ta.oninput = () => {
-    byId(p.id).summary = ta.value;
+    /* The page can now outlive the person it is about: a repaint waits for you
+       to stop writing, so somebody removed on another device stays on screen
+       until then. Without this the next keystroke throws, silently, and every
+       one after it is lost with no sign that anything went wrong. */
+    const live = byId(p.id);
+    if (!live) return closeSheet();
+    live.summary = ta.value;
     queueSave();
     flash.classList.add('show');
     clearTimeout(flashTimer);
@@ -2679,6 +2699,50 @@ function renderSheet() {
     ? [evBlock, sumBlock, snBlock, upBlock, prBlock]
     : [sumBlock, evBlock, snBlock, upBlock, prBlock];
   root.append(...order.filter(Boolean));
+  restore();
+}
+
+/* The sheet is rebuilt from nothing on every render, and a rebuild takes the
+   reader's place with it — where they had scrolled to, which box they were in,
+   where the cursor sat inside it. Most of the app can afford that because most
+   of the app is read rather than written; this page is the one you write on.
+
+   Two boxes here are live, and they need different things. The summary saves
+   as you type, so its words are already in the roster and come back on their
+   own — only the caret needs putting back. The prayer line is rebuilt empty
+   and holds its words nowhere else at all, so it is remembered whether or not
+   it has the focus: tapping a tick in the list above hands the focus to that
+   button before the repaint it causes, and a line remembered only while
+   focused would be gone by the time anything thought to look.
+
+   Found by selector rather than by node, because the node this measured does
+   not survive to be compared against. */
+function keepPlace(root) {
+  const top = root.scrollTop;
+  const pending = $('.add-line input', root);
+  const pendingText = pending ? pending.value : '';
+
+  const a = document.activeElement;
+  const sel = a && root.contains(a)
+    ? (a.matches('.summary-area') ? '.summary-area'
+      : a.matches('.add-line input') ? '.add-line input'
+      : null)
+    : null;
+  const from = sel ? a.selectionStart : 0;
+  const to = sel ? a.selectionEnd : 0;
+
+  return () => {
+    root.scrollTop = top;
+    const line = $('.add-line input', root);
+    if (line && pendingText) line.value = pendingText;
+    if (!sel) return;
+    const next = $(sel, root);
+    if (!next) return;
+    next.focus({ preventScroll: true });
+    /* Clamped by the browser when a summary that moved on elsewhere has come
+       back shorter than the caret we remembered, which is the right answer. */
+    next.setSelectionRange(from, to);
+  };
 }
 
 /* ─────────────────────────── mutations ─────────────────────── */
@@ -4513,6 +4577,52 @@ function renderAll() {
   if (openId) renderSheet();
 }
 
+/* ───────────── a repaint nobody asked for ─────────────
+   Opening a person, switching view, changing a filter: those are arrivals,
+   and the entrance animations were written for them. A sync landing in the
+   background is not an arrival — the same animation replayed under a cursor
+   is what reads as the screen wiping itself, several times a paragraph.
+
+   Read by every render function at the moment it empties its container, in
+   the same style as circleFlip: taken where it is needed rather than passed
+   down through six signatures, and every existing caller of renderAll leaves
+   it false and gets exactly the repaint it always got. */
+let quiet = false;
+
+function renderQuiet() {
+  quiet = true;
+  try { renderAll(); } finally { quiet = false; }
+}
+
+const isWriting = () => {
+  const a = document.activeElement;
+  return !!(a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.isContentEditable));
+};
+
+/* sync.js's only way in. Everything else that repaints is something the
+   reader just did and wants to see at once; this one arrives unannounced,
+   and rebuilding the page under a cursor takes the focus, the caret and — on
+   a phone — the keyboard with it. The data has already landed by the time
+   this runs, so holding the picture back costs nothing but a moment of
+   staleness, and the moment ends as soon as the writing does. */
+let heldRender = false;
+
+function renderRemote() {
+  /* One thing is never worth waiting for: the person on screen having been
+     removed somewhere else. There is nothing useful to type into a page about
+     somebody who is gone, and renderSheet is what notices and closes it. */
+  const orphaned = openId && !byId(openId);
+  if (!orphaned && (isWriting() || $$('dialog[open]').length)) { heldRender = true; return; }
+  heldRender = false;
+  renderQuiet();
+}
+
+function flushHeldRender() {
+  if (!heldRender || isWriting() || $$('dialog[open]').length) return;
+  heldRender = false;
+  renderQuiet();
+}
+
 /* ─────────────────────────── wiring ───────────────────────── */
 
 function fillSelects() {
@@ -4747,6 +4857,11 @@ function wire() {
     }).observe(title);
   }
 
+  /* focusout arrives before the focus lands anywhere else, so asking straight
+     away would read a tab from one box to the next as having stopped writing.
+     The wait puts the question after the answer. */
+  document.addEventListener('focusout', () => setTimeout(flushHeldRender, 0));
+
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) { hiddenAt = Date.now(); return; }
     /* Glancing at a message and coming straight back should not ask again;
@@ -4790,12 +4905,12 @@ async function readBuild() {
   } catch { return null; }
 }
 
-/* Reloading out from under a half-typed note would throw it away. Every
-   editor in the app is a native dialog, so one selector covers all of them. */
+/* Reloading out from under a half-typed note would throw it away — and the
+   note need not be in a dialog. It was true once that every editor here was a
+   native dialog; the summary and the prayer line are written straight into the
+   page now, which is exactly why isWriting asks about the focus itself. */
 function safeToReload() {
-  if ($$('dialog[open]').length) return false;
-  const a = document.activeElement;
-  return !(a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.isContentEditable));
+  return !$$('dialog[open]').length && !isWriting();
 }
 
 async function checkForUpdate() {
@@ -4908,7 +5023,7 @@ window.Kindred = {
   loadImage,
   toast,
   ready: readyPromise,
-  render: () => renderAll(),
+  render: () => renderRemote(),
   onMutate: fn => mutateHooks.push(fn),
   /* Called once, right after a sign-in or sign-up succeeds. An invitation
      waiting in storage would otherwise sit unclaimed until the next reload

@@ -562,6 +562,19 @@ function nest(rows) {
 
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
+/* same() compares transcripts, and a transcript remembers what order the keys
+   were written in. Row against row that is safe and deliberate — flatten
+   writes every row from a single object literal, so the order is fixed by the
+   source — but two maps of rows are built by different routes and their key
+   order drifts apart the moment somebody else's new person arrives: it is
+   appended to the merge, and lands sorted back into place by setRoster. Ask
+   what they hold, not how they were written down. */
+const sameMap = (a, b) => {
+  const keys = Object.keys(a);
+  if (keys.length !== Object.keys(b).length) return false;
+  return keys.every(k => same(a[k], b[k]));
+};
+
 /* ───────────────────────── merge rules ─────────────────────────
    Pure, so the decision table can be tested without a network.
 
@@ -616,6 +629,30 @@ function planPush(merged, snap, remote, uid) {
     tombstones.push({ ...snap[id], user_id: uid, deleted_at: nowIso() });
   }
   return { upserts, tombstones };
+}
+
+/* Everything above was decided from a copy of the roster taken before the
+   first request went out, and on a slow connection several sentences can be
+   written between then and now — the summary box saves as you type, and typing
+   does not stop because a sync started. Landing that copy over live text is
+   what "it undid what I wrote" looks like from the outside.
+
+   So take one more look at memory before landing. A row that has moved since
+   the freeze was moved by the person using the app, and theirs is the newer of
+   the two — the same rule mergeTable applies through changedLocally, with the
+   freeze standing in for the snapshot.
+
+   The two loops are deliberately asymmetrical. Carrying is driven by what is
+   live, so a row that arrived from the server during the window is left where
+   the merge put it. Deleting is driven by what was frozen, because only a row
+   that was here when we started and is gone now was deleted here. Written the
+   other way round — "anything not live has gone" — every arrival from another
+   device would be thrown away in the same breath as it landed. */
+function carryEdits(merged, frozen, live) {
+  const out = { ...merged };
+  for (const [id, row] of Object.entries(live)) if (!same(row, frozen[id])) out[id] = row;
+  for (const id of Object.keys(frozen)) if (!live[id]) delete out[id];
+  return out;
 }
 
 /* ─────────────────────────── photos ─────────────────────────── */
@@ -770,11 +807,17 @@ async function pullShared(uid) {
      coming back, so the cache is pruned against who is still a partner. */
   for (const k of Object.keys(next)) if (!partners.has(k)) delete next[k];
 
+  /* Whether the sheet has anything new to show. Plain same() is enough here,
+     unlike the roster's maps: `next` is a copy of the cache, so a key keeps
+     the position it was written in, reassigning one does not move it, and
+     deleting one does not disturb the rest. */
+  const moved = !same(cached, next);
   Kindred.shared = next;
   await Kindred.Store.saveShared(next);
   // the same small rewind the main watermark uses, and for the same reason
   localStorage.setItem('kindred:sharedAt',
     new Date(Date.parse(mark) - 2000).toISOString());
+  return moved;
 }
 
 /* ─────────────────────────── the sync ─────────────────────────── */
@@ -863,15 +906,25 @@ async function sync({ manual = false } = {}) {
        instead, one bad request would desync this photo permanently — nothing
        else would ever notice it needed a retry. */
     const failedUploads = new Set();
+    /* What the server can be said to hold for each photo once this is done —
+       the mark of the exact bytes sent or fetched, rather than whatever is in
+       the map by the time we come to write the snapshot. `photos` is the live
+       object by reference, not a copy the way `local` is, so a crop finished
+       while these requests were in flight would otherwise be recorded as
+       agreed and never sent at all. */
+    const sent = {};
     if (remoteSet) {
       for (const id of Object.keys(merged.people)) {
         const localLen = photos[id] && photoMark(photos[id]);
         const snapLen = snap.photoLens[id];
         if (localLen && localLen !== snapLen) {
-          if (!(await uploadPhoto(uid, id, photos[id]))) failedUploads.add(id);   // new or changed here
+          if (await uploadPhoto(uid, id, photos[id])) sent[id] = localLen;        // new or changed here
+          else failedUploads.add(id);
         } else if (!localLen && remoteSet.has(id)) {
           const got = await downloadPhoto(uid, id);            // arrived from elsewhere
-          if (got) { nextPhotos[id] = got; await Kindred.Store.savePhoto(id, got); }
+          if (got) { nextPhotos[id] = got; await Kindred.Store.savePhoto(id, got); sent[id] = photoMark(got); }
+        } else if (localLen) {
+          sent[id] = snapLen;                                  // untouched, and already agreed
         }
       }
       for (const id of Object.keys(snap.photoLens)) {
@@ -883,23 +936,84 @@ async function sync({ manual = false } = {}) {
     }
 
     /* 5 ─ land the result and remember what we agreed */
-    const nextPeople = nest(merged).map(Kindred.normalise);
-    for (const id of Object.keys(nextPhotos)) {
-      if (!merged.people[id]) { delete nextPhotos[id]; await Kindred.Store.deletePhoto(id); }
-    }
-    /* Photos before people: setting people runs setRoster, which merges any
-       duplicate self-rows and, while doing it, carries a photo across by
-       reading this same photos object directly (mergeSelves, in app.js).
-       Landing it here first means that carry-over reads what this sync just
-       decided rather than what was true before it ran — read the other way
-       round, whatever it decided was silently overwritten a line later. */
-    Kindred.photos = nextPhotos;
-    Kindred.people = nextPeople;
-    await Kindred.Store.savePeople(nextPeople);
 
-    const settled = flatten(nextPeople, nextPhotos);
+    /* Read live rather than reusing the freeze from the top of this function.
+       Fifteen round-trips have gone by since then, several of them carrying
+       photographs, and the roster has gone on being written in all that time. */
+    const now = flatten(Kindred.people, Kindred.photos);
+
+    const carried = {};
+    for (const t of TABLES) carried[t] = carryEdits(merged[t], local[t], now.rows[t]);
+    /* nest drops a child whose person is not there, so a prayer written for
+       somebody deleted on another device would vanish from the app on its way
+       in and — being absent from the snapshot too — never be tombstoned
+       either, leaving it on the server for good. Dropped here instead, while
+       the snapshot below can still see that it went. */
+    for (const t of TABLES) {
+      if (t === 'people') continue;
+      for (const [id, row] of Object.entries(carried[t])) {
+        if (!carried.people[row.person_id]) delete carried[t][id];
+      }
+    }
+
+    /* The same window, and the same rule, for pictures: one chosen while the
+       requests were in flight is newer than whatever this sync settled on, and
+       one cleared in that window has to stay cleared. */
+    for (const [id, data] of Object.entries(Kindred.photos)) {
+      if (carried.people[id] && data !== nextPhotos[id]) nextPhotos[id] = data;
+    }
+    for (const id of Object.keys(nextPhotos)) {
+      if (photoLens[id] && !Kindred.photos[id]) delete nextPhotos[id];
+    }
+    for (const id of Object.keys(nextPhotos)) {
+      if (!carried.people[id]) { delete nextPhotos[id]; await Kindred.Store.deletePhoto(id); }
+    }
+
+    const nextPeople = nest(carried).map(Kindred.normalise);
+
+    /* The snapshot records what the server was told, which is `merged` — not
+       what is about to go on screen. A sentence typed after we told it is
+       precisely the thing that has not been agreed yet, and written down here
+       as agreed, planPush would skip it next run and it would never leave this
+       device at all. It is also the only thing that can tombstone a person
+       deleted during the window: dropped from `carried` above, kept here, and
+       so found by planPush's walk over the snapshot on the next sync. */
+    const settled = flatten(nest(merged).map(Kindred.normalise), nextPhotos);
+    /* A photo may only be called agreed if the server was given these exact
+       bytes. Anything else — an upload that failed, a crop finished after its
+       upload went out, a picture swapped while we were busy elsewhere — is
+       left unmarked, and the next sync's localLen !== snapLen check picks it
+       up on its own, the same path an ordinary edit already takes. */
+    for (const id of Object.keys(settled.photoLens)) {
+      /* No listing means the photo pass never ran, so nothing was agreed this
+         time round and the marks stand exactly where the last sync left them. */
+      const agreed = remoteSet ? sent[id] : snap.photoLens[id];
+      if (photoMark(nextPhotos[id]) !== agreed) failedUploads.add(id);
+    }
     for (const id of failedUploads) delete settled.photoLens[id];
     await Kindred.Store.saveSnapshot(settled);
+
+    /* Most syncs agree with what is already here, and landing an identical
+       roster is not free: setRoster builds every person again, so the objects
+       the open page is writing into are replaced by copies of themselves and
+       whatever was typed in the last second goes with them. Skipping it
+       outright is what makes a sync something you cannot feel — nothing is
+       rebuilt, nothing is repainted, and the words stay where they were put. */
+    const landing = flatten(nextPeople, nextPhotos);
+    const changed = !TABLES.every(t => sameMap(landing.rows[t], now.rows[t]))
+      || !sameMap(landing.photoLens, now.photoLens);
+
+    if (changed) {
+      /* Photos before people: setting people runs setRoster, which merges any
+         duplicate self-rows and, while doing it, carries a photo across by
+         reading this same photos object directly (mergeSelves, in app.js).
+         Landing it here first means that carry-over reads what this sync just
+         decided rather than what was true before it ran — read the other way
+         round, whatever it decided was silently overwritten a line later. */
+      Kindred.photos = nextPhotos;
+      Kindred.people = nextPeople;
+      await Kindred.Store.savePeople(nextPeople);
+    }
     // rewind the watermark slightly: if the other device wrote between our pull
     // and our push, that row would otherwise sit just under the mark and be
     // missed forever. Re-examined rows merge to no-ops, so the cost is nil.
@@ -911,12 +1025,16 @@ async function sync({ manual = false } = {}) {
        run against it answers 404 here, and that must never be allowed to
        take five tables of ordinary syncing down with it. A new app talking
        to an old database has to behave exactly as the old app did. */
+    let sharedChanged = false;
     try {
       await publishMine(uid);
-      await pullShared(uid);
+      sharedChanged = await pullShared(uid);
     } catch (e) { console.warn('[sync] linking', e.message || e); }
 
-    Kindred.render();
+    /* Nothing landed and nothing new was published means the screen is already
+       right, and repainting it anyway was what made the app flicker and replay
+       its entrance under whoever was writing in it. */
+    if (changed || sharedChanged) Kindred.render();
     setStatus({ state: 'ok', at: Date.now(), error: null });
   } catch (e) {
     console.error('[sync]', e);
@@ -931,7 +1049,24 @@ async function sync({ manual = false } = {}) {
 /* ─────────────────────────── wiring ─────────────────────────── */
 
 let debounce = null;
-const syncSoon = () => { clearTimeout(debounce); debounce = setTimeout(sync, 2500); };
+
+/* Asked of the page rather than of app.js, so this file still touches nothing
+   but the Kindred bridge and can be dropped from the app whole. */
+const writing = () => {
+  const a = document.activeElement;
+  return !!(a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.isContentEditable));
+};
+
+/* Every pause in a sentence is a mutation settling, and each one used to start
+   a sync — five tables flattened and compared, on a phone, mid-paragraph.
+   Waiting for the writing to stop is only politeness, not safety: the five
+   minute round and the return to the app both call sync directly, so this can
+   never hold anything back for long, and carryEdits means a sync that does
+   land in the middle of a sentence no longer costs it anything. */
+const syncSoon = () => {
+  clearTimeout(debounce);
+  debounce = setTimeout(() => (writing() ? syncSoon() : sync()), 2500);
+};
 
 function paintStatus() {
   const box = $('#sync-state');

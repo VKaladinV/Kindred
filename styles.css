@@ -644,7 +644,10 @@ main { padding-bottom: 1rem; }
   background: var(--paper-raise); box-shadow: var(--shadow-lift);
   padding: 1.1rem 1.2rem; margin-bottom: 1rem;
   animation: rise .45s var(--ease) both;
-  animation-delay: calc(var(--i,0) * 55ms);
+  /* Capped for the same reason .badge is: the wave reads as a wave long before
+     the end of a long list, and uncapped it was the worst of them — twenty
+     people carrying prayers put the last card over a second behind the first. */
+  animation-delay: calc(min(var(--i,0), 12) * 55ms);
 }
 .pcard-head {
   display: flex; align-items: center; gap: .8rem;
@@ -942,6 +945,23 @@ body.on-calendar .topbar { display: none; }
 .sheet-scroll > *:nth-child(5) { animation-delay: .24s; }
 .sheet-scroll > *:nth-child(6) { animation-delay: .29s; }
 .sheet-scroll > *:nth-child(7) { animation-delay: .34s; }
+
+/* A repaint nobody asked for keeps the arrangement and skips the arrival —
+   renderQuiet in app.js sets this on each container in the same breath as it
+   empties it, so the class and the elements it governs are never out of step.
+   Written the other way round, as a class that comes off later, the animation
+   would simply start at the moment it was removed.
+
+   Only `animation` is touched. .badge.is-staying above rides on `transition`
+   to slide a surviving face into its new place, and taking that away here
+   would make a filtered circle jump instead of move. The last of these has to
+   sit below the nth-child delays: it matches at the same weight, so it is
+   source order that settles it. */
+#grid.no-entry .badge,
+#grid-future.no-entry .badge,
+.no-entry .pcard,
+.no-entry .cal-enter,
+.sheet-scroll.no-entry > * { animation: none; }
 
 .person-head { display: flex; gap: 1.3rem; align-items: flex-start; margin-bottom: 1.6rem; }
 .person-photo {
