@@ -1,0 +1,250 @@
+/* ── the circle grid ────────────────────────────────────────── */
+
+.circle-grid {
+  display: grid;
+  /* --badge is the size a face wants to be; it may shrink to four-fifths of
+     that to let one more fit across. Without the give, a phone drops from
+     three across to two. */
+  grid-template-columns: repeat(auto-fill, minmax(min(calc(var(--badge) * .8), 100%), 1fr));
+  gap: clamp(1.6rem, 4vw, 2.8rem) var(--badge-gap);
+  align-items: start;
+}
+/* A little scatter, so the grid reads as a gathering rather than a table.
+   Only where the grid lays itself out — the phone tessellates instead, in
+   rows app.js builds, and there the offset is the point. */
+.circle-grid:not(.is-hex) .badge:nth-child(3n+2) { margin-top: clamp(.6rem, 2vw, 1.5rem); }
+.circle-grid:not(.is-hex) .badge:nth-child(5n+4) { margin-top: clamp(.3rem, 1vw, .8rem); }
+
+/* only the photo opens a person — the name below is plain text */
+.badge {
+  --ring: var(--ash);
+  display: flex; flex-direction: column; align-items: center; gap: .7rem;
+  animation: pop .55s var(--ease) both;
+  /* Capped, because the wave reads as a wave long before the end of a long
+     circle — and a filter that admits one new face at position forty should
+     not make you wait most of two seconds to see it. */
+  animation-delay: calc(min(var(--i, 0), 14) * 42ms);
+}
+@keyframes pop { from { opacity: 0; transform: translateY(14px) scale(.94); } }
+
+/* A face that was already on the screen does not arrive — it moves. The pop
+   belongs to the ones that genuinely were not here a moment ago. app.js sets
+   this before it measures anything, so a survivor's pop never starts and never
+   has to be cancelled halfway. */
+.badge.is-staying { animation: none; transition: transform .42s var(--ease); }
+.badge.is-staying .badge-frame {
+  /* transform is restated because this shorthand replaces the one below it,
+     and dropping it would take the hover lift's easing away with it. */
+  transition: width .42s var(--ease), margin-top .42s var(--ease), transform .4s var(--ease);
+}
+
+.badge-frame {
+  position: relative;
+  /* Everything inside a badge measures itself against --frame, so sizing a
+     face by how overdue it is only has to move this one number. --scale is
+     set per badge in app.js: a third for someone with no check-in rhythm,
+     half on the day you saw them, growing to one as the check-in falls due. */
+  /* --face is the square a badge is given; --frame is how much of it the
+     circle actually draws. Keeping them apart is what lets the sizes vary
+     without the layout moving: the space a smaller face does not use is
+     taken as margin above it, so every face rests on one line and the names
+     underneath stay level. Both are the same length, so they cancel exactly
+     — which a max-width could not promise, since it caps the drawn width
+     without the margin knowing it did. */
+  --face: min(var(--badge), 100%);
+  --frame: calc(var(--face) * var(--scale, 1));
+  width: var(--frame);
+  aspect-ratio: 1;
+  margin-top: calc(var(--face) - var(--frame));
+  padding: 0; border: 0; background: none;
+  border-radius: 50%;
+  cursor: pointer;
+  transform: rotate(var(--tilt, 0deg));
+  transition: transform .4s var(--ease);
+}
+.badge-frame::after {
+  content: "";
+  /* Percentages here resolve against the frame, which is a known square —
+     so the ring keeps its distance at any size without further arithmetic. */
+  position: absolute; inset: -6%;
+  border-radius: 50%;
+  border: 1.5px solid var(--ring);
+  opacity: .85;
+  transition: inset .35s var(--ease), opacity .3s, border-color .3s;
+}
+.badge-frame:hover { transform: rotate(0deg) translateY(-4px) scale(1.03); }
+.badge-frame:hover::after { inset: -9.5%; opacity: 1; }
+.badge-frame:focus-visible { outline: none; }
+.badge-frame:focus-visible::after { inset: -9.5%; border-width: 2.5px; border-color: var(--green); }
+
+.badge-photo {
+  position: absolute; inset: 0;
+  border-radius: 50%; overflow: hidden;
+  background: var(--paper-sunk);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--ink) 9%, transparent), var(--shadow-lift);
+  display: grid; place-items: center;
+}
+.badge-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.badge-photo .initials {
+  font-family: var(--display); font-size: max(.7rem, calc(var(--frame) * .23)); font-weight: 400;
+  font-variation-settings: "SOFT" 40, "WONK" 1, "opsz" 40;
+  color: var(--ink-faint); letter-spacing: .02em;
+}
+
+/* The marks and the disc are proportions of the frame, which held while every
+   face was one size. A third-size face makes that proportion a four-pixel
+   glyph, so all three are floored: they read proportionally larger on the
+   smallest faces, which is the trade for their still being readable there. */
+.badge-flag, .badge-season {
+  position: absolute;
+  width: max(1.15rem, 21%); height: max(1.15rem, 21%);
+  border-radius: 50%;
+  background: var(--paper-raise);
+  border: 1px solid var(--rule);
+  display: grid; place-items: center;
+  font-size: clamp(.56rem, calc(var(--frame) * .105), .78rem); line-height: 1;
+  box-shadow: var(--shadow-lift);
+  z-index: 2;
+}
+.badge-flag { top: -3%; right: -3%; color: var(--green); }
+.badge-season { bottom: -3%; left: -3%; color: var(--gold); }
+
+/* How long since you last spoke, sitting on the bottom edge of the face.
+   Dark in both themes rather than following the paper: it has to hold its
+   own against whatever photograph is behind it, and a disc that inverted
+   with the theme would be legible over one half of the pictures and lost
+   over the other. The hairline ring is what keeps it off a dark jumper. */
+.badge-since {
+  position: absolute;
+  bottom: -5%; left: 50%; transform: translateX(-50%);
+  min-width: max(1.55rem, 25%); height: max(.92rem, 19%);
+  padding: 0 .25rem;
+  border-radius: 999px;
+  background: #14160f;
+  border: 1px solid color-mix(in oklab, #fdfdfa 34%, transparent);
+  color: #f4f5ee;
+  display: grid; place-items: center;
+  font-size: clamp(.55rem, calc(var(--frame) * .1), .8rem); font-weight: 700;
+  letter-spacing: .02em; line-height: 1;
+  font-variant-numeric: tabular-nums;
+  box-shadow: 0 2px 7px -2px rgba(10,14,8,.55);
+  z-index: 3;
+}
+/* In the dark theme the disc and the paper behind it are almost the same
+   near-black, so the ring is the only thing saying where one stops. It does
+   that work alone there, and has to be drawn strongly enough to. */
+@media (prefers-color-scheme: dark) {
+  .badge-since {
+    border-color: color-mix(in oklab, #fdfdfa 52%, transparent);
+    box-shadow: 0 2px 8px -2px rgba(0,0,0,.75);
+  }
+}
+
+.badge-name {
+  font-size: .84rem; font-weight: 600; letter-spacing: .01em;
+  text-align: center; line-height: 1.25;
+  margin-top: .2rem;              /* clears the disc hanging off the frame */
+}
+.badge-meta { font-size: .68rem; color: var(--ink-faint); letter-spacing: .04em; text-align: center; margin-top: -.45rem; }
+/* Two lines under a narrow face is one line of ellipsis and one line of noise,
+   so the relationship goes and the name keeps the whole width. Only the phone
+   packer sets this — it is the only thing that knows how wide a face is
+   actually drawn — so the rule needs no media query to be phone-only. */
+.badge.is-terse .badge-meta { display: none; }
+.badge[data-state="due"]  { --ring: var(--alert); }
+.badge[data-state="soon"] { --ring: var(--gold); }
+.badge[data-state="well"] { --ring: var(--sage); }
+.badge[data-state="none"] { --ring: var(--rule); }
+/* A future connection has no check-in state to ring, so the default ash
+   ring (.badge, above) is switched off rather than left implying one. */
+.badge.no-ring { --ring: transparent; }
+
+/* ── the phone tessellation ─────────────────────────────────────
+   app.js fills these rows, because how wide a face is now depends on how
+   overdue its person is, and CSS cannot pack a row against widths it is not
+   told. Each badge is given its own face size in --frame-px and each row the
+   tallest face it holds in --row-face.
+
+   Alternate rows are filled against half a face less room, which is what
+   keeps the nesting: with faces all one size it still comes out as rows of n
+   and n-1, the short one centred into the gaps above. */
+@media (max-width: 899px) {
+  .circle-grid.is-hex {
+    display: flex; flex-direction: column; align-items: center;
+    gap: clamp(.5rem, 2vw, 1rem);
+  }
+  .hex-row { display: flex; justify-content: center; align-items: flex-start; gap: var(--badge-gap); }
+
+  /* A face takes only the room it draws, so three quiet ones sit where one
+     full one did. The row's tallest face is the line they all stand on, which
+     is what lets a row of small faces be a genuinely short row rather than
+     one standing to the height of the biggest face in the circle. */
+  .hex-row .badge {
+    flex: 0 0 var(--frame-px, var(--hex-cell, var(--badge)));
+    width: var(--frame-px, var(--hex-cell, var(--badge)));
+  }
+  .hex-row .badge-frame {
+    --face: var(--row-face, var(--hex-cell, var(--badge)));
+    --frame: var(--frame-px, var(--face));
+  }
+  .hex-row .badge-name,
+  .hex-row .badge-meta { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+
+  /* The quiet ones — nobody you asked to be reminded about. Too small to
+     caption, and a days-since count has nothing to count towards when there
+     is no rhythm to be behind. Photo and ring; tapping still opens them. */
+  .hex-row .badge.is-quiet .badge-name,
+  .hex-row .badge.is-quiet .badge-meta,
+  .hex-row .badge.is-quiet .badge-since { display: none; }
+}
+
+/* ── faces on their way out ─────────────────────────────────────
+   Below the frozen title rather than over it, so a face being let go passes
+   behind it exactly as the real ones do on the way up the page.
+
+   Each ghost keeps a .hex-row around it. Every rule the phone packing hangs
+   off that class — the face size, the nowrap captions, the hidden quiet
+   captions — stops applying the moment a badge leaves the grid, and without
+   the wrapper a quiet ghost would sprout a name halfway through its own fade.
+   On a computer .hex-row has no rules at all, so there the wrapper is an inert
+   block of the width the badge's cell had. */
+.ghosts { position: fixed; inset: 0; z-index: 80; pointer-events: none; }
+.ghosts .hex-row { position: absolute; animation: ghost-go .3s var(--ease) forwards; }
+.ghosts .badge { animation: none; }
+@keyframes ghost-go { to { opacity: 0; transform: scale(.9); } }
+
+/* What app.js measures a badge and its gap against, rather than keeping its
+   own copy of two numbers that live here. Never seen. */
+.badge-probe {
+  position: fixed; top: 0; left: -9999px;
+  width: var(--badge); margin-left: var(--badge-gap);
+  height: 0; pointer-events: none;
+}
+
+/* ── the frozen title ───────────────────────────────────────────
+   The masthead scrolls away untouched and this takes over, rather than the
+   masthead shrinking where it sits: a stuck element that changes height moves
+   the document beneath the very scroll position it is reacting to, and the
+   two then argue. Nothing here changes size, so there is nothing to argue with. */
+.topbar {
+  position: fixed; z-index: 120;
+  left: 0; right: 0; top: 0;
+  padding-top: env(safe-area-inset-top, 0px);
+  background: color-mix(in oklab, var(--paper) 82%, transparent);
+  backdrop-filter: blur(12px) saturate(1.3);
+  border-bottom: 1px solid var(--rule);
+  box-shadow: 0 8px 24px -18px rgba(20,35,25,.5);
+  opacity: 0; transform: translateY(-100%); pointer-events: none;
+  transition: opacity .2s var(--ease), transform .2s var(--ease);
+}
+.topbar.is-up { opacity: 1; transform: none; }
+/* Fixed leaves .shell behind, so its width and gutter are set again here or
+   the title sits out of line with the circle underneath it. */
+.topbar-inner {
+  max-width: var(--wrap); margin: 0 auto;
+  padding: .6rem clamp(1rem, 4vw, 2.5rem);
+  font-family: var(--display); font-size: 1.15rem; font-weight: 500;
+  font-variation-settings: "SOFT" 34, "WONK" 1, "opsz" 40;
+  letter-spacing: -.012em;
+}
+@media (min-width: 900px) { .topbar { display: none; } }

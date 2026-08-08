@@ -1,0 +1,126 @@
+/* ── masthead ───────────────────────────────────────────────── */
+
+.masthead {
+  padding: clamp(2rem, 6vw, 3.4rem) 0 1.8rem;
+  display: flex; align-items: flex-end; gap: 1rem;
+}
+.masthead-words { min-width: 0; flex: 1 1 auto; }
+
+/* You, in the corner of the title rather than among the faces — a way back
+   to your own page, labelled so it reads as one at a glance. */
+.me-wrap {
+  flex: 0 0 auto;
+  display: flex; flex-direction: column; align-items: center; gap: .4rem;
+  margin-bottom: .35rem;
+}
+.me-btn {
+  width: clamp(3.6rem, 12vw, 4.6rem); aspect-ratio: 1;
+  padding: 0; border: 0; background: none;
+  border-radius: 50%; cursor: pointer;
+  position: relative;
+  transition: transform .3s var(--ease);
+}
+.me-label {
+  font-size: .68rem; font-weight: 600; letter-spacing: .01em;
+  color: var(--ink-faint); text-align: center; white-space: nowrap;
+}
+.me-btn:hover { transform: translateY(-2px); }
+.me-btn::after {
+  content: "";
+  position: absolute; inset: -5%;
+  border-radius: 50%;
+  border: 1.5px solid var(--rule);
+  transition: border-color .3s, inset .3s var(--ease);
+}
+.me-btn:hover::after { border-color: var(--green); inset: -8%; }
+.me-btn:focus-visible { outline: none; }
+.me-btn:focus-visible::after { border-color: var(--green); border-width: 2.5px; inset: -8%; }
+.me-btn .badge-photo { position: absolute; inset: 0; }
+/* Nothing there yet — a quiet outline and a plus, not an empty face. */
+.me-btn.is-empty {
+  display: grid; place-items: center;
+  font-size: 1.1rem; color: var(--ink-faint); line-height: 1;
+}
+.me-btn.is-empty::after { border-style: dashed; }
+.eyebrow {
+  margin: 0 0 .35rem;
+  font-size: .66rem; letter-spacing: .3em; text-transform: uppercase;
+  color: var(--green); font-weight: 700;
+}
+.masthead h1 {
+  margin: 0;
+  font-family: var(--display);
+  font-size: clamp(2.5rem, 8.5vw, 4.2rem);
+  font-weight: 500;
+  font-variation-settings: "SOFT" 34, "WONK" 1, "opsz" 120;
+  letter-spacing: -.026em; line-height: .92;
+}
+.tagline {
+  margin: .5rem 0 0;
+  font-family: var(--display); font-style: italic;
+  font-variation-settings: "SOFT" 40, "WONK" 1, "opsz" 14;
+  font-size: 1rem; color: var(--ink-soft);
+}
+
+main { padding-bottom: 1rem; }
+.view { animation: rise .5s var(--ease) both; }
+
+@keyframes rise { from { opacity: 0; transform: translateY(10px); } }
+
+/* ── toolbar ────────────────────────────────────────────────── */
+
+.toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: .8rem 1.2rem; margin-bottom: 2.2rem; }
+.chips { display: flex; flex-wrap: wrap; gap: .4rem; }
+.chip {
+  border: 1px solid var(--rule); background: none; color: var(--ink-soft);
+  font-family: var(--body); font-size: .78rem; font-weight: 500;
+  padding: .32rem .8rem; border-radius: 999px; cursor: pointer;
+  transition: all .2s;
+}
+.chip:hover { border-color: var(--green); color: var(--green); }
+.chip.is-on { background: var(--green); border-color: var(--green); color: #fff; }
+@media (prefers-color-scheme: dark) { .chip.is-on { color: #10180f; } }
+.chip .n { opacity: .6; margin-left: .3rem; font-variant-numeric: tabular-nums; }
+.chip:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+
+/* The two focus chips ask a different kind of question from the groups — they
+   narrow what you are looking at where a group widens it — so they are set
+   apart from them. A hairline on a computer; in the popup, where a vertical
+   rule in a wrapping row would land wherever it happened to fall, a line
+   break does the same work. The dashed edge carries the distinction once the
+   chips have wrapped and the separator is no longer next to them. */
+.chips .chip-sep { flex: 0 0 1px; align-self: stretch; background: var(--rule); margin: .2rem .45rem; }
+.chip-pick .chip-sep { flex: 0 0 100%; height: 0; margin: .1rem 0; }
+.chip.is-focus { border-style: dashed; }
+.chip.is-focus.is-on { border-style: solid; }
+
+/* the same chips, used to tag rather than to filter */
+.chip-pick { display: flex; flex-wrap: wrap; gap: .4rem; }
+
+/* On a phone the whole row folds into this one button, and the chips move
+   into the popup it opens. A computer has the width to show them outright. */
+.filter-btn { display: none; align-items: center; gap: .42rem; }
+.filter-btn svg {
+  width: .85rem; height: .85rem;
+  fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round;
+}
+.filter-btn .n:empty { display: none; }
+@media (max-width: 899px) {
+  .toolbar .chips { display: none; }
+  .filter-btn { display: inline-flex; }
+}
+#filter-chips { margin-top: .95rem; }
+
+.search {
+  margin-left: auto;
+  display: flex; align-items: center; gap: .5rem;
+  border-bottom: 1px solid var(--rule); padding: .25rem .1rem;
+  transition: border-color .2s;
+}
+.search:focus-within { border-color: var(--green); }
+.search svg { width: 1rem; height: 1rem; fill: none; stroke: var(--ink-faint); stroke-width: 1.7; stroke-linecap: round; }
+.search input {
+  border: 0; background: none; outline: none;
+  font-family: var(--body); font-size: .9rem; color: var(--ink); width: 9rem;
+}
+.search input::placeholder { color: var(--ink-faint); }

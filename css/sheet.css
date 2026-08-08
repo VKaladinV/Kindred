@@ -1,0 +1,446 @@
+/* ── person sheet ───────────────────────────────────────────── */
+
+.scrim {
+  position: fixed; inset: 0; z-index: 200;
+  background: color-mix(in oklab, #1a2013 60%, transparent);
+  backdrop-filter: blur(3px);
+  animation: fade .3s var(--ease) both;
+}
+@keyframes fade { from { opacity: 0; } }
+
+.sheet {
+  position: fixed; z-index: 210;
+  right: 0; top: 0; bottom: 0;
+  width: min(37rem, 100vw);
+  background: var(--paper);
+  border-left: 1px solid var(--rule);
+  box-shadow: var(--shadow-deep);
+  animation: slide-in .42s var(--ease) both;
+  display: flex; flex-direction: column;
+}
+@keyframes slide-in { from { transform: translateX(4%); opacity: 0; } }
+@media (max-width: 640px) {
+  .sheet { width: 100vw; top: 2.2rem; border-radius: 18px 18px 0 0; border-left: 0; border-top: 1px solid var(--rule); }
+  @keyframes slide-in { from { transform: translateY(6%); opacity: 0; } }
+}
+.sheet-close {
+  position: absolute; top: 1rem; right: 1rem; z-index: 3;
+  width: 2.4rem; height: 2.4rem; border-radius: 50%;
+  border: 1px solid var(--rule); background: var(--paper-raise);
+  color: var(--ink-soft); cursor: pointer;
+  display: grid; place-items: center;
+  transition: all .2s;
+}
+.sheet-close svg { width: 1rem; height: 1rem; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; }
+.sheet-close:hover { color: var(--green); border-color: var(--green); transform: rotate(90deg); }
+
+.sheet-scroll {
+  overflow-y: auto; overscroll-behavior: contain;
+  padding: clamp(1.6rem, 5vw, 2.6rem) clamp(1.2rem, 5vw, 2.6rem) 5rem;
+  flex: 1;
+}
+.sheet-scroll > * { animation: rise .5s var(--ease) both; }
+.sheet-scroll > *:nth-child(1) { animation-delay: .04s; }
+.sheet-scroll > *:nth-child(2) { animation-delay: .09s; }
+.sheet-scroll > *:nth-child(3) { animation-delay: .14s; }
+.sheet-scroll > *:nth-child(4) { animation-delay: .19s; }
+.sheet-scroll > *:nth-child(5) { animation-delay: .24s; }
+.sheet-scroll > *:nth-child(6) { animation-delay: .29s; }
+.sheet-scroll > *:nth-child(7) { animation-delay: .34s; }
+
+/* A repaint nobody asked for keeps the arrangement and skips the arrival —
+   renderQuiet in app.js sets this on each container in the same breath as it
+   empties it, so the class and the elements it governs are never out of step.
+   Written the other way round, as a class that comes off later, the animation
+   would simply start at the moment it was removed.
+
+   Only `animation` is touched. .badge.is-staying above rides on `transition`
+   to slide a surviving face into its new place, and taking that away here
+   would make a filtered circle jump instead of move. The last of these has to
+   sit below the nth-child delays: it matches at the same weight, so it is
+   source order that settles it. */
+#grid.no-entry .badge,
+#grid-future.no-entry .badge,
+.no-entry .pcard,
+.no-entry .cal-enter,
+.sheet-scroll.no-entry > * { animation: none; }
+
+.person-head { display: flex; gap: 1.3rem; align-items: flex-start; margin-bottom: 1.6rem; }
+.person-photo {
+  position: relative;
+  width: clamp(5.5rem, 22vw, 7.5rem); aspect-ratio: 1; flex: 0 0 auto;
+  border-radius: 50%; overflow: hidden;
+  background: var(--paper-sunk);
+  border: 1px solid var(--rule);
+  box-shadow: var(--shadow-lift);
+  display: grid; place-items: center;
+}
+.person-photo img { width: 100%; height: 100%; object-fit: cover; }
+.person-photo span { font-family: var(--display); font-size: 2.2rem; color: var(--ink-faint); }
+.person-id { padding-top: .3rem; min-width: 0; }
+.person-id h2 {
+  font-family: var(--display);
+  font-size: clamp(1.8rem, 6vw, 2.5rem); font-weight: 500;
+  font-variation-settings: "SOFT" 30, "WONK" 1, "opsz" 72;
+  letter-spacing: -.02em; line-height: 1.02;
+  margin: 0 0 .3rem; overflow-wrap: break-word;
+}
+.person-rel { margin: 0; font-size: .78rem; letter-spacing: .16em; text-transform: uppercase; color: var(--green); font-weight: 700; }
+.person-facts { margin: .7rem 0 0; display: flex; flex-wrap: wrap; gap: .4rem .9rem; }
+.fact { font-size: .78rem; color: var(--ink-soft); display: flex; align-items: center; gap: .35rem; }
+.fact b { font-weight: 600; color: var(--ink); }
+/* A number you can ring. Reads as the fact it already was, until you touch it. */
+.fact-link {
+  font-weight: 600; color: var(--ink); text-decoration: none;
+  border-bottom: 1px solid color-mix(in oklab, var(--green) 40%, transparent);
+  transition: color .2s, border-color .2s;
+}
+.fact-link:hover { color: var(--green); border-color: var(--green); }
+.fact-link:focus-visible { outline: 2px solid var(--green); outline-offset: 3px; }
+
+.season-pills { display: flex; flex-wrap: wrap; gap: .35rem; margin: .7rem 0 0; }
+.pill {
+  display: inline-flex; align-items: center; gap: .35rem;
+  font-size: .74rem; font-weight: 600;
+  padding: .2rem .65rem;
+  border-radius: 999px;
+  background: var(--green-lift);
+  border: 1px solid color-mix(in oklab, var(--gold) 40%, transparent);
+  color: var(--ink);
+}
+.pill .glyph { color: var(--gold-ink); }
+
+/* which groups they belong to — the same pill, in the app's own green
+   rather than the gold that marks a season */
+.group-pills { display: flex; flex-wrap: wrap; gap: .35rem; margin: .7rem 0 0; }
+.pill-group {
+  background: none;
+  border-color: color-mix(in oklab, var(--green) 34%, transparent);
+  color: var(--ink-soft);
+}
+.pill-group .glyph { color: var(--green); }
+
+.touch-bar {
+  display: flex; align-items: center; gap: .9rem; flex-wrap: wrap;
+  padding: .9rem 1.05rem;
+  border: 1px solid var(--rule); border-radius: 12px;
+  background: var(--paper-raise);
+  margin-bottom: 2rem;
+}
+.touch-status { flex: 1; min-width: 9rem; }
+.touch-status .big {
+  font-family: var(--display); font-size: 1.05rem; font-weight: 500;
+  font-variation-settings: "SOFT" 34, "WONK" 1, "opsz" 20;
+  display: block;
+}
+.touch-status .sub { font-size: .72rem; color: var(--ink-faint); letter-spacing: .06em; }
+/* Both kinds of bead are the same size, so a run of check-ins stays one level
+   line whether or not each one remembers how it happened. */
+.beads { display: flex; align-items: center; gap: .28rem; margin-top: .45rem; min-height: .8rem; }
+.bead {
+  width: .8rem; height: .8rem; border-radius: 50%;
+  display: grid; place-items: center;
+  font-size: .62rem; line-height: 1;
+  color: var(--sage-ink); opacity: .35;
+}
+.bead:not(.has-kind)::before {
+  content: ""; width: .34rem; height: .34rem; border-radius: 50%; background: var(--sage);
+}
+.bead.has-kind { background: color-mix(in oklab, var(--sage) 22%, transparent); }
+.bead.on { opacity: .9; }
+
+.sheet-block { margin-bottom: 2.4rem; }
+.block-head {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 1rem;
+  border-bottom: 1px solid var(--rule);
+  padding-bottom: .5rem; margin-bottom: 1rem;
+}
+.block-head h3 { margin: 0; font-size: .7rem; letter-spacing: .24em; text-transform: uppercase; color: var(--ink-faint); font-weight: 700; }
+.link-btn {
+  border: 0; background: none; padding: 0; cursor: pointer;
+  font-family: var(--body); font-size: .78rem; font-weight: 600;
+  color: var(--green); letter-spacing: .04em; white-space: nowrap;
+  border-bottom: 1px solid color-mix(in oklab, var(--green) 40%, transparent);
+  transition: color .2s, border-color .2s;
+}
+.link-btn:hover { color: var(--ink); border-color: var(--ink); }
+.link-btn:focus-visible { outline: 2px solid var(--green); outline-offset: 3px; }
+
+.summary-area {
+  width: 100%;
+  border: 1px solid var(--rule-soft); border-radius: 10px;
+  background: color-mix(in oklab, var(--paper-raise) 70%, transparent);
+  padding: .9rem 1rem;
+  font-family: var(--display); font-size: 1rem; line-height: 1.62;
+  font-variation-settings: "SOFT" 40, "WONK" 0, "opsz" 16;
+  color: var(--ink);
+  resize: vertical; min-height: 7rem; outline: none;
+  transition: border-color .2s, background .2s;
+}
+.summary-area:focus { border-color: var(--green); background: var(--paper-raise); }
+.summary-area::placeholder { color: var(--ink-faint); font-style: italic; }
+.saved-flash {
+  font-size: .68rem; letter-spacing: .18em; text-transform: uppercase;
+  color: var(--sage-ink); opacity: 0; transition: opacity .3s;
+}
+.saved-flash.show { opacity: 1; }
+
+/* ── seasons: what they are walking through ─────────────────── */
+
+.season-card {
+  position: relative;
+  border: 1px solid color-mix(in oklab, var(--gold) 35%, var(--rule));
+  border-left: 3px solid var(--gold);
+  border-radius: 3px 12px 12px 3px;
+  background: linear-gradient(100deg, var(--green-lift), var(--paper-raise) 70%);
+  padding: .9rem 1.05rem;
+  margin-bottom: .7rem;
+}
+.season-card .season-top { display: flex; align-items: baseline; gap: .6rem; flex-wrap: wrap; }
+.season-card h4 {
+  margin: 0; font-family: var(--display); font-size: 1.1rem; font-weight: 500;
+  font-variation-settings: "SOFT" 34, "WONK" 1, "opsz" 26;
+  cursor: pointer;
+}
+.season-card h4:hover { color: var(--green); }
+.season-card .since { font-size: .7rem; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-faint); font-weight: 600; }
+.season-card .tl-note { margin-top: .35rem; }
+.season-card .season-end { margin-top: .6rem; }
+
+/* ── coming up ──────────────────────────────────────────────── */
+
+.up-item {
+  display: flex; align-items: flex-start; gap: .9rem;
+  padding: .65rem 0;
+}
+.up-item + .up-item { border-top: 1px dotted var(--rule-soft); }
+.up-when {
+  flex: 0 0 4.4rem; text-align: center;
+  border: 1px solid var(--rule); border-radius: 9px;
+  background: var(--paper-raise);
+  padding: .3rem .2rem;
+  line-height: 1.15;
+}
+.up-when .d { display: block; font-family: var(--display); font-size: 1.15rem; font-weight: 600; font-variation-settings: "opsz" 20; }
+.up-when .m { display: block; font-size: .6rem; letter-spacing: .16em; text-transform: uppercase; color: var(--ink-faint); font-weight: 700; }
+.up-item.is-near .up-when { border-color: var(--gold); background: color-mix(in oklab, var(--gold) 12%, var(--paper-raise)); }
+.up-item.is-past .up-when { opacity: .55; }
+.up-body { flex: 1; min-width: 0; }
+.up-body h4 {
+  margin: 0; font-family: var(--display); font-size: 1.05rem; font-weight: 500;
+  font-variation-settings: "SOFT" 34, "WONK" 1, "opsz" 24;
+  cursor: pointer;
+}
+.up-body h4:hover { color: var(--green); }
+.up-count { font-size: .7rem; letter-spacing: .1em; text-transform: uppercase; font-weight: 600; color: var(--gold-ink); }
+.up-count.is-past { color: var(--ink-faint); }
+.up-repeat { font-size: .7rem; color: var(--ink-faint); letter-spacing: .06em; }
+/* How far along, which on a due date is the thing you read first. */
+.up-gest { font-size: .7rem; letter-spacing: .1em; text-transform: uppercase; font-weight: 700; color: var(--green); }
+
+/* ── medications and conditions ─────────────────────────────── */
+
+.health-list { display: flex; flex-direction: column; gap: .1rem; }
+.health-row {
+  display: flex; align-items: baseline; gap: .6rem; width: 100%;
+  padding: .55rem .1rem;
+  border: 0; border-bottom: 1px solid var(--rule-soft);
+  background: none; text-align: left; cursor: pointer;
+  font-family: var(--body); color: var(--ink);
+  transition: background .2s var(--ease);
+}
+.health-row:last-child { border-bottom: 0; }
+.health-row:hover { background: var(--green-lift); }
+.health-row:focus-visible { outline: 2px solid var(--green); outline-offset: -2px; }
+.health-glyph { color: var(--green); font-size: .9rem; flex: 0 0 auto; }
+.health-body { display: flex; flex-wrap: wrap; align-items: baseline; gap: .1rem .55rem; min-width: 0; }
+.health-name { font-size: .95rem; font-weight: 600; }
+.health-detail { font-size: .84rem; color: var(--ink-faint); }
+
+/* ── history timeline ───────────────────────────────────────── */
+
+.timeline { position: relative; padding-left: 1.5rem; }
+.timeline::before {
+  content: ""; position: absolute; left: .32rem; top: .5rem; bottom: .5rem;
+  width: 1px; background: linear-gradient(var(--rule), color-mix(in oklab, var(--rule) 20%, transparent));
+}
+.tl-item { position: relative; padding: 0 0 1.35rem; }
+.tl-item::before {
+  content: ""; position: absolute; left: -1.5rem; top: .42rem;
+  width: .68rem; height: .68rem; margin-left: -.02rem;
+  border-radius: 50%;
+  background: var(--paper); border: 1.5px solid var(--kind, var(--ash));
+}
+.tl-item[data-kind="joy"]       { --kind: var(--gold); }
+.tl-item[data-kind="hard"]      { --kind: var(--alert); }
+.tl-item[data-kind="milestone"] { --kind: var(--sage); }
+.tl-item[data-kind="health"]    { --kind: var(--green); }
+.tl-item[data-kind="faith"]     { --kind: var(--gold); }
+.tl-item[data-kind="baby"]      { --kind: var(--sage); }
+.tl-date {
+  font-size: .68rem; letter-spacing: .16em; text-transform: uppercase;
+  color: var(--ink-faint); font-weight: 600;
+  display: flex; align-items: center; gap: .5rem; flex-wrap: wrap;
+}
+.tl-date .glyph { color: var(--kind, var(--ash)); font-size: .85rem; letter-spacing: 0; }
+.tl-date .was-season {
+  font-size: .58rem; letter-spacing: .14em;
+  padding: .05rem .4rem; border-radius: 999px;
+  border: 1px solid var(--rule); color: var(--ink-faint);
+}
+.tl-title {
+  margin: .15rem 0 0;
+  font-family: var(--display); font-size: 1.06rem; font-weight: 500;
+  font-variation-settings: "SOFT" 34, "WONK" 1, "opsz" 24;
+  cursor: pointer;
+}
+.tl-title:hover { color: var(--green); }
+.tl-note { margin: .25rem 0 0; font-size: .89rem; color: var(--ink-soft); white-space: pre-wrap; }
+
+.add-line { display: flex; gap: .5rem; margin-top: .3rem; }
+.add-line input {
+  flex: 1; border: 0; border-bottom: 1px solid var(--rule);
+  background: none; outline: none; padding: .45rem .1rem;
+  font-family: var(--body); font-size: .92rem; color: var(--ink);
+}
+.add-line input:focus { border-color: var(--green); }
+.add-line input::placeholder { color: var(--ink-faint); }
+
+.quiet-note { font-size: .86rem; color: var(--ink-faint); font-style: italic; margin: 0; }
+
+/* ── your own page ──────────────────────────────────────────────
+   What you let others see, one thing at a time. Off is the resting state and
+   has to look like it: a dotted ring and faint ink, so a page of private
+   things reads as quiet rather than as a column of switches. */
+.share-pill {
+  display: inline-flex; align-items: center; gap: .3rem;
+  margin-top: .65rem;
+  padding: .2rem .6rem;
+  border: 1px dashed var(--rule); border-radius: 999px;
+  background: none; cursor: pointer;
+  font-family: var(--body); font-size: .66rem; font-weight: 700;
+  letter-spacing: .12em; text-transform: uppercase;
+  color: var(--ink-faint);
+  transition: color .2s, border-color .2s, background .2s;
+}
+.share-pill .glyph { font-size: .8em; }
+.share-pill:hover { color: var(--green); border-color: var(--green); }
+.share-pill.is-on {
+  border-style: solid;
+  border-color: color-mix(in oklab, var(--green) 45%, transparent);
+  background: var(--green-lift);
+  color: var(--green);
+}
+.share-pill:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+
+/* The health block's promise, and any other line that qualifies a whole
+   block rather than one row in it. */
+.block-note {
+  margin: -.3rem 0 .7rem;
+  font-size: .72rem; letter-spacing: .04em; color: var(--ink-faint);
+}
+
+/* Your page has no check-in bar — this stands where it would have. */
+.touch-bar.is-mine { background: var(--green-lift); }
+
+/* ── linking ────────────────────────────────────────────────────
+   Sits under "edit details" on someone's page, so the offer to link is on
+   the page of the person it would be with rather than in a list somewhere. */
+.link-row { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; margin-top: .5rem; }
+.pill-linked {
+  border-color: color-mix(in oklab, var(--green) 45%, transparent);
+  background: var(--green-lift); color: var(--green);
+}
+.link-row .link-btn { color: var(--ink-faint); border-color: transparent; }
+.link-row .link-btn:hover { color: var(--green); border-color: currentColor; }
+
+/* Who the link is for, so the dialog reads as being about somebody rather
+   than about a URL — the same avatar treatment personDialog's photo pick
+   uses (.photo-preview, below), scaled down for a header row. */
+.invite-who { display: flex; gap: .9rem; align-items: center; margin-bottom: .9rem; }
+.invite-avatar {
+  width: 3.2rem; height: 3.2rem; border-radius: 50%; flex: 0 0 auto;
+  background: var(--paper-sunk); border: 1px solid var(--rule);
+  overflow: hidden; display: grid; place-items: center;
+  box-shadow: var(--shadow-lift);
+}
+.invite-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.invite-avatar span { font-family: var(--display); font-size: 1.05rem; color: var(--ink-faint); }
+.invite-who-text { min-width: 0; }
+.invite-who-text .dlg-title { font-size: 1.3rem; margin: 0 0 .2rem; }
+.invite-who-text .dlg-lede { margin: 0; }
+
+/* The link itself, still shown rather than hidden behind a button: it is the
+   thing being sent, and seeing it is how you know what you are sending. It is
+   no longer the only way to take it, though — the buttons below carry it now,
+   and this is the copy of last resort, so it is tappable in its own right and
+   selects whole rather than by word, for the case where the clipboard is not
+   allowed and it has to come off the screen by hand. */
+.invite-link {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: .86rem; line-height: 1.6; letter-spacing: -.01em;
+  word-break: break-all;
+  padding: .85rem 1rem; margin-bottom: .9rem;
+  border: 1px solid var(--rule); border-left: 3px solid var(--green);
+  border-radius: 10px;
+  background: var(--paper-raise); color: var(--ink);
+  box-shadow: var(--shadow-lift);
+  min-height: 2.6rem;
+  cursor: pointer; user-select: all; -webkit-user-select: all;
+}
+
+/* Sending it, directly under the thing being sent: the big way and the quiet
+   way share the first line, and WhatsApp — which is there or not depending on
+   whether a number was ever written down — takes a line of its own, so the
+   row above keeps the same shape either way. */
+.invite-actions {
+  display: flex; gap: .5rem; flex-wrap: wrap;
+  margin-bottom: 1.1rem;
+}
+
+.join-q { margin: 0 0 .7rem; font-size: .9rem; color: var(--ink); font-weight: 600; }
+.join-pick { display: flex; flex-direction: column; gap: .4rem; max-height: 46vh; overflow-y: auto; }
+.join-opt {
+  display: flex; align-items: baseline; gap: .5rem; flex-wrap: wrap;
+  text-align: left; width: 100%;
+  padding: .55rem .8rem;
+  border: 1px solid var(--rule); border-radius: 10px;
+  background: none; color: var(--ink); cursor: pointer;
+  font-family: var(--body); font-size: .88rem;
+  transition: border-color .2s, background .2s, color .2s;
+}
+.join-opt:hover { border-color: var(--green); color: var(--green); }
+.join-opt.is-on { border-color: var(--green); background: var(--green-lift); color: var(--green); font-weight: 600; }
+.join-opt:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+.join-opt-why { font-size: .68rem; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); }
+.join-opt.is-on .join-opt-why { color: inherit; opacity: .75; }
+
+/* ── from them ──────────────────────────────────────────────────
+   A rule down the left in the gold ink rather than a label repeated on every
+   row: the boundary between what is theirs and what is yours is a texture
+   you feel once, not a word you have to keep reading. Everything below this
+   block's own heading, back to the ordinary section titles, is yours again —
+   that contrast is what makes the boundary legible without more explaining. */
+.sheet-block.is-theirs {
+  border-left: 3px solid var(--gold);
+  padding-left: .9rem;
+  margin-bottom: 2rem;
+}
+.theirs-sub { margin: -.4rem 0 .8rem; font-size: .74rem; color: var(--ink-faint); font-style: italic; }
+.theirs-summary {
+  font-size: .9rem; line-height: 1.5; color: var(--ink-soft);
+  margin: 0 0 1rem; white-space: pre-wrap;
+}
+.theirs-dates { display: flex; flex-direction: column; gap: .5rem; margin-bottom: .9rem; }
+.theirs-date-row { display: flex; align-items: baseline; gap: .55rem; font-size: .88rem; }
+.theirs-date-row .glyph { color: var(--gold); flex: 0 0 auto; }
+.theirs-prayers { display: flex; flex-direction: column; gap: .5rem; }
+.theirs-prayer-row {
+  display: flex; align-items: baseline; justify-content: space-between; gap: .8rem; flex-wrap: wrap;
+  padding: .5rem .7rem;
+  border: 1px solid var(--rule-soft); border-radius: 10px;
+  background: color-mix(in oklab, var(--gold) 6%, transparent);
+}
+.theirs-prayer-row .prayer-text { font-size: .88rem; color: var(--ink); }
+.theirs-prayer-row .link-btn { white-space: nowrap; }
+.theirs-prayer-row .link-btn:disabled { color: var(--ink-faint); border-color: transparent; cursor: default; }

@@ -1,0 +1,151 @@
+/* ── blank states ───────────────────────────────────────────── */
+
+.blank { text-align: center; padding: clamp(2.5rem, 9vw, 5.5rem) 1rem; max-width: 30rem; margin: 0 auto; }
+.blank-mark { font-family: var(--display); font-size: 3rem; color: var(--green); margin: 0 0 .4rem; opacity: .5; }
+.blank h2 {
+  font-family: var(--display); font-weight: 400; font-size: 1.6rem;
+  font-variation-settings: "SOFT" 40, "WONK" 1, "opsz" 40;
+  margin: 0 0 .6rem;
+}
+.blank p { color: var(--ink-soft); font-size: .95rem; margin: 0 0 1.6rem; }
+
+/* ── section headings ───────────────────────────────────────── */
+
+.section-head { margin-bottom: 2rem; }
+.section-title {
+  font-family: var(--display);
+  font-size: clamp(1.7rem, 5vw, 2.3rem); font-weight: 400;
+  font-variation-settings: "SOFT" 34, "WONK" 1, "opsz" 60;
+  letter-spacing: -.015em; margin: 0;
+}
+.section-sub {
+  margin: .25rem 0 0;
+  font-size: .82rem; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--ink-faint); font-weight: 500;
+}
+
+/* ── prayer cards ───────────────────────────────────────────── */
+
+.pcard {
+  border: 1px solid var(--rule); border-radius: 14px;
+  background: var(--paper-raise); box-shadow: var(--shadow-lift);
+  padding: 1.1rem 1.2rem; margin-bottom: 1rem;
+  animation: rise .45s var(--ease) both;
+  /* Capped for the same reason .badge is: the wave reads as a wave long before
+     the end of a long list, and uncapped it was the worst of them — twenty
+     people carrying prayers put the last card over a second behind the first. */
+  animation-delay: calc(min(var(--i,0), 12) * 55ms);
+}
+.pcard-head {
+  display: flex; align-items: center; gap: .8rem;
+  margin-bottom: .9rem; padding-bottom: .8rem;
+  border-bottom: 1px solid var(--rule-soft);
+}
+.thumb {
+  width: 2.6rem; height: 2.6rem; border-radius: 50%;
+  overflow: hidden; flex: 0 0 auto;
+  background: var(--paper-sunk);
+  display: grid; place-items: center;
+  border: 1px solid var(--rule);
+  padding: 0;
+}
+button.thumb { cursor: pointer; transition: border-color .2s, transform .2s; }
+button.thumb:hover { border-color: var(--green); transform: scale(1.06); }
+button.thumb:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+.thumb img { width: 100%; height: 100%; object-fit: cover; }
+.thumb span, .thumb .initials { font-family: var(--display); font-size: .95rem; color: var(--ink-faint); }
+.pcard-head h3 {
+  margin: 0; font-family: var(--display); font-size: 1.15rem; font-weight: 500;
+  font-variation-settings: "SOFT" 34, "WONK" 1, "opsz" 30;
+}
+.pcard-head .who { font-size: .74rem; color: var(--ink-faint); letter-spacing: .05em; }
+
+.prayer-line { display: flex; align-items: flex-start; gap: .75rem; padding: .5rem 0; }
+.prayer-line + .prayer-line { border-top: 1px dotted var(--rule-soft); }
+.tick {
+  flex: 0 0 auto;
+  width: 1.35rem; height: 1.35rem; margin-top: .12rem;
+  border: 1.5px solid var(--rule); border-radius: 50%;
+  background: none; cursor: pointer;
+  display: grid; place-items: center;
+  color: transparent;
+  transition: all .2s;
+}
+.tick svg { width: .8rem; height: .8rem; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.tick:hover { border-color: var(--sage); color: var(--sage); background: color-mix(in oklab, var(--sage) 14%, transparent); }
+.tick:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+.prayer-text { flex: 1; font-size: .94rem; }
+.prayer-age { font-size: .7rem; color: var(--ink-faint); letter-spacing: .05em; white-space: nowrap; padding-top: .2rem; }
+.prayer-line.is-answered .prayer-text,
+.prayer-line.is-released .prayer-text { color: var(--ink-faint); }
+.prayer-line.is-answered .tick { border-color: var(--sage); color: var(--sage); background: color-mix(in oklab, var(--sage) 18%, transparent); }
+/* Let go rather than resolved, so it reads as closed without reading as won. */
+.prayer-line.is-released .tick { border-color: var(--rule); color: var(--ink-faint); background: color-mix(in oklab, var(--ink-faint) 10%, transparent); }
+
+/* Prayed for today: filled in, and the same green the app uses for a check-in,
+   because it is the same gesture — you did the thing today. */
+.prayer-line.is-prayed .tick {
+  border-color: var(--green); background: var(--green); color: #fff;
+}
+@media (prefers-color-scheme: dark) { .prayer-line.is-prayed .tick { color: #10180f; } }
+.prayed-note {
+  margin: .18rem 0 0;
+  font-size: .7rem; letter-spacing: .05em; color: var(--ink-faint);
+}
+.prayer-line.is-prayed .prayed-note { color: var(--green); font-weight: 600; }
+
+.answer-note {
+  margin: .2rem 0 0;
+  font-family: var(--display); font-style: italic; font-size: .88rem; color: var(--sage-ink);
+  font-variation-settings: "SOFT" 40, "WONK" 1, "opsz" 14;
+}
+.prayer-x {
+  border: 0; background: none; cursor: pointer; color: var(--ink-faint);
+  font-size: 1rem; line-height: 1; padding: .2rem .3rem; border-radius: 4px;
+  opacity: 0; transition: opacity .2s, color .2s;
+}
+.prayer-line:hover .prayer-x, .prayer-line:focus-within .prayer-x { opacity: 1; }
+.prayer-x:hover { color: var(--alert); }
+
+.answered { margin-top: 2rem; border-top: 1px solid var(--rule); padding-top: 1rem; }
+.answered summary {
+  cursor: pointer; font-size: .74rem; letter-spacing: .2em; text-transform: uppercase;
+  color: var(--sage-ink); font-weight: 700; list-style: none;
+}
+.answered summary::-webkit-details-marker { display: none; }
+.answered summary::before { content: "✧ "; }
+.answered[open] summary { margin-bottom: 1.2rem; }
+
+/* ── today ──────────────────────────────────────────────────── */
+
+.today-block { margin-bottom: 2.6rem; }
+.today-block h3 {
+  font-size: .7rem; letter-spacing: .24em; text-transform: uppercase;
+  color: var(--ink-faint); font-weight: 700;
+  margin: 0 0 1rem; padding-bottom: .5rem;
+  border-bottom: 1px solid var(--rule);
+  display: flex; align-items: baseline; gap: .5rem;
+}
+.today-block h3 em { font-style: normal; color: var(--alert); }
+.today-list { display: flex; flex-direction: column; gap: .1rem; }
+.today-row {
+  display: flex; align-items: center; gap: .85rem;
+  border-bottom: 1px dotted var(--rule-soft);
+  padding: .6rem .3rem;
+}
+.today-row .who { flex: 1; min-width: 0; }
+.today-row .who strong { font-weight: 600; font-size: .95rem; display: block; }
+.today-row .who small {
+  color: var(--ink-faint); font-size: .76rem;
+  display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.today-row .when { font-size: .74rem; letter-spacing: .06em; color: var(--alert); white-space: nowrap; }
+.today-row .when.calm { color: var(--ink-faint); }
+.today-row > .tick { opacity: .55; }
+.today-row:hover > .tick { opacity: 1; }
+
+.all-clear {
+  text-align: center; padding: 2.5rem 1rem;
+  font-family: var(--display); font-style: italic; font-size: 1.2rem; color: var(--ink-soft);
+  font-variation-settings: "SOFT" 50, "WONK" 1, "opsz" 24;
+}

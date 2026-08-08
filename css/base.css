@@ -1,0 +1,129 @@
+/* ══════════════════════════════════════════════════════════════
+   Fellowship — soft green and white, pitched at the dandelion's own
+   hue (~95°, a yellow-green). Green is the app's voice; three
+   status inks carry meaning:
+   green (well) · gold (soon) · clay (overdue, and only overdue).
+
+   Every value below was solved for a measured contrast ratio
+   against its background rather than picked by eye.
+   ══════════════════════════════════════════════════════════════ */
+
+:root {
+  --paper:       #fcfdfb;
+  --paper-sunk:  #f2f5ef;
+  --paper-raise: #ffffff;
+  --ink:         #20271b;
+  --ink-soft:    #4d5a44;
+  --ink-faint:   #69785e;
+  --rule:        #dfe8d9;
+  --rule-soft:   #eff4eb;
+
+  --green:       #507e30;   /* the accent — links, focus, active nav */
+  --green-lift:  #eff7e9;   /* soft green fill behind current things */
+  --sage:        #6ca550;   /* well / answered */
+  --gold:        #a68330;   /* coming up soon */
+  --alert:       #b6573a;   /* overdue, and destructive actions */
+  --ash:         #a3ab99;
+
+  /* sage and gold are pitched for rings and dots; text needs more weight */
+  --sage-ink:    #4e7f3d;
+  --gold-ink:    #8f6f24;
+
+  --shadow-lift: 0 1px 0 #fff, 0 2px 5px rgba(32,39,27,.05), 0 14px 34px -20px rgba(32,39,27,.18);
+  --shadow-deep: 0 30px 70px -28px rgba(24,30,18,.34), 0 4px 14px rgba(24,30,18,.08);
+
+  --display: "Fraunces", "Hoefler Text", Georgia, serif;
+  --body: "Karla", "Avenir Next", "Segoe UI", sans-serif;
+
+  --wrap: 62rem;
+  --rail: 15rem;
+  --bar: 4.4rem;
+  /* The calendar's frozen bar. One number, because scroll-margin-top on the
+     month sections has to match its height exactly. */
+  --cal-bar: 3.4rem;
+
+  /* How big a face in the circle is. The slider in settings moves the scale;
+     everything about a badge — its ring, its marks, its initials — is a
+     proportion of --badge, so one number moves the lot. --badge-gap is read
+     by app.js as well, to work out how many fit across a phone. */
+  --badge-scale: 1;
+  --badge: calc(7.4rem * var(--badge-scale));
+  --badge-gap: clamp(1rem, 3vw, 1.8rem);
+  --ease: cubic-bezier(.22,.68,.24,1);
+  --grain-opacity: .38;
+  --grain-blend: multiply;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper:       #141712;
+    --paper-sunk:  #0e110c;
+    --paper-raise: #20251d;
+    --ink:         #eaeee8;
+    --ink-soft:    #a1ae98;
+    --ink-faint:   #809173;   /* solved against the raised card, the worst case */
+    --rule:        #373f31;
+    --rule-soft:   #282e24;
+
+    --green:       #67a838;
+    --green-lift:  #252e1f;
+    --sage:        #82c167;
+    --gold:        #d1af47;
+    --alert:       #dc7d5b;
+    --ash:         #5f6b57;
+    --sage-ink:    #56aa41;
+    --gold-ink:    #b4922d;
+
+    --shadow-lift: 0 1px 0 rgba(220,255,230,.03), 0 2px 6px rgba(0,0,0,.32), 0 16px 40px -22px rgba(0,0,0,.55);
+    --shadow-deep: 0 34px 80px -26px rgba(0,0,0,.75), 0 4px 16px rgba(0,0,0,.45);
+    --grain-opacity: .2;
+    --grain-blend: screen;
+  }
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+/* The hidden attribute must always win. Component rules below set `display`
+   (.sheet is flex, .btn is inline-flex, .field is block …) and a plain class
+   selector outranks the browser's built-in [hidden] rule, which left elements
+   rendered on screen after the attribute was set. */
+[hidden] { display: none !important; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  min-height: 100svh;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--body);
+  font-size: 16.5px;
+  line-height: 1.55;
+  font-variant-ligatures: common-ligatures;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+body.is-locked { overflow: hidden; }
+
+.shell {
+  max-width: var(--wrap);
+  margin: 0 auto;
+  padding: 0 clamp(1rem, 4vw, 2.5rem);
+}
+
+/* ── atmosphere ─────────────────────────────────────────────── */
+
+.grain {
+  position: fixed; inset: -20%;
+  pointer-events: none; z-index: 900;
+  opacity: var(--grain-opacity);
+  mix-blend-mode: var(--grain-blend);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)' opacity='.4'/%3E%3C/svg%3E");
+}
+.bloom {
+  position: fixed; inset: 0;
+  pointer-events: none; z-index: -1;
+  background:
+    radial-gradient(56rem 38rem at 6% -14%, color-mix(in oklab, var(--sage) 20%, transparent), transparent 68%),
+    radial-gradient(44rem 32rem at 102% 6%, color-mix(in oklab, var(--green) 13%, transparent), transparent 70%);
+}

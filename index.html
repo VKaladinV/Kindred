@@ -16,7 +16,20 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..700,0..100,0..1;1,9..144,300..700,0..100,0..1&family=Karla:ital,wght@0,300..700;1,400..600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css">
+<!-- One stylesheet split by what it dresses. The order is the cascade and is
+     load-bearing: base.css carries the custom properties every other file
+     reads, and lock.css ends with the reduced-motion rule that must be able
+     to override everything above it. Separate links rather than @import, so
+     they are fetched in parallel instead of one after another. -->
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/nav.css">
+<link rel="stylesheet" href="css/masthead.css">
+<link rel="stylesheet" href="css/circle.css">
+<link rel="stylesheet" href="css/lists.css">
+<link rel="stylesheet" href="css/calendar.css">
+<link rel="stylesheet" href="css/sheet.css">
+<link rel="stylesheet" href="css/controls.css">
+<link rel="stylesheet" href="css/lock.css">
 </head>
 <body>
 
@@ -726,8 +739,80 @@
      stood and faded there, so it reads as being let go rather than deleted. -->
 <div class="ghosts" id="ghosts" aria-hidden="true"></div>
 
+<!-- Ordinary scripts, not modules, and that is deliberate: a module is fetched
+     with CORS, and a page opened straight off the disk has no origin to pass
+     that check with. Modules would mean this file only ever worked from a
+     server, and double-clicking index.html is the way most people here run it.
+
+     They share one scope, so the order is the dependency order and is
+     load-bearing. Nothing runs as these load except two event listeners and
+     boot.js's last line, so a file may freely call into one further down —
+     by the time anything is called, all of them are in.
+
+     Adding a file means adding it here and to SHELL in sw.js. -->
 <script src="config.js"></script>
-<script src="app.js"></script>
-<script src="sync.js"></script>
+
+<!-- the data, and the vocabulary for talking about it -->
+<script src="js/constants.js"></script>
+<script src="js/util.js"></script>
+<script src="js/store.js"></script>
+<script src="js/state.js"></script>
+<script src="js/normalise.js"></script>
+<script src="js/model.js"></script>
+
+<!-- the faces: how big each is drawn, and where it sits -->
+<script src="js/imaging.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/badge.js"></script>
+<script src="js/hex.js"></script>
+<script src="js/circle-flip.js"></script>
+<script src="js/filters.js"></script>
+<script src="js/circle.js"></script>
+
+<!-- the other three views -->
+<script src="js/prayers.js"></script>
+<script src="js/today.js"></script>
+<script src="js/calendar.js"></script>
+
+<!-- a person's page, and what covers the app while it is open -->
+<script src="js/layers.js"></script>
+<script src="js/sheet-blocks.js"></script>
+<script src="js/sheet.js"></script>
+<script src="js/check-in.js"></script>
+
+<!-- everything that changes something -->
+<script src="js/invite.js"></script>
+<script src="js/mutations.js"></script>
+<script src="js/person-dialog.js"></script>
+<script src="js/cropper.js"></script>
+<script src="js/save-person.js"></script>
+<script src="js/event-dialog.js"></script>
+<script src="js/health-dialog.js"></script>
+<script src="js/backup.js"></script>
+
+<!-- reminders, and the PIN in front of all of it -->
+<script src="js/notify.js"></script>
+<script src="js/lock-crypto.js"></script>
+<script src="js/lock.js"></script>
+
+<!-- what repaints, what listens, and the order it starts in -->
+<script src="js/views.js"></script>
+<script src="js/wire.js"></script>
+<script src="js/boot.js"></script>
+
+<!-- Signing in and syncing. Loaded after the app because it hands itself to
+     window.Kindred, which boot.js has just set up. Remove these ten lines and
+     the app still runs, entirely on this device. -->
+<script src="js/sync/config.js"></script>
+<script src="js/sync/session.js"></script>
+<script src="js/sync/rest.js"></script>
+<script src="js/sync/invites.js"></script>
+<script src="js/sync/shape.js"></script>
+<script src="js/sync/photos.js"></script>
+<script src="js/sync/publish.js"></script>
+<script src="js/sync/core.js"></script>
+<script src="js/sync/ui.js"></script>
+<script src="js/sync/boot.js"></script>
+<script src="js/sync/install.js"></script>
 </body>
 </html>

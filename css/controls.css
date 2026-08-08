@@ -1,0 +1,260 @@
+/* ── buttons ────────────────────────────────────────────────── */
+
+.btn {
+  font-family: var(--body); font-size: .82rem; font-weight: 600; letter-spacing: .06em;
+  padding: .58rem 1.15rem; border-radius: 999px;
+  border: 1px solid var(--rule);
+  background: var(--paper-raise); color: var(--ink);
+  cursor: pointer;
+  transition: all .22s var(--ease);
+  display: inline-flex; align-items: center; gap: .45rem;
+}
+.btn:hover { transform: translateY(-1px); border-color: var(--green); }
+.btn:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+.btn-primary { background: var(--green); border-color: var(--green); color: #fff; }
+.btn-primary:hover { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+@media (prefers-color-scheme: dark) { .btn-primary { color: #10180f; } }
+.btn-quiet { background: none; }
+.btn-danger-quiet { background: none; border-color: transparent; color: var(--alert); }
+.btn-danger-quiet:hover { border-color: var(--alert); }
+.btn-sage { background: none; border-color: color-mix(in oklab, var(--sage) 55%, transparent); color: var(--sage-ink); }
+.btn-sage:hover { background: var(--sage); border-color: var(--sage); color: var(--paper); }
+.btn-tiny { font-size: .72rem; padding: .34rem .8rem; }
+/* Grows to fill the row it is in, and centres its own label rather than
+   inheriting the inline-flex hug — for a button that is the whole point of
+   the dialog it sits on. The basis is small enough that a wide one and a
+   quiet one still share a line on a narrow phone, rather than the quiet one
+   wrapping underneath and reading as an afterthought. */
+.btn-wide { flex: 1 1 8rem; justify-content: center; padding-top: .72rem; padding-bottom: .72rem; }
+/* A whole line to itself at every width, so the row above it does not
+   rearrange itself depending on whether this one is there. */
+.btn-block { flex-basis: 100%; }
+
+/* ── dialogs ────────────────────────────────────────────────── */
+
+.dlg {
+  border: 1px solid var(--rule); border-radius: 16px;
+  padding: clamp(1.4rem, 4vw, 2.1rem);
+  width: min(31rem, calc(100vw - 2rem));
+  max-height: calc(100svh - 3rem);
+  background: var(--paper); color: var(--ink);
+  box-shadow: var(--shadow-deep);
+  font-family: var(--body);
+}
+.dlg::backdrop { background: color-mix(in oklab, #1a2013 58%, transparent); backdrop-filter: blur(3px); }
+.dlg[open] { animation: dlg-in .32s var(--ease) both; }
+@keyframes dlg-in { from { opacity: 0; transform: translateY(12px) scale(.97); } }
+.dlg-title {
+  font-family: var(--display); font-size: 1.6rem; font-weight: 400;
+  font-variation-settings: "SOFT" 34, "WONK" 1, "opsz" 40;
+  margin: 0 0 1.4rem;
+}
+.dlg-lede { margin: -.9rem 0 1.2rem; font-size: .92rem; color: var(--ink-soft); }
+
+.field { display: block; margin-bottom: 1.1rem; }
+.field > span {
+  display: block; margin-bottom: .3rem;
+  font-size: .68rem; letter-spacing: .18em; text-transform: uppercase;
+  color: var(--ink-faint); font-weight: 700;
+}
+.field > span em { font-style: normal; text-transform: none; letter-spacing: .04em; opacity: .8; }
+.field input, .field select, .field textarea {
+  width: 100%;
+  font-family: var(--body); font-size: .95rem; color: var(--ink);
+  background: var(--paper-raise);
+  border: 1px solid var(--rule); border-radius: 8px;
+  padding: .55rem .7rem; outline: none;
+  transition: border-color .2s, box-shadow .2s;
+}
+.field textarea { resize: vertical; font-family: var(--body); line-height: 1.55; }
+.field input:focus, .field select:focus, .field textarea:focus {
+  border-color: var(--green);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--green) 16%, transparent);
+}
+/* A note or action belonging to the field above it, tucked up into the gap
+   that field already leaves below itself. */
+.field-aside { margin: -.85rem 0 1.1rem; }
+
+.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: .9rem; }
+@media (max-width: 460px) { .field-row { grid-template-columns: 1fr; gap: 0; } }
+/* Your own profile is not asked how you know yourself or how often to be
+   reminded about yourself, so half of each of these rows goes. The one left
+   should take the width rather than sit in a column beside nothing. */
+.field-row:has(> .field[hidden]) { grid-template-columns: 1fr; }
+
+.check-field {
+  display: flex; align-items: flex-start; gap: .6rem;
+  margin: -.3rem 0 1.1rem;
+  font-size: .85rem; color: var(--ink-soft);
+}
+.check-field input { width: 1.1rem; height: 1.1rem; margin-top: .15rem; accent-color: var(--green); flex: 0 0 auto; }
+.check-field em { display: block; font-style: normal; font-size: .74rem; color: var(--ink-faint); }
+
+/* how far along, as two small boxes rather than a full-width field */
+.gest-row { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
+.gest-box { display: flex; align-items: center; gap: .35rem; }
+.gest-box input { width: 4rem; }
+.gest-box span { font-size: .78rem; color: var(--ink-faint); }
+.gest-now {
+  font-size: .74rem; font-weight: 600; letter-spacing: .05em;
+  color: var(--green);
+}
+
+/* Four ways out of one dialog. They wrap on a narrow screen rather than
+   squeezing, and "remove" keeps its distance from the two that keep things. */
+.release-actions { row-gap: .7rem; }
+.release-actions .link-btn { color: var(--ink-faint); }
+.release-actions .link-btn:hover { color: var(--alert); }
+
+/* segmented type picker */
+.type-pick {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: .3rem; margin-bottom: .5rem;
+  padding: .28rem;
+  background: var(--paper-sunk);
+  border: 1px solid var(--rule); border-radius: 12px;
+}
+.type-opt {
+  border: 0; border-radius: 9px; background: none; cursor: pointer;
+  padding: .5rem .3rem;
+  font-family: var(--body); font-size: .74rem; font-weight: 700;
+  letter-spacing: .04em; color: var(--ink-soft);
+  display: flex; flex-direction: column; align-items: center; gap: .15rem;
+  transition: background .2s, color .2s;
+}
+.type-opt .glyph { font-size: .95rem; }
+.type-opt:hover { color: var(--ink); }
+.type-opt.is-on { background: var(--green); color: #fff; box-shadow: var(--shadow-lift); }
+@media (prefers-color-scheme: dark) { .type-opt.is-on { color: #10180f; } }
+.type-opt:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+.type-hint { margin: 0 0 1.3rem; min-height: 2.1em; }
+
+/* Four ways to have connected, two by two — bigger targets than a row of
+   four, which matters when this is mostly tapped with a thumb. */
+.how-pick { grid-template-columns: repeat(2, 1fr); margin-top: 1rem; }
+.how-pick .type-opt { padding: .8rem .4rem; font-size: .78rem; }
+.how-pick .glyph { font-size: 1.15rem; }
+
+.dlg-actions { display: flex; align-items: center; gap: .5rem; margin-top: 1.6rem; flex-wrap: wrap; }
+.dlg-actions .spacer { flex: 1; }
+
+.photo-pick { display: flex; gap: 1.1rem; align-items: center; margin-bottom: 1.5rem; }
+.photo-preview {
+  width: 5rem; height: 5rem; border-radius: 50%; flex: 0 0 auto;
+  background: var(--paper-sunk); border: 1px solid var(--rule);
+  overflow: hidden; display: grid; place-items: center;
+  box-shadow: var(--shadow-lift);
+}
+.photo-preview img { width: 100%; height: 100%; object-fit: cover; }
+.photo-preview span { font-family: var(--display); font-size: 1.6rem; color: var(--ink-faint); }
+.photo-pick-text { display: flex; flex-direction: column; align-items: flex-start; gap: .4rem; }
+.photo-pick-links { display: flex; gap: .8rem; flex-wrap: wrap; }
+.hint { margin: 0; font-size: .74rem; color: var(--ink-faint); line-height: 1.4; }
+
+/* ── choosing where a photo looks ───────────────────────────────
+   The stage is the badge, at the size of a badge. Everything outside
+   the circle is dimmed rather than hidden, so you can still see who
+   you are moving away from. */
+
+.crop-stage {
+  position: relative;
+  width: min(20rem, 68vw); aspect-ratio: 1;
+  margin: 0 auto 1.1rem;
+  overflow: hidden;
+  border-radius: 12px;
+  background: var(--paper-sunk);
+  border: 1px solid var(--rule);
+  touch-action: none;
+  cursor: grab;
+  user-select: none;
+}
+.crop-stage:active { cursor: grabbing; }
+.crop-stage:focus-visible { outline: 2px solid var(--green); outline-offset: 3px; }
+.crop-stage img {
+  position: absolute; top: 0; left: 0;
+  transform-origin: 0 0;
+  max-width: none;             /* the picture is sized in JS, not by the box */
+  -webkit-user-drag: none; user-select: none;
+  pointer-events: none;
+}
+.crop-mask {
+  position: absolute; inset: 0;
+  border-radius: 50%;
+  box-shadow: 0 0 0 9999px color-mix(in oklab, var(--paper) 74%, transparent);
+  border: 1px solid color-mix(in oklab, var(--green) 45%, transparent);
+  pointer-events: none;
+}
+
+.cc-field {
+  display: flex; align-items: center; gap: .15rem;
+  border: 1px solid var(--rule); border-radius: 8px;
+  padding: .4rem .6rem; background: var(--paper-raise);
+  color: var(--ink-faint); font-size: .9rem;
+  transition: border-color .2s;
+}
+.cc-field:focus-within { border-color: var(--green); }
+.cc-field input {
+  width: 2.6rem; border: 0; background: none; outline: none;
+  font-family: var(--body); font-size: .9rem; color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Sits inside a settings row rather than a .field, so there is no input box
+   styling to undo here — only the slider itself to dress. */
+.size-range {
+  display: block; width: 100%; margin-top: .55rem;
+  accent-color: var(--green);
+  height: 1.4rem; cursor: pointer;
+}
+.size-range:focus-visible { outline: 2px solid var(--green); outline-offset: 3px; }
+
+.crop-zoom { margin-bottom: 0; }
+.crop-zoom input[type="range"] {
+  padding: 0; border: 0; background: none;
+  accent-color: var(--green);
+  height: 1.4rem; cursor: pointer;
+}
+.crop-zoom input[type="range"]:focus { box-shadow: none; }
+.crop-zoom input[type="range"]:focus-visible { outline: 2px solid var(--green); outline-offset: 3px; }
+
+.setting { display: flex; align-items: center; gap: 1rem; padding: .95rem 0; border-top: 1px solid var(--rule-soft); }
+.setting > div:first-child { flex: 1; min-width: 0; }
+.setting h3 { margin: 0 0 .15rem; font-size: .92rem; font-weight: 600; }
+.setting-actions { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; justify-content: flex-end; }
+
+.sync-state {
+  margin: .3rem 0 0;
+  font-size: .72rem; letter-spacing: .06em; font-weight: 600;
+  display: flex; align-items: center; gap: .4rem;
+  color: var(--ink-faint);
+}
+.sync-state::before {
+  content: ""; width: .45rem; height: .45rem; border-radius: 50%;
+  background: var(--ash); flex: 0 0 auto;
+}
+.sync-state[data-state="ok"]      { color: var(--sage-ink); }
+.sync-state[data-state="ok"]::before      { background: var(--sage); }
+.sync-state[data-state="syncing"] { color: var(--green); }
+.sync-state[data-state="syncing"]::before { background: var(--green); animation: breathe 1.4s ease-in-out infinite; }
+.sync-state[data-state="error"]   { color: var(--alert); }
+.sync-state[data-state="error"]::before   { background: var(--alert); }
+.sync-state[data-state="offline"]::before { background: var(--gold); }
+
+.auth-error {
+  margin: -.4rem 0 0; min-height: 1.2em;
+  font-size: .82rem; color: var(--alert); font-weight: 600;
+}
+/* An account made but not yet confirmed is not a failure, and reading it in
+   the same alarm red as a wrong password would say it was. */
+.auth-error.is-note { color: var(--green); }
+
+/* Making an account and signing in are the same form, so the way across sits
+   with the form rather than in the actions row, where it would read as a
+   third button of equal weight to the one that does the thing. */
+.auth-swap {
+  display: flex; align-items: baseline; gap: .4rem; flex-wrap: wrap;
+  margin: .9rem 0 0; font-size: .82rem; color: var(--ink-soft);
+}
+.auth-swap .spacer { flex: 1 1 auto; }
+.auth-swap #auth-forgot { color: var(--ink-faint); border-color: transparent; }
+.auth-swap #auth-forgot:hover { color: var(--ink); }

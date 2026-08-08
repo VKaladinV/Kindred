@@ -445,7 +445,7 @@ not a copy of the files. That shapes everything about updating it.
 ### Updating it
 
 **Changing the app needs no new .apk.** Edit a file, push, and the phone has it. This
-covers `index.html`, `app.js`, `styles.css`, `sync.js`, `config.js` — every ordinary
+covers `index.html`, anything in `js/` or `css/`, `config.js` — every ordinary
 change. Nothing to rebuild, nothing to reinstall, nothing to send anyone.
 
 Two things make that land promptly. `netlify.toml` keeps the page, the service worker
@@ -499,8 +499,10 @@ you open the `.apk` with.
 | File | What it is |
 |---|---|
 | `index.html` | the page structure |
-| `styles.css` | all the visual design |
-| `app.js` | all the behaviour and storage |
+| `css/` | the visual design, split by what it dresses |
+| `js/` | the behaviour and storage, one concern per file |
+| `js/sync/` | signing in and syncing |
+| `config.js` | which Supabase project this copy syncs to |
 | `serve.js` | the small local server for working on it (no dependencies) |
 | `sw.js` | service worker — makes it work offline |
 | `netlify.toml` | how Netlify serves it |
@@ -508,12 +510,47 @@ you open the `.apk` with.
 | `logo-mark.png` | the logo as used inside the app (transparent) |
 | `tools/logo-source.png` | the original logo artwork |
 | `tools/make-icons.js` | rebuilds every icon from that artwork |
+| `tools/make-demo.js` | builds a set of demo people for trying it out |
 | `tools/stamp.js` | names each deploy in `version.json`, so an installed app knows to refresh |
 
 No build step, no npm install, no frameworks. Edit a file, refresh the page.
 
+### Finding your way around `js/`
+
+The files are listed at the foot of `index.html` in the order they load, and
+each one opens with a `uses:` line naming what it takes from the others — so
+that line is the quickest map of the place. Roughly in the order they build on
+each other:
+
+| | |
+|---|---|
+| `constants` `util` `store` `state` `normalise` `model` | the data, and the vocabulary for talking about it |
+| `imaging` `ui` `badge` `hex` `circle-flip` `filters` `circle` | the faces, how big each is drawn and where it sits |
+| `prayers` `today` `calendar` | the other three views |
+| `layers` `sheet-blocks` `sheet` `check-in` | a person's page, and what covers the app while it is open |
+| `invite` `mutations` `person-dialog` `cropper` `save-person` `event-dialog` `health-dialog` `backup` | everything that changes something |
+| `notify` `lock-crypto` `lock` | reminders, and the PIN in front of all of it |
+| `views` `wire` `boot` | what repaints, what listens, and the order it starts in |
+
+Three rules worth knowing before editing:
+
+- **These are ordinary scripts, not ES modules, and that is deliberate.** A
+  module is fetched with CORS, and a page opened by double-clicking has no
+  origin to pass that check with — modules would mean the app only ever ran
+  from a server. So the files share one scope: no `import`, no `export`, and
+  every top-level name has to stay unique across all of them.
+- **Adding a file means adding it to `index.html` and to `SHELL` in `sw.js`.**
+  Missing from `index.html` it simply never loads; missing from `sw.js` the
+  app still works, but that file has to be fetched before it can start with
+  no connection.
+- **A view paints when it is on screen and is noted as stale otherwise**
+  (see `views.js`). Anything a render writes *outside* its own view — the
+  Today pip, the masthead tagline, the footer count — has to be painted
+  separately, or it goes stale behind a view nobody is looking at.
+
 Two easy things to change: the app name sits in `index.html` (the `<h1>`) and
-`manifest.webmanifest`; the colours are the variables at the top of `styles.css`.
+`manifest.webmanifest`; the colours are the variables at the top of
+`css/base.css`.
 
 To change the logo, drop a new PNG at `tools/logo-source.png` and run:
 

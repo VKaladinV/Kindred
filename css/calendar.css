@@ -1,0 +1,132 @@
+/* ── calendar ───────────────────────────────────────────────────
+   The same dates Today lists, laid out as a month so the shape of one
+   is visible: which week is crowded, how far off the next thing is.
+   A cell is a square whatever the screen, so the grid stays a grid. */
+
+/* The bar freezes to the top and names whichever month you have scrolled to.
+   Every month is already on the page, so its arrows scroll rather than redraw
+   — and scroll-margin-top below is what stops the bar landing on the heading
+   it has just travelled to. */
+.cal-head {
+  position: sticky; top: 0; z-index: 90;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: .8rem; flex-wrap: nowrap;
+  height: var(--cal-bar);
+  margin-bottom: 1.6rem;
+  background: color-mix(in oklab, var(--paper) 88%, transparent);
+  backdrop-filter: blur(12px) saturate(1.3);
+  border-bottom: 1px solid var(--rule);
+}
+/* One line, one height. A frozen bar that grew when the month name got longer
+   would move the document under the very scroll position it is reacting to —
+   the same argument the frozen title above it settles the same way. And the
+   height is a variable because scroll-margin-top below has to match it, or
+   stepping to a month lands the bar on the heading it just travelled to. */
+.cal-head .section-title {
+  margin: 0; min-width: 0;
+  font-size: clamp(1.05rem, 4.4vw, 1.5rem);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.cal-nav { display: flex; gap: .35rem; flex: 0 0 auto; }
+.cal-nav .btn { min-width: 2.2rem; }
+.cal-nav .btn:disabled { opacity: .32; cursor: default; }
+
+/* On a phone the frozen title is fixed to the same spot, so it stands down
+   while the calendar is showing rather than the two sitting on each other. */
+body.on-calendar .topbar { display: none; }
+
+/* Room past the last month, so every month — including July — can be brought
+   to the top. Without it the final section can never reach the bar, and the
+   bar goes on naming the month before it. */
+#calendar-body { padding-bottom: 60vh; }
+
+.cal-month { scroll-margin-top: calc(var(--cal-bar) + .4rem); }
+.cal-month + .cal-month { margin-top: 3rem; padding-top: 2.2rem; border-top: 1px solid var(--rule); }
+.cal-month-name {
+  font-family: var(--display); font-weight: 500; font-size: 1.3rem;
+  font-variation-settings: "SOFT" 34, "WONK" 1, "opsz" 30;
+  margin: 0 0 1.1rem;
+}
+
+.cal-grid {
+  display: grid; grid-template-columns: repeat(7, 1fr);
+  gap: .3rem;
+  margin-bottom: 2.4rem;
+}
+.cal-dow {
+  text-align: center; padding-bottom: .4rem;
+  font-size: .62rem; letter-spacing: .16em; text-transform: uppercase;
+  color: var(--ink-faint); font-weight: 700;
+}
+.cal-pad { aspect-ratio: 1; }
+
+.cal-day {
+  position: relative;
+  aspect-ratio: 1;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: .22rem;
+  border: 1px solid var(--rule); border-radius: 10px;
+  background: var(--paper-raise);
+  color: var(--ink);
+  font-family: var(--body);
+  cursor: pointer;
+  transition: border-color .2s var(--ease), background .2s var(--ease), transform .2s var(--ease);
+}
+.cal-day:hover { border-color: var(--green); transform: translateY(-1px); }
+.cal-day:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+/* A day with nothing on it is still a day — quieter, not missing. */
+.cal-day.is-empty { background: none; border-color: var(--rule-soft); color: var(--ink-faint); }
+.cal-day.is-today { border-color: var(--green); box-shadow: inset 0 0 0 1px var(--green); }
+.cal-day.is-picked { background: var(--green); border-color: var(--green); color: #fff; }
+@media (prefers-color-scheme: dark) { .cal-day.is-picked { color: #10180f; } }
+
+.cal-n { font-size: .82rem; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1; }
+.cal-dots { display: flex; gap: .16rem; min-height: .34rem; }
+.cal-dot {
+  width: .34rem; height: .34rem; border-radius: 50%;
+  background: var(--kind, var(--ash));
+}
+.cal-dot[data-kind="joy"]       { --kind: var(--gold); }
+.cal-dot[data-kind="hard"]      { --kind: var(--alert); }
+.cal-dot[data-kind="milestone"] { --kind: var(--sage); }
+.cal-dot[data-kind="health"]    { --kind: var(--green); }
+.cal-dot[data-kind="faith"]     { --kind: var(--gold); }
+.cal-dot[data-kind="baby"]      { --kind: var(--sage); }
+/* On the chosen day the dots sit on the accent, where their own colours
+   would disappear — white reads against it, and the day is already named
+   in the list underneath. */
+.cal-day.is-picked .cal-dot { background: currentColor; }
+
+/* ── a day taking over its month ────────────────────────────────
+   The rest of the month leaves, so the grid collapses from six rows to one.
+   The open day is then the only child left and ordinary auto-placement puts
+   it in the corner — nothing has to be told where to go.
+
+   They go rather than fade because fading needs them kept in the layout, and
+   anything still occupying a square holds the grid open at six rows, which is
+   the very thing being cleared. On the way back they do fade in: the calendar
+   is rebuilt from nothing on every render, and while a freshly inserted
+   element has no previous state for a *transition* to run from, an animation
+   plays on first paint. That is why this is a keyframe and the travelling
+   number is not.
+
+   The section around it keeps the height it had — set in app.js — so no month
+   above or below moves while this happens. */
+
+@keyframes cal-back { from { opacity: 0; } }
+
+.cal-grid.is-zoomed > *:not(.is-picked) { display: none; }
+.cal-grid.is-flipping:not(.is-zoomed) > * { animation: cal-back .34s var(--ease); }
+
+/* The travelling number needs longer than a hover lift: it moves the width
+   and depth of a month. */
+.cal-grid.is-flipping .cal-day { transition: transform .34s var(--ease); }
+
+/* The day's own list arrives on the same rise the views come in on. */
+.cal-enter { animation: rise .38s var(--ease) both; }
+
+@media (max-width: 460px) {
+  .cal-grid { gap: .2rem; }
+  .cal-day { border-radius: 8px; }
+  .cal-n { font-size: .74rem; }
+}
