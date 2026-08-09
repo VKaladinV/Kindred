@@ -21,6 +21,17 @@
 --  Safe to run more than once.
 -- ══════════════════════════════════════════════════════════════════════
 
+-- The policy below reads auth.mfa_factors to ask "does this account have a
+-- verified factor at all" — evaluated as the authenticated role, inside
+-- every query on every gated table, not just ones an MFA-enrolled account
+-- makes. Without this grant that read throws 42501 on the first row it is
+-- asked about, which breaks sync for every signed-in account, not merely
+-- the ones the gate was ever meant to touch. It is safe to grant broadly:
+-- PostgREST only exposes the public schema to clients by default, so this
+-- opens the table to the policy running inside Postgres, never to a client
+-- holding nothing but the anon key.
+grant select on auth.mfa_factors to authenticated;
+
 do $$
 declare t text;
 begin
