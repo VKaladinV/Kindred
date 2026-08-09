@@ -61,6 +61,10 @@
   cursor: pointer;
   transform: rotate(var(--tilt, 0deg));
   transition: transform .4s var(--ease);
+  /* Without this, tapping paints the platform's default highlight — a
+     rectangle — across a circular face for one frame before the sheet
+     replaces it. */
+  -webkit-tap-highlight-color: transparent;
 }
 .badge-frame::after {
   content: "";
@@ -158,6 +162,12 @@
 /* A future connection has no check-in state to ring, so the default ash
    ring (.badge, above) is switched off rather than left implying one. */
 .badge.no-ring { --ring: transparent; }
+
+/* The circle receding while a face flies out of it into the sheet — see
+   openSheet in layers.js. Not display:none: the badge stays exactly where
+   it is, just dimmed under the scrim, so nothing has to be measured again
+   if the sheet closes without anything having changed. */
+.circle-grid.is-receding { opacity: .45; transition: opacity .4s var(--ease); pointer-events: none; }
 
 /* ── the phone tessellation ─────────────────────────────────────
    app.js fills these rows, because how wide a face is now depends on how

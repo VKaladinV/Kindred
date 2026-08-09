@@ -65,7 +65,59 @@
 .no-entry .cal-enter,
 .sheet-scroll.no-entry > * { animation: none; }
 
+/* While the tapped photo is still flying in from the circle (openSheet in
+   layers.js): the real photo stays invisible so the flying clone reads as
+   the only copy, and the rest of the page — including the name/facts beside
+   the photo, which .sheet-scroll > * does not reach because it is nested a
+   level deeper — holds off its own entrance until the photo has actually
+   landed rather than racing it. animation is reset here as well as opacity:
+   an animation's own per-frame value overrides a plain property regardless
+   of specificity, so leaving photo-in/rise running underneath would fight
+   this. Removed by JS the moment the flight's transitionend fires. */
+.sheet.is-arriving .person-photo { animation: none; opacity: 0; }
+.sheet.is-arriving .person-id { animation: none; opacity: 0; }
+.sheet.is-arriving .sheet-scroll > * { animation: none; opacity: 0; }
+
+/* The sheet's own slide-in (below) is what the flying photo replaces for
+   this one open, not something it shares the moment with. Left running, the
+   panel is still sliding toward its resting place for the rest of its own
+   .42s at the exact moment .person-photo gets measured in flyHeroPhoto —
+   so the flight lands on a snapshot of a target that goes on moving after
+   the snapshot was taken, and the real photo, revealed once the panel
+   finally settles, turns up a little further along than where the flight
+   just put it. Lasts the sheet's whole open, unlike is-arriving above,
+   which lifts the moment the photo lands — the panel must never restart a
+   slide of its own partway through. */
+.sheet.is-carried { animation: none; }
+
+/* The flying clone itself — a copy of the tapped .badge-photo, not the real
+   element, so the badge underneath is untouched if the sheet closes before
+   this lands. It keeps the .badge-photo class it was cloned with, which is
+   where its circular shape, background and initials sizing still come from;
+   this rule only adds what a clone parked in document.body actually needs on
+   top of that. Sized and positioned in JS to start over the badge and land
+   over .person-photo; only transform ever animates, so the one reduced-
+   motion rule (lock.css) collapses this the same way it already collapses
+   flipCircle and flipDay. */
+.hero-photo {
+  position: fixed; z-index: 220;
+  pointer-events: none;
+  transition: transform .45s var(--ease);
+}
+
 .person-head { display: flex; gap: 1.3rem; align-items: flex-start; margin-bottom: 1.6rem; }
+/* .person-head is .sheet-scroll's first child and would otherwise inherit
+   the generic rise entrance below — a translateY on the head that carries
+   .person-photo along with it. Harmless on an ordinary open; wrong the
+   instant a hero flight (openSheet, layers.js) has just carried a photo to
+   this exact spot, because the moment is-arriving lifts, that translateY
+   restarts from its 10px offset and drags the photo straight back out of
+   the position it was carried to. The entrance moves to the two things
+   actually worth animating instead: .person-id, which has no position to
+   protect, keeps the same rise; .person-photo gets a plain opacity fade of
+   its own, with no transform, so nothing about where it sits is ever
+   re-earned once it has landed. */
+.sheet-scroll > .person-head { animation: none; }
 .person-photo {
   position: relative;
   width: clamp(5.5rem, 22vw, 7.5rem); aspect-ratio: 1; flex: 0 0 auto;
@@ -74,10 +126,13 @@
   border: 1px solid var(--rule);
   box-shadow: var(--shadow-lift);
   display: grid; place-items: center;
+  animation: photo-in .3s var(--ease) both;
+  animation-delay: .04s;
 }
+@keyframes photo-in { from { opacity: 0; } }
 .person-photo img { width: 100%; height: 100%; object-fit: cover; }
 .person-photo span { font-family: var(--display); font-size: 2.2rem; color: var(--ink-faint); }
-.person-id { padding-top: .3rem; min-width: 0; }
+.person-id { padding-top: .3rem; min-width: 0; animation: rise .5s var(--ease) both; animation-delay: .04s; }
 .person-id h2 {
   font-family: var(--display);
   font-size: clamp(1.8rem, 6vw, 2.5rem); font-weight: 500;
