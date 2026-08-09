@@ -190,6 +190,12 @@ alter table public.prayers enable row level security;
 alter table public.touches enable row level security;
 alter table public.health  enable row level security;
 
+-- auth.uid() is wrapped in a scalar subselect rather than called directly.
+-- Left bare it is evaluated once per row the policy is asked about; wrapped,
+-- the planner lifts it into an InitPlan and evaluates it once for the whole
+-- statement. It is the same answer either way — these tables are read a few
+-- thousand rows at a time by the sync, and that is where the difference is.
+-- share.sql does the same throughout, for the same reason.
 do $$
 declare t text;
 begin
@@ -198,8 +204,8 @@ begin
     execute format(
       'create policy own_rows on public.%I
        for all to authenticated
-       using (auth.uid() = user_id)
-       with check (auth.uid() = user_id)', t);
+       using ((select auth.uid()) = user_id)
+       with check ((select auth.uid()) = user_id)', t);
   end loop;
 end $$;
 
@@ -223,22 +229,25 @@ begin
   end loop;
 end $$;
 
+-- Wrapped the same way the table policies above are, and it matters more
+-- here: storage.objects is one table for every file every account owns, so
+-- listing a folder is a scan this predicate is asked about row by row.
 create policy own_photos_select on storage.objects
   for select to authenticated
-  using (bucket_id = 'photos' and (storage.foldername(name))[1] = auth.uid()::text);
+  using (bucket_id = 'photos' and (storage.foldername(name))[1] = (select auth.uid())::text);
 
 create policy own_photos_insert on storage.objects
   for insert to authenticated
-  with check (bucket_id = 'photos' and (storage.foldername(name))[1] = auth.uid()::text);
+  with check (bucket_id = 'photos' and (storage.foldername(name))[1] = (select auth.uid())::text);
 
 create policy own_photos_update on storage.objects
   for update to authenticated
-  using (bucket_id = 'photos' and (storage.foldername(name))[1] = auth.uid()::text)
-  with check (bucket_id = 'photos' and (storage.foldername(name))[1] = auth.uid()::text);
+  using (bucket_id = 'photos' and (storage.foldername(name))[1] = (select auth.uid())::text)
+  with check (bucket_id = 'photos' and (storage.foldername(name))[1] = (select auth.uid())::text);
 
 create policy own_photos_delete on storage.objects
   for delete to authenticated
-  using (bucket_id = 'photos' and (storage.foldername(name))[1] = auth.uid()::text);
+  using (bucket_id = 'photos' and (storage.foldername(name))[1] = (select auth.uid())::text);
 
 -- ── done ─────────────────────────────────────────────────────────────
 select 'Fellowship schema ready' as status;

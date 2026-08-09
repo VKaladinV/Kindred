@@ -304,6 +304,12 @@ begin
   end loop;
 end $$;
 
+-- auth.uid() is wrapped here the way it is everywhere else in this file, and
+-- the note at the top of the policies section applies to these too: it sits
+-- inside a correlated EXISTS, but the subselect itself depends on nothing in
+-- the row, so the planner can still lift it out and run it once rather than
+-- once per object it is asked about.
+
 create policy invite_photos_select on storage.objects
   for select to authenticated
   using (
@@ -311,7 +317,7 @@ create policy invite_photos_select on storage.objects
     and exists (
       select 1 from public.invites i
        where i.id = (regexp_replace(storage.filename(name), '\.jpg$', ''))::uuid
-         and (i.created_by = auth.uid() or i.claimed_by = auth.uid())
+         and ((select auth.uid()) in (i.created_by, i.claimed_by))
     )
   );
 
@@ -322,7 +328,7 @@ create policy invite_photos_insert on storage.objects
     and exists (
       select 1 from public.invites i
        where i.id = (regexp_replace(storage.filename(name), '\.jpg$', ''))::uuid
-         and i.created_by = auth.uid()
+         and i.created_by = (select auth.uid())
     )
   );
 
@@ -333,7 +339,7 @@ create policy invite_photos_update on storage.objects
     and exists (
       select 1 from public.invites i
        where i.id = (regexp_replace(storage.filename(name), '\.jpg$', ''))::uuid
-         and i.created_by = auth.uid()
+         and i.created_by = (select auth.uid())
     )
   )
   with check (
@@ -341,7 +347,7 @@ create policy invite_photos_update on storage.objects
     and exists (
       select 1 from public.invites i
        where i.id = (regexp_replace(storage.filename(name), '\.jpg$', ''))::uuid
-         and i.created_by = auth.uid()
+         and i.created_by = (select auth.uid())
     )
   );
 
@@ -352,7 +358,7 @@ create policy invite_photos_delete on storage.objects
     and exists (
       select 1 from public.invites i
        where i.id = (regexp_replace(storage.filename(name), '\.jpg$', ''))::uuid
-         and i.created_by = auth.uid()
+         and i.created_by = (select auth.uid())
     )
   );
 
