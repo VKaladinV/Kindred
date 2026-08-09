@@ -244,6 +244,21 @@
   margin: -.4rem 0 0; min-height: 1.2em;
   font-size: .82rem; color: var(--alert); font-weight: 600;
 }
+
+.mfa-qr-wrap {
+  display: flex; justify-content: center;
+  padding: 1rem;
+  margin-bottom: .9rem;
+  background: #fff; border: 1px solid var(--rule); border-radius: 10px;
+}
+.mfa-qr-wrap img { width: 180px; height: 180px; }
+/* Same monospace treatment as an invite link (sheet.css) — a string meant to
+   be typed rather than read, and one that should never wrap mid-character. */
+#mfa-secret {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: .85rem; word-break: break-all;
+  color: var(--ink);
+}
 /* An account made but not yet confirmed is not a failure, and reading it in
    the same alarm red as a wrong password would say it was. */
 .auth-error.is-note { color: var(--green); }

@@ -9,9 +9,10 @@
    · countryCode editingPersonId fillFromContact holdPhoto paintPhotoPreview personDialog showPending
    · adjustPhoto pickPhoto wireCropper · savePerson
    · editingEvent paintBabyFields paintGestationFrom saveEvent setEventType
-   · editingHealth saveAnswered saveHealth saveReleased saveRemoved
+   · saveAnswered saveReleased saveRemoved
    · exportAll importAll
    · enableNotifications nudgeIfDue paintNotifState
+   · paintMfaState
    · LOCK_GRACE checkBio
    · hiddenAt locked paintLockState pinDialog savePin showLock toggleBio
    · activeView flushHeldRender renderAll switchView · checkForUpdate
@@ -158,18 +159,6 @@ function wire() {
     renderAll();
   };
 
-  $('#form-health').onsubmit = saveHealth;
-  $('#btn-health-cancel').onclick = () => $('#dlg-health').close();
-  $('#btn-delete-health').onclick = () => {
-    const { personId, key, id } = editingHealth;
-    const p = byId(personId);
-    if (!p) return;
-    p[key] = p[key].filter(x => x.id !== id);
-    queueSave();
-    $('#dlg-health').close();
-    renderAll();
-  };
-
   $('#form-release').onsubmit = saveAnswered;
   $('#btn-release-go').onclick = saveReleased;
   $('#btn-release-remove').onclick = saveRemoved;
@@ -191,6 +180,7 @@ function wire() {
        a fingerprint enrolled in Android's own settings, say. */
     checkBio().then(paintLockState);
     paintLockState();
+    paintMfaState();
     $('#dlg-settings').showModal();
   };
   $('#btn-settings-close').onclick = () => $('#dlg-settings').close();

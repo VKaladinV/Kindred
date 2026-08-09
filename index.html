@@ -489,6 +489,18 @@
     </div>
   </div>
 
+  <!-- Only once there is an account for it to belong to. -->
+  <div class="setting" id="setting-mfa" hidden>
+    <div>
+      <h3>Two-factor authentication</h3>
+      <p class="hint" id="mfa-hint">—</p>
+    </div>
+    <div class="setting-actions">
+      <button class="btn btn-quiet" id="btn-mfa-on" hidden>Turn on</button>
+      <button class="btn btn-quiet btn-tiny" id="btn-mfa-off" hidden>Turn off</button>
+    </div>
+  </div>
+
   <div class="setting">
     <div>
       <h3>Lock with a PIN</h3>
@@ -709,6 +721,56 @@
   </form>
 </dialog>
 
+<!-- ─────────── TURNING ON TWO-FACTOR AUTHENTICATION ─────────── -->
+<dialog class="dlg" id="dlg-mfa-enroll">
+  <form id="form-mfa-enroll">
+    <h2 class="dlg-title">Turn on two-factor authentication</h2>
+    <p class="dlg-lede">Scan this with an authenticator app — Google Authenticator, Authy, 1Password,
+      whichever you already use — then enter the six-digit code it shows.</p>
+
+    <div class="mfa-qr-wrap">
+      <img id="mfa-qr" alt="QR code for your authenticator app" width="180" height="180">
+    </div>
+    <p class="hint">Can't scan it? Type this into the app instead: <code id="mfa-secret"></code></p>
+
+    <label class="field">
+      <span>Code from the app</span>
+      <input type="text" id="mfa-enroll-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required>
+    </label>
+
+    <p class="auth-error" id="mfa-enroll-error" role="alert"></p>
+
+    <div class="dlg-actions">
+      <span class="spacer"></span>
+      <button type="button" class="btn btn-quiet" id="mfa-enroll-cancel">Cancel</button>
+      <button type="submit" class="btn btn-primary" id="mfa-enroll-submit">Turn it on</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- ─────────── THE CODE, AT SIGN-IN ───────────
+     Reached only from mid sign-in, on an account that already turned this
+     on — never opened directly the way dlg-mfa-enroll is. -->
+<dialog class="dlg" id="dlg-mfa-verify">
+  <form id="form-mfa-verify">
+    <h2 class="dlg-title">Enter your code</h2>
+    <p class="dlg-lede">This account asks for a code from your authenticator app as well as your password.</p>
+
+    <label class="field">
+      <span>Code</span>
+      <input type="text" id="mfa-verify-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required>
+    </label>
+
+    <p class="auth-error" id="mfa-verify-error" role="alert"></p>
+
+    <div class="dlg-actions">
+      <span class="spacer"></span>
+      <button type="button" class="btn btn-quiet" id="mfa-verify-cancel">Cancel</button>
+      <button type="submit" class="btn btn-primary" id="mfa-verify-submit">Verify</button>
+    </div>
+  </form>
+</dialog>
+
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
 <!-- Where a face goes when the filter stops asking for it: pinned to where it
@@ -787,6 +849,7 @@
 <script src="js/sync/photos.js"></script>
 <script src="js/sync/publish.js"></script>
 <script src="js/sync/core.js"></script>
+<script src="js/sync/mfa.js"></script>
 <script src="js/sync/ui.js"></script>
 <script src="js/sync/boot.js"></script>
 <script src="js/sync/install.js"></script>
