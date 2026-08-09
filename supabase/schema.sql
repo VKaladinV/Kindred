@@ -71,22 +71,6 @@ alter table public.people add column if not exists occupation text not null defa
 -- until they are moved into the circle. Rides the same sync as is_self.
 alter table public.people add column if not exists is_future boolean not null default false;
 
--- ── medications and conditions ───────────────────────────────────────
--- One table for both, the way records carries three types: the shape is
--- identical and only the wording around it differs.
-create table if not exists public.health (
-  id         text primary key,
-  user_id    uuid not null references auth.users(id) on delete cascade,
-  person_id  text not null references public.people(id) on delete cascade,
-  type       text not null default 'medication'
-             check (type in ('medication', 'condition')),
-  name       text not null default '',
-  detail     text not null default '',
-  added_on   date,
-  updated_at timestamptz not null default now(),
-  deleted_at timestamptz
-);
-
 -- ── records: history · upcoming · season ─────────────────────────────
 create table if not exists public.records (
   id             text primary key,
@@ -154,17 +138,15 @@ create index if not exists people_user_updated  on public.people  (user_id, upda
 create index if not exists records_user_updated on public.records (user_id, updated_at);
 create index if not exists prayers_user_updated on public.prayers (user_id, updated_at);
 create index if not exists touches_user_updated on public.touches (user_id, updated_at);
-create index if not exists health_user_updated on public.health  (user_id, updated_at);
 create index if not exists records_person on public.records (person_id);
 create index if not exists prayers_person on public.prayers (person_id);
 create index if not exists touches_person on public.touches (person_id);
-create index if not exists health_person  on public.health  (person_id);
 
 -- ── updated_at triggers ──────────────────────────────────────────────
 do $$
 declare t text;
 begin
-  foreach t in array array['people', 'records', 'prayers', 'touches', 'health'] loop
+  foreach t in array array['people', 'records', 'prayers', 'touches'] loop
     execute format('drop trigger if exists %I on public.%I', t || '_touch', t);
     execute format(
       'create trigger %I before update on public.%I
@@ -175,7 +157,7 @@ end $$;
 -- ── grants (Supabase sets these by default; explicit is safer) ───────
 grant usage on schema public to authenticated;
 grant select, insert, update, delete
-  on public.people, public.records, public.prayers, public.touches, public.health
+  on public.people, public.records, public.prayers, public.touches
   to authenticated;
 
 -- ══════════════════════════════════════════════════════════════════════
@@ -188,7 +170,6 @@ alter table public.people  enable row level security;
 alter table public.records enable row level security;
 alter table public.prayers enable row level security;
 alter table public.touches enable row level security;
-alter table public.health  enable row level security;
 
 -- auth.uid() is wrapped in a scalar subselect rather than called directly.
 -- Left bare it is evaluated once per row the policy is asked about; wrapped,
@@ -199,7 +180,7 @@ alter table public.health  enable row level security;
 do $$
 declare t text;
 begin
-  foreach t in array array['people', 'records', 'prayers', 'touches', 'health'] loop
+  foreach t in array array['people', 'records', 'prayers', 'touches'] loop
     execute format('drop policy if exists own_rows on public.%I', t);
     execute format(
       'create policy own_rows on public.%I

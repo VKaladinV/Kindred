@@ -58,8 +58,6 @@ const rec = (type, date, kind, title, note = '', extra = {}) =>
 const prayer = (text, daysOld, answered = null, answerNote = '') =>
   ({ id: id(), text, createdAt: ago(daysOld), answeredAt: answered ? ago(answered) : null, answerNote });
 
-const health = (name, detail, daysOld = 60) => ({ id: id(), name, detail, addedAt: ago(daysOld) });
-
 /* ══════════════════════ the people ══════════════════════ */
 
 const people = [
@@ -67,7 +65,7 @@ const people = [
     id: id(),
     name: 'Ouma Hettie Snyman',
     relationship: 'grandmother',
-    groups: ['Family', 'Medical'],
+    groups: ['Family'],
     birthday: birthday(9, 84),
     contact: '+27 82 445 1120',
     summary: 'Settling into Huis Andreas better than any of us expected. Ask about the '
@@ -90,24 +88,13 @@ const people = [
       prayer('That the move would not break her', 430, 380,
         'She has made friends in the dining hall and asked for her sewing machine back.'),
     ],
-    medications: [
-      health('Metformin', '500 mg, twice daily with food', 400),
-      health('Perindopril', '4 mg, mornings', 400),
-      health('Simvastatin', '20 mg, nights', 210),
-      health('Calcium + vitamin D', 'one tablet, mornings', 120),
-    ],
-    conditions: [
-      health('Type 2 diabetes', 'since 2011, diet-controlled until 2019', 400),
-      health('Hypertension', 'well controlled, 128/78 at the last check', 400),
-      health('Osteoarthritis — both knees', 'stairs are the problem, not distance', 300),
-    ],
     createdAt: ago(450),
   },
   {
     id: id(),
     name: 'Oom Kobus Snyman',
     relationship: 'uncle',
-    groups: ['Family', 'Medical'],
+    groups: ['Family'],
     birthday: birthday(203, 71),
     contact: '+27 83 901 7734',
     summary: 'Recovering from the fall in June — walking again but not driving yet. '
@@ -121,16 +108,6 @@ const people = [
       rec('upcoming', ahead(5), 'health', 'INR check', 'Warfarin clinic, Rosepark.'),
     ],
     prayers: [prayer('That he heals fully and gets his independence back', 45)],
-    medications: [
-      health('Warfarin', '5 mg, evenings — INR checked monthly', 900),
-      health('Bisoprolol', '2.5 mg, mornings', 900),
-      health('Paracetamol', 'as needed for the wrist, max 4 a day', 47),
-    ],
-    conditions: [
-      health('Atrial fibrillation', 'since 2021, rate-controlled', 900),
-      health('Penicillin allergy', 'rash only, not anaphylaxis — amoxicillin is out', 900),
-      health('Colles fracture — left wrist', 'June this year, cast off, physio ongoing', 47),
-    ],
     createdAt: ago(900),
   },
   {
@@ -152,8 +129,6 @@ const people = [
       prayer('That he would get a proper rest without feeling he has dropped something', 30),
       prayer('For wisdom with the couple who have stopped coming', 21),
     ],
-    medications: [],
-    conditions: [],
     createdAt: ago(300),
   },
   {
@@ -172,8 +147,6 @@ const people = [
       rec('upcoming', ahead(34), 'milestone', 'Part 1 exam'),
     ],
     prayers: [prayer('That she would sleep, and that the exam would go well', 18)],
-    medications: [],
-    conditions: [],
     createdAt: ago(230),
   },
   {
@@ -191,15 +164,13 @@ const people = [
       rec('history', ago(140), 'milestone', 'Moved to Cape Town', 'New job at the harbour.'),
     ],
     prayers: [],
-    medications: [],
-    conditions: [],
     createdAt: ago(140),
   },
   {
     id: id(),
     name: 'Nomsa Dlamini',
     relationship: 'neighbour',
-    groups: ['Friends', 'Medical'],
+    groups: ['Friends'],
     birthday: birthday(88, 58),
     contact: '+27 72 664 2201',
     summary: 'Keeps an eye on the house when we travel and will not accept anything for it. '
@@ -210,11 +181,6 @@ const people = [
       rec('history', ago(75), 'hard', 'Bad asthma flare', 'Two nights in hospital.'),
     ],
     prayers: [prayer('For her breathing through the cold', 70)],
-    medications: [
-      health('Salbutamol inhaler', 'as needed — she under-uses it', 200),
-      health('Budesonide/formoterol', 'two puffs, twice daily', 200),
-    ],
-    conditions: [health('Asthma', 'since childhood, worse May to August', 200)],
     createdAt: ago(260),
   },
   {
@@ -239,8 +205,6 @@ const people = [
       prayer('That the evenings would get easier', 100),
       prayer('That the biopsy would come back clear', 400, 358, 'It was benign. Enormous relief.'),
     ],
-    medications: [],
-    conditions: [],
     createdAt: ago(410),
   },
   {
@@ -259,8 +223,6 @@ const people = [
       rec('history', ago(190), 'joy', 'Asked if we could meet regularly'),
     ],
     prayers: [prayer('Clarity about the next step, and courage once she has it', 25)],
-    medications: [],
-    conditions: [],
     createdAt: ago(195),
   },
   {
@@ -278,8 +240,6 @@ const people = [
       rec('upcoming', ahead(146), 'joy', 'His birthday braai', '', { repeatsYearly: true }),
     ],
     prayers: [],
-    medications: [],
-    conditions: [],
     createdAt: ago(500),
   },
   {
@@ -297,8 +257,6 @@ const people = [
       rec('upcoming', ahead(9), 'other', 'Practice meeting', 'Locum cover for December.'),
     ],
     prayers: [],
-    medications: [],
-    conditions: [],
     createdAt: ago(700),
   },
   {
@@ -314,8 +272,6 @@ const people = [
     touches: touches(38),
     events: [],
     prayers: [],
-    medications: [],
-    conditions: [],
     createdAt: ago(60),
   },
 ];

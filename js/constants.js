@@ -29,9 +29,7 @@
 /* ─────────────────────────── constants ─────────────────────── */
 
 /* A person belongs to as many of these as fit — nobody is only one thing. */
-const GROUPS = ['Community/Discipleship', 'Work', 'Family', 'Friends', 'Medical'];
-
-const MEDICAL = 'Medical';
+const GROUPS = ['Community/Discipleship', 'Work', 'Family', 'Friends'];
 
 /* The circles as they were before groups became plural. Church is the same
    people under a truer name; Other never meant anything, so it becomes none. */
@@ -99,25 +97,6 @@ const TYPES = {
     dateLabel: 'When it began',
     hint: 'A stretch of life, not a single day — grief, treatment, a new baby, job hunting. It stays on their page until you mark it ended.',
     placeholder: 'Chemotherapy',
-  },
-};
-
-/* The two lists a person in the Medical group carries. Same shape, same
-   renderer, same dialog — only the words around them differ. */
-const HEALTH = {
-  medications: {
-    title: 'Medications', addLabel: '+ add a medication',
-    newTitle: 'Add a medication', editTitle: 'Edit this medication',
-    nameLabel: 'Medication', namePlaceholder: 'Metformin',
-    detailLabel: 'Dose and how often', detailPlaceholder: '500 mg, twice daily',
-    empty: 'Nothing listed — what they take, and how much.',
-  },
-  conditions: {
-    title: 'Conditions', addLabel: '+ add a condition',
-    newTitle: 'Add a condition', editTitle: 'Edit this condition',
-    nameLabel: 'Condition', namePlaceholder: 'Type 2 diabetes',
-    detailLabel: 'Anything worth remembering', detailPlaceholder: 'since 2019, well controlled',
-    empty: 'Nothing listed — diagnoses, allergies, what to watch for.',
   },
 };
 

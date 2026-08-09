@@ -313,30 +313,6 @@
   </form>
 </dialog>
 
-<!-- ─────────── A MEDICATION OR A CONDITION ─────────── -->
-<dialog class="dlg" id="dlg-health">
-  <form id="form-health" method="dialog">
-    <h2 class="dlg-title" id="dlg-health-title">Add a medication</h2>
-
-    <label class="field">
-      <span id="h-name-label">Medication</span>
-      <input type="text" id="h-name" required maxlength="80" autocomplete="off" placeholder="Metformin">
-    </label>
-
-    <label class="field">
-      <span id="h-detail-label">Dose and how often <em>optional</em></span>
-      <input type="text" id="h-detail" maxlength="120" autocomplete="off" placeholder="500 mg, twice daily">
-    </label>
-
-    <div class="dlg-actions">
-      <button type="button" class="btn btn-danger-quiet" id="btn-delete-health" hidden>Remove</button>
-      <span class="spacer"></span>
-      <button type="button" class="btn btn-quiet" id="btn-health-cancel">Cancel</button>
-      <button type="submit" class="btn btn-primary">Save</button>
-    </div>
-  </form>
-</dialog>
-
 <!-- ─────────── A RECORD: history · coming up · season ─────────── -->
 <dialog class="dlg" id="dlg-event">
   <form id="form-event" method="dialog">
@@ -489,7 +465,7 @@
 <!-- ─────────── WHO TO SHOW (phone) ─────────── -->
 <dialog class="dlg" id="dlg-filter">
   <h2 class="dlg-title">Who to show</h2>
-  <p class="hint" id="filter-hint">Groups add up — Family and Medical together is everyone in either.</p>
+  <p class="hint" id="filter-hint">Groups add up — Family and Friends together is everyone in either.</p>
   <div class="chip-pick" id="filter-chips"></div>
   <div class="dlg-actions">
     <span class="spacer"></span>
@@ -788,7 +764,6 @@
 <script src="js/cropper.js"></script>
 <script src="js/save-person.js"></script>
 <script src="js/event-dialog.js"></script>
-<script src="js/health-dialog.js"></script>
 <script src="js/backup.js"></script>
 
 <!-- reminders, and the PIN in front of all of it -->

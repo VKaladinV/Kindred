@@ -2,9 +2,9 @@
    · $ agoWords aheadWords el monthYear parseYmd prettyDate shortMonth today
    · byId claimAsSelf me openId queueSave selfWeight shared
    · normalisePrayer
-   · activeSeasons answeredPrayers gestationOn gestationWords historyOf isBaby isMedical lastTouchDate nextBirthday openPrayers releasedPrayers statusOf touchOn upcomingOf
+   · activeSeasons answeredPrayers gestationOn gestationWords historyOf isBaby lastTouchDate nextBirthday openPrayers releasedPrayers statusOf touchOn upcomingOf
    · avatar · prayerLine sharePill · closeSheet
-   · blockHead fromThemBlock healthBlock · howDialog undoConnected
+   · blockHead fromThemBlock · howDialog undoConnected
    · inviteDialog linkApi unlinkPerson · endSeason moveToHistory
    · dialNumber personDialog telLink · promoteToCircle · eventDialog
    · quiet renderAll
@@ -190,13 +190,6 @@ function renderSheet() {
   root.append(bar);
 
   }   /* end of the not-yourself branch */
-
-  /* ── medical: only for the people you are carrying that way ──
-     Never on your own page — a medication list is not part of your story the
-     way it's part of theirs, and self never carries the group this checks. */
-  if (isMedical(p)) {
-    root.append(healthBlock(p, 'medications'), healthBlock(p, 'conditions'));
-  }
 
   /* ── right now, coming up, history, summary and prayers ──
      Built here, laid out below. Your own page reads as your story first and

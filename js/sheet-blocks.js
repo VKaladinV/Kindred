@@ -1,6 +1,6 @@
-/* uses: HEALTH KINDS · el monthYear prettyDate · byId notifyMutate queueSave
+/* uses: KINDS · el monthYear prettyDate · byId notifyMutate queueSave
    · hasPhoto putPhotoDataUrl
-   · normalisePrayer · toast · healthDialog · renderAll
+   · normalisePrayer · toast · renderAll
 */
 
 function blockHead(title, addLabel, onAdd) {
@@ -13,40 +13,6 @@ function blockHead(title, addLabel, onAdd) {
     head.append(btn);
   }
   return head;
-}
-
-function healthBlock(p, key) {
-  const meta = HEALTH[key];
-  const block = el('div', 'sheet-block');
-  block.append(blockHead(meta.title, meta.addLabel, () => healthDialog(p.id, key, null)));
-
-  /* There is no pill on these and there never will be. Everything else on
-     your page can be shared one item at a time; this cannot be shared at all,
-     and saying so here is worth more than leaving it to be inferred from the
-     absence of a button. */
-  if (p.isSelf) block.append(el('p', 'block-note', 'Stays on your devices. Never shared, whoever you link with.'));
-
-  if (!p[key].length) {
-    block.append(el('p', 'quiet-note', meta.empty));
-    return block;
-  }
-
-  const list = el('div', 'health-list');
-  p[key].forEach(h => {
-    const row = el('button', 'health-row');
-    row.type = 'button';
-    row.title = 'Edit this';
-    row.onclick = () => healthDialog(p.id, key, h.id);
-    row.append(el('span', 'health-glyph', KINDS.health.glyph));
-
-    const body = el('span', 'health-body');
-    body.append(el('span', 'health-name', h.name));
-    if (h.detail) body.append(el('span', 'health-detail', h.detail));
-    row.append(body);
-    list.append(row);
-  });
-  block.append(list);
-  return block;
 }
 
 /* What p's linked account has chosen to publish. `pub` is the payload as it

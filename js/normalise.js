@@ -37,15 +37,6 @@ function normaliseGroups(p) {
   return GROUPS.filter(g => keep.has(g));   // always in the order they are shown
 }
 
-function normaliseHealth(h) {
-  return {
-    id: h.id || uid(),
-    name: (h.name || '').trim() || 'Untitled',
-    detail: (h.detail || '').trim(),
-    addedAt: h.addedAt || today(),
-  };
-}
-
 /* A check-in used to be a bare date. Reading both shapes here means the change
    lands on old data by itself — normalise() runs on every load, every import
    and every sync — and running twice changes nothing. Nothing reads the backup
@@ -94,8 +85,6 @@ function normalise(p) {
     touches: Array.isArray(p.touches) ? p.touches.map(normaliseTouch).slice(-MAX_TOUCHES) : [],
     events: Array.isArray(p.events) ? p.events.map(normaliseRecord) : [],
     prayers: Array.isArray(p.prayers) ? p.prayers.map(normalisePrayer) : [],
-    medications: Array.isArray(p.medications) ? p.medications.map(normaliseHealth) : [],
-    conditions: Array.isArray(p.conditions) ? p.conditions.map(normaliseHealth) : [],
     createdAt: p.createdAt || today(),
     /* The one person in here who is you. This is a whitelist — a field not
        named here is dropped on every load, every import and every sync

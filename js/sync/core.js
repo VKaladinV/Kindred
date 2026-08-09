@@ -6,7 +6,7 @@
 
 /* ─────────────────────────── the sync ─────────────────────────── */
 
-const TABLES = ['people', 'records', 'prayers', 'touches', 'health'];
+const TABLES = ['people', 'records', 'prayers', 'touches'];
 
 /* One empty bucket per table. A snapshot that is missing a table is not an
    empty snapshot, it is a broken one — every consumer below assumes a map is
@@ -46,7 +46,7 @@ async function sync({ manual = false } = {}) {
     const marks = Kindred.photoMarks;
     const { rows: local, photoLens } = flatten(people, marks);
     /* Built from TABLES rather than written out again. The hand-written version
-       of this had lost `health` when that table was added, and planPush reaches
+       of this had lost a table when a new one was added, and planPush reaches
        Object.keys(snap) unconditionally — so a device with no snapshot yet threw
        on its very first sync, never wrote a snapshot, and threw identically ever
        after. It only ever showed on a brand new account or a fresh sign-in,

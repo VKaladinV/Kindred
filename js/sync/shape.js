@@ -27,7 +27,7 @@ const photoMark = s => {
 };
 
 function flatten(people, marks) {
-  const rows = { people: {}, records: {}, prayers: {}, touches: {}, health: {} };
+  const rows = { people: {}, records: {}, prayers: {}, touches: {} };
   const photoLens = {};
   for (const p of people) {
     /* Key order follows the table's columns, and the two new ones go last for
@@ -43,14 +43,6 @@ function flatten(people, marks) {
       is_self: !!p.isSelf, linked_uid: p.linkedUid || null,
       occupation: p.occupation, is_future: !!p.isFuture,
     };
-    for (const [key, type] of [['medications', 'medication'], ['conditions', 'condition']]) {
-      for (const h of p[key]) {
-        rows.health[h.id] = {
-          id: h.id, person_id: p.id, type,
-          name: h.name, detail: h.detail, added_on: d(h.addedAt),
-        };
-      }
-    }
     for (const r of p.events) {
       rows.records[r.id] = {
         id: r.id, person_id: p.id, type: r.type, starts_on: r.date,
@@ -99,7 +91,6 @@ function nest(rows) {
       birthday: r.birthday || '', contact: r.contact || '',
       summary: r.summary || '', cadenceDays: r.cadence_days || 0,
       createdAt: r.created_on || '', touches: [], events: [], prayers: [],
-      medications: [], conditions: [],
       /* Anything flatten writes has to be read back here. nest's result
          replaces the whole in-memory list on every sync, so a column written
          and not read is not merely lost between devices — it is wiped on this
@@ -130,12 +121,6 @@ function nest(rows) {
   for (const r of Object.values(rows.touches)) {
     const p = byId[r.person_id]; if (!p) continue;
     p.touches.push({ date: r.touched_on, kind: r.kind || '' });
-  }
-  for (const r of Object.values(rows.health || {})) {
-    const p = byId[r.person_id]; if (!p) continue;
-    p[r.type === 'condition' ? 'conditions' : 'medications'].push({
-      id: r.id, name: r.name || '', detail: r.detail || '', addedAt: r.added_on || '',
-    });
   }
   for (const p of people) p.touches.sort((a, b) => a.date.localeCompare(b.date));
   return people;

@@ -58,10 +58,6 @@ async function importAll(file) {
       incoming.events.forEach(x => { if (!evIds.has(x.id)) existing.events.push(x); });
       const prIds = new Set(existing.prayers.map(x => x.id));
       incoming.prayers.forEach(x => { if (!prIds.has(x.id)) existing.prayers.push(x); });
-      for (const key of ['medications', 'conditions']) {
-        const ids = new Set(existing[key].map(x => x.id));
-        incoming[key].forEach(x => { if (!ids.has(x.id)) existing[key].push(x); });
-      }
       /* One check-in a day, so a day already here wins and the incoming one
          is dropped rather than added — deduping these by value the way a Set
          would means two objects for the same day, and the cap then quietly

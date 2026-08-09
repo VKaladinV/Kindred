@@ -1,7 +1,8 @@
 /* uses: $ agoWords el plural prettyDate today
    · byId futures people queueSave
    · answeredPrayers openPrayers prayedToday releasedPrayers · avatar
-   · reopenPrayer togglePrayed · askRelease · quiet renderAll
+   · reopenPrayer togglePrayed
+   · answerPrayer deletePrayer prayerBy releasePrayer · quiet renderAll
 */
 
 function toggleShared(personId, kind, recId) {
@@ -71,6 +72,37 @@ function prayerLine(p, pr, state = 'open') {
   }
 
   return line;
+}
+
+/* Taking something off the list is three different acts wearing one gesture,
+   so the dialog asks which. Answered keeps the story; let go keeps the fact
+   that you carried it; remove is for the one you typed by mistake. */
+let releasing = { personId: null, prayerId: null };
+
+function askRelease(personId, prayerId, text) {
+  releasing = { personId, prayerId };
+  $('#release-lede').textContent = '“' + text + '”';
+  $('#a-note').value = '';
+  $('#dlg-release').showModal();
+  setTimeout(() => $('#a-note').focus(), 60);
+}
+
+function saveAnswered(e) {
+  e.preventDefault();
+  answerPrayer(releasing.personId, releasing.prayerId, $('#a-note').value.trim());
+  $('#dlg-release').close();
+}
+
+function saveReleased() {
+  releasePrayer(releasing.personId, releasing.prayerId);
+  $('#dlg-release').close();
+}
+
+function saveRemoved() {
+  const pr = prayerBy(releasing.personId, releasing.prayerId);
+  if (pr && !confirm(`Remove “${pr.text}” altogether? Letting it go keeps it; this does not.`)) return;
+  deletePrayer(releasing.personId, releasing.prayerId);
+  $('#dlg-release').close();
 }
 
 /* An archive card: the same person's head, and their closed prayers under it.

@@ -1,8 +1,6 @@
-/* uses: KINDS MEDICAL · daysBetween parseYmd prettyDate today ymd · people
+/* uses: KINDS · daysBetween parseYmd prettyDate today ymd · people
    · clamp
 */
-
-const isMedical = p => p.groups.includes(MEDICAL);
 
 /* ─────────────────────────── status logic ──────────────────── */
 
@@ -157,7 +155,7 @@ function dueList() {
 
 /* ── the two questions that are not "who" ────────────────────────
    A group says which shelf of your life someone is on, and groups add up:
-   Family and Medical together is everyone in either. These two say something
+   Family and Friends together is everyone in either. These two say something
    about today instead, so they behave differently — they narrow whatever the
    groups left rather than widening it. Family and needs-a-check-in is the
    people in Family who need one, which is how the question is asked out loud.

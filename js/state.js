@@ -46,8 +46,7 @@ const selfWeight = p =>
   (p.name && p.name !== 'Unnamed' ? 1 : 0)
   + (p.contact ? 1 : 0) + (p.birthday ? 1 : 0)
   + (p.occupation ? 1 : 0) + (p.summary ? 1 : 0)
-  + p.events.length + p.prayers.length
-  + p.medications.length + p.conditions.length + p.touches.length;
+  + p.events.length + p.prayers.length + p.touches.length;
 
 /* Fullest first, then the older one, then id. Every term comes out of the
    rows, so this is the same answer everywhere without a negotiation. */
@@ -81,7 +80,7 @@ function mergeSelves(mine) {
     /* Everything written on the other one comes across. These all carry
        their own ids, so the rows already on the server simply change which
        person they hang from rather than being written again. */
-    for (const f of ['events', 'prayers', 'medications', 'conditions']) {
+    for (const f of ['events', 'prayers']) {
       const have = new Set(winner[f].map(x => x.id));
       winner[f].push(...other[f].filter(x => !have.has(x.id)));
     }
@@ -185,9 +184,9 @@ function notifyMutate() {
 
 /* ── writing the roster down ─────────────────────────────────────
    Saving means handing the whole roster to structured clone: every person,
-   every event, prayer, medication and condition, and up to sixty check-ins
-   each. That is the shape the data is stored in and it is not worth changing
-   — the alternative, a row per person, turns four places that delete somebody
+   every event and prayer, and up to sixty check-ins each. That is the shape
+   the data is stored in and it is not worth changing — the alternative, a
+   row per person, turns four places that delete somebody
    by simply not returning them (mergeSelves and claimAsSelf, above) into four
    places that leave the husk on disk to be read back on the next boot.
 

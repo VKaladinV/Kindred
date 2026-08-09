@@ -17,11 +17,10 @@ const publishedFields = r => ({
 });
 
 /* What leaves the device when you publish. Everything else about a person —
-   medications, conditions, contact, cadence, check-ins, groups, and anything
-   you did not mark shared — is not in here, whatever else changes about how
-   this function is written; that is the private-by-default promise the
-   feature rests on, kept by construction rather than by a filter someone
-   could later forget to apply. */
+   contact, cadence, check-ins, groups, and anything you did not mark shared —
+   is not in here, whatever else changes about how this function is written;
+   that is the private-by-default promise the feature rests on, kept by
+   construction rather than by a filter someone could later forget to apply. */
 function projectSelf(me, photoDataUrl) {
   return {
     v: 1,

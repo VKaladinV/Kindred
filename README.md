@@ -6,7 +6,7 @@ badges, and behind each one a summary, a life-events timeline, and a prayer list
 It's local-first — everything is stored on your own device and it works with no
 internet once it has loaded, no account required. Sign in and it also syncs to
 your own private Supabase account, so the same circle — including phone numbers,
-photos, medications, prayers, everything — reaches your other devices too.
+photos, prayers, everything — reaches your other devices too.
 
 ---
 
@@ -117,13 +117,13 @@ On a computer the grid keeps its looser scatter, at one column width — there i
 room enough there that nothing needs packing.
 
 ### Groups
-There are five, and a person can be in as many as fit — someone from church who
-is also family, a colleague you're also tracking medically:
+There are four, and a person can be in as many as fit — someone from church who
+is also family:
 
-**Community/Discipleship · Work · Family · Friends · Medical**
+**Community/Discipleship · Work · Family · Friends**
 
 Once you have more than three people, the groups appear as toggles above the
-grid. They add up rather than replace each other: turn on *Family* and *Medical*
+grid. They add up rather than replace each other: turn on *Family* and *Friends*
 and you see everyone in either. **Everyone** clears them again. Nobody has to be
 in a group at all — untagged people simply live under *Everyone*.
 
@@ -132,11 +132,6 @@ single face, so it folds into one **Filter** button that opens the same toggles
 in a panel. The button carries a number when any are on, and stays lit so you
 can tell at a glance that you are looking at a part of your circle rather than
 all of it.
-
-**Medical** does one thing more: it puts **Medications** and **Conditions** on
-that person's page. Each entry is a name and one line of detail — *Metformin —
-500 mg, twice daily*, *Type 2 diabetes — since 2019*. Untick Medical and the
-lists are hidden, not deleted; tick it again and they're still there.
 
 ### Opening someone
 **Tap their photo** — that is the only thing that opens a person's page. Their name
@@ -172,7 +167,6 @@ Inside:
 - **Prayer list** — add anything; tick it on the days you pray for it, and press
   the **×** when you are ready to stop carrying it. See *Prayers* below.
 - **Coming up** and **History** — see below.
-- **Medications** and **Conditions** — only for people in the Medical group.
 - **edit details** — name, photo, relationship, groups, birthday, and how often
   you want to be nudged.
 
@@ -349,8 +343,8 @@ fingerprint is the device telling Fellowship it recognised you. Someone determin
 your phone already unlocked and developer tools open, could still reach the browser
 storage underneath.
 
-What it stops is the person who picks up your phone. Given what is in here — diagnoses,
-medications, what someone told you in confidence last week — that is the risk worth
+What it stops is the person who picks up your phone. Given what is in here — griefs,
+struggles, what someone told you in confidence last week — that is the risk worth
 covering.
 
 ### If you forget it
@@ -416,9 +410,9 @@ a device you haven't signed in on keeps everything in its own browser storage.
 
 Signing in is what joins them up. In **Backup & settings → Account & sync**, sign in on
 the PC and again on the phone, and from then on everyone in your circle, their history
-and coming-up dates, seasons, prayers, check-ins, medications and conditions, and their
-photos travel between both. Netlify isn't the go-between — the devices reconcile against
-Supabase directly, not through the site.
+and coming-up dates, seasons, prayers, check-ins, and their photos travel between both.
+Netlify isn't the go-between — the devices reconcile against Supabase directly, not
+through the site.
 
 **When it syncs.** Not continuously. It catches up at these moments:
 

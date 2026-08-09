@@ -30,7 +30,7 @@ function renderCircle() {
   const list = people
     .filter(p => !filterGroups.size || p.groups.some(g => filterGroups.has(g)))
     /* The groups add up among themselves and these add up among themselves,
-       but the two narrow each other: Family and Medical and needs-a-check-in
+       but the two narrow each other: Family and Friends and needs-a-check-in
        is the people in either group who are also due. */
     .filter(p => !filterFocus.size || [...filterFocus].some(k => FOCUS[k].test(p)))
     .filter(p => !q || (p.name + ' ' + p.relationship + ' ' + p.summary + ' ' + p.groups.join(' ')).toLowerCase().includes(q))

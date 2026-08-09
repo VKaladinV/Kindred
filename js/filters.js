@@ -22,7 +22,7 @@ function fillFilterChips(box) {
     c.type = 'button';
     c.setAttribute('aria-pressed', String(on));
     c.append(document.createTextNode(g), el('span', 'n', counts[g] || 0));
-    /* groups add up rather than replace each other — Family and Medical
+    /* groups add up rather than replace each other — Family and Friends
        together is everyone in either, which is how you actually look */
     c.onclick = () => {
       if (!filterGroups.delete(g)) filterGroups.add(g);
@@ -64,7 +64,7 @@ function paintFilterHint() {
   const g = [...filterGroups];
   const who = f.length === 2 ? `${f[0]} or ${f[1]}` : f[0];
   $('#filter-hint').textContent =
-    !f.length ? 'Groups add up — Family and Medical together is everyone in either.'
+    !f.length ? 'Groups add up — Family and Friends together is everyone in either.'
     : g.length ? `${g.join(' and ')} — and of those, only the people who ${who}.`
     : `The people who ${who}.`;
 }
