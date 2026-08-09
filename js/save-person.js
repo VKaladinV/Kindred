@@ -1,5 +1,6 @@
 /* uses: $ · Store
-   · addToRoster byId futures moveIntoCircle notifyMutate photos saveRoster
+   · addToRoster byId futures moveIntoCircle notifyMutate saveRoster
+   · blobMark dropPhoto putPhoto
    · normalise · toast · openSheet
    · editingPersonId makingFuture makingSelf pendingOriginal pendingPhoto personDialog readGroupPick
    · renderAll
@@ -41,12 +42,13 @@ async function savePerson(e) {
   }
 
   if (pendingPhoto === null) {
-    delete photos[target.id];
-    await Store.deletePhoto(target.id);
+    await dropPhoto(target.id);
     await Store.deleteOriginal(target.id);
-  } else if (typeof pendingPhoto === 'string') {
-    photos[target.id] = pendingPhoto;
-    await Store.savePhoto(target.id, pendingPhoto);
+  } else if (pendingPhoto) {
+    /* A truthiness test now that a crop is a pair of blobs rather than a
+       string — undefined still means the photo was never touched, and null
+       still means it was cleared. */
+    await putPhoto(target.id, { ...pendingPhoto, mark: await blobMark(pendingPhoto.full) });
     if (pendingOriginal) await Store.saveOriginal(target.id, pendingOriginal);
   }
 

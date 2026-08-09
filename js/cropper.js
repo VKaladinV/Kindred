@@ -1,7 +1,7 @@
 /* uses: $ · Store
-   · DEFAULT_VIEW MAX_ZOOM clamp downscale loadImage readImage renderCrop
-   · toast
-   · editingPersonId holdPhoto paintPhotoPreview pendingOriginal
+   · DEFAULT_VIEW MAX_ZOOM blobToDataUrl clamp downscale loadImage readImage renderCropBlobs
+   · photoBytes · toast
+   · editingPersonId holdPhoto paintPhotoPreview pendingOriginal pendingPhoto showPending
 */
 
 let cropping = null;   // { img, view, onDone }
@@ -158,11 +158,16 @@ function wireCropper() {
   $('#btn-crop-cancel').onclick = closeCropper;
   $('#dlg-crop').addEventListener('close', () => { cropping = null; });
 
-  $('#form-crop').onsubmit = e => {
+  $('#form-crop').onsubmit = async e => {
     e.preventDefault();
     if (!cropping) return;
     const { img, view, onDone } = cropping;
-    const cropped = renderCrop(img, view);
+    /* Let go of before the canvas is asked for anything, because cutting is
+       no longer instant: two blobs are encoded now instead of one string
+       being built, and a second tap in that window would cut the same face
+       twice and hand back two answers. */
+    cropping = null;
+    const cropped = await renderCropBlobs(img, view);
     closeCropper();
     onDone(cropped, { ...view });
   };
@@ -178,7 +183,7 @@ async function pickPhoto(file) {
     const src = downscale(img);
     openCropper(src, DEFAULT_VIEW, (cropped, view) => {
       holdPhoto(cropped, { src, view });
-      paintPhotoPreview(cropped, $('#f-name').value);
+      paintPhotoPreview(showPending(cropped.full), $('#f-name').value);
     });
   } catch (err) {
     toast(err.message || 'Could not use that image');
@@ -191,14 +196,24 @@ async function adjustPhoto() {
     : (editingPersonId ? await Store.loadOriginal(editingPersonId) : null);
 
   /* No original kept — photos from before this existed, or a browser with
-     no room for them. The square is still worth cropping into. */
-  const shown = $('#photo-preview img')?.src;
-  const src = stored?.src || shown;
-  if (!src) return;
+     no room for them. The square is still worth cropping into.
 
-  openCropper(src, stored?.src ? stored.view : DEFAULT_VIEW, (cropped, view) => {
+     It has to be turned back into base64 first, and that is not a detour:
+     the uncropped picture is stored as a data URL and has to stay one. What
+     the preview is showing is an object URL, which is a handle that dies with
+     the page — written into storage it would be a picture pointing at nothing
+     on the next boot. */
+  let src = stored?.src;
+  let from = stored?.src ? stored.view : DEFAULT_VIEW;
+  if (!src) {
+    const blob = pendingPhoto?.full || (await photoBytes(editingPersonId))?.blob;
+    if (!blob) return;
+    src = await blobToDataUrl(blob);
+  }
+
+  openCropper(src, from, (cropped, view) => {
     holdPhoto(cropped, { src, view });
-    paintPhotoPreview(cropped, $('#f-name').value);
+    paintPhotoPreview(showPending(cropped.full), $('#f-name').value);
   });
 }
 

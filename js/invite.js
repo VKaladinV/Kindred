@@ -1,5 +1,6 @@
-/* uses: $ el initialsOf · Store
-   · byId futures me notifyMutate people photos saveRoster
+/* uses: $ el initialsOf
+   · byId futures me notifyMutate people saveRoster
+   · photoBytes photoUrl putPhotoBlob
    · normalise · toast · openSheet · openOut
    · dialNumber matchExisting waLink · locked · renderAll
 */
@@ -89,7 +90,15 @@ async function inviteDialog(personId) {
        does not need to: the only thing that ever asks is this device, when
        the invitation comes back claimed. */
     rememberInviteFor(id, personId);
-    if (photos[p.id]) api.uploadInvitePhoto(id, photos[p.id]).catch(() => {});   // best-effort
+    /* The crop and not the small copy, which is the one place those two part
+       company. Everywhere else a picture that travels is a picture to be
+       looked at in somebody's circle; this one becomes their own profile
+       photo on a device that has never had one, and stays it. Sending 256
+       here would save forty-odd kilobytes once and leave a soft face on their
+       badge for good. */
+    photoBytes(p.id).then(got => {
+      if (got) api.uploadInvitePhoto(id, got.blob).catch(() => {});              // best-effort
+    });
     $('#invite-link').textContent = url;
     $('#invite-link').dataset.url = url;
     paintInviteActions(p);
@@ -137,9 +146,10 @@ function paintInviteWho(p) {
   const box = $('#invite-avatar');
   if (!box) return;
   box.textContent = '';
-  if (photos[p.id]) {
+  const src = photoUrl(p.id);          // a fifty-pixel circle; the small copy is plenty
+  if (src) {
     const img = el('img');
-    img.src = photos[p.id];
+    img.src = src;
     img.alt = '';
     box.append(img);
   } else {
@@ -296,7 +306,7 @@ async function provisionFromInvite(claim) {
   if (claim.id) {
     try {
       const photo = await api?.downloadInvitePhoto(claim.id);
-      if (photo) { photos[me.id] = photo; await Store.savePhoto(me.id, photo); }
+      if (photo) await putPhotoBlob(me.id, photo);
     } catch {}
   }
 
@@ -410,6 +420,42 @@ async function unlinkPerson(personId) {
   toast(`Unlinked from ${p.name.split(' ')[0]}`);
 }
 
+/* Invitations already taken up, whose photo is spent. Kept here rather than
+   worked out from the list each time because the list only reaches back fifty
+   invitations: without a note of what has been tidied, every sync would
+   re-issue a delete for every old invitation it can still see.
+
+   Left for a while after the claim first. The claim becomes visible on this
+   device on a sync; the download it would be racing happens on the joiner's
+   device, in the same instant they accept. There is no cost to waiting and no
+   way to put a picture back. */
+const SWEPT_INVITES = 'kindred:sweptInvites';
+const CLAIM_SETTLED = 10 * 60 * 1000;
+
+async function sweepInvitePhotos(invites, api) {
+  if (!api.deleteInvitePhoto) return;              // an older sync layer; nothing to do
+  let swept;
+  try { swept = JSON.parse(localStorage.getItem(SWEPT_INVITES) || '[]'); } catch { swept = []; }
+  const done = new Set(swept);
+  const now = Date.now();
+
+  const owed = invites.filter(i => i.claimed_at && !done.has(i.id)
+    && now - Date.parse(i.claimed_at) >= CLAIM_SETTLED);
+  if (!owed.length) return;
+
+  /* Only what actually went is written down. Recorded on the strength of
+     having asked, a database that refuses the delete — an older share.sql,
+     with no policy for this folder — would have every one of these marked
+     done and never looked at again, which is the leak this came to close
+     wearing a tidier face. Left unrecorded, the next sync tries again, and
+     running the current share.sql is all it takes to make that work. */
+  const gone = await Promise.all(owed.map(i => api.deleteInvitePhoto(i.id).catch(() => false)));
+  if (!gone.some(Boolean)) return;
+  owed.forEach((i, n) => { if (gone[n]) done.add(i.id); });
+  /* Trimmed the same way invitedFor is, and for the same reason. */
+  try { localStorage.setItem(SWEPT_INVITES, JSON.stringify([...done].slice(-120))); } catch {}
+}
+
 /* Somebody took up an invitation you sent. There is no realtime channel and
    this app does not want one, so it is noticed on the next sync — and always
    asked rather than guessed, because you may have sent it from a device that
@@ -419,6 +465,9 @@ async function checkClaimedInvites() {
   if (!api || !signedIn()) return;
   try {
     const [invites, links] = await Promise.all([api.listInvites(), api.listLinks()]);
+    /* Let go of rather than waited for: a bucket tidy must not stand between
+       somebody accepting an invitation and this device saying so. */
+    sweepInvitePhotos(invites, api).catch(() => {});
     const known = new Set(people.map(p => p.linkedUid).filter(Boolean));
     const mine = new Set(links.map(l => l.other));
     const fresh = invites.find(i => i.claimed_by && mine.has(i.claimed_by) && !known.has(i.claimed_by));

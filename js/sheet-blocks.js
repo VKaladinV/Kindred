@@ -1,4 +1,5 @@
-/* uses: HEALTH KINDS · el monthYear prettyDate · byId queueSave
+/* uses: HEALTH KINDS · el monthYear prettyDate · byId notifyMutate queueSave
+   · hasPhoto putPhotoDataUrl
    · normalisePrayer · toast · healthDialog · renderAll
 */
 
@@ -60,6 +61,38 @@ function fromThemBlock(root, p, pub) {
   head.append(el('h3', null, `From ${(pub.name || p.name).split(' ')[0]}`));
   block.append(head);
   block.append(el('p', 'theirs-sub', 'Theirs, not yours — it changes when they change it.'));
+
+  /* Their face, and the one place it can be made yours. Until this is tapped
+     the picture is on loan: avatar() will draw it wherever they appear, and it
+     will change under you the day they change it. Tapping copies it into your
+     own photo store under their id, where it becomes an ordinary crop — it
+     syncs to your other devices on the next run, it survives the link ending,
+     and it stops moving.
+
+     Offered only while you have none of your own, because a photo you framed
+     yourself already outranks this one everywhere it is drawn. */
+  if (pub.photo) {
+    const who = el('div', 'theirs-face');
+    const shot = el('div', 'thumb');
+    const img = el('img');
+    img.src = pub.photo;
+    img.alt = '';
+    shot.append(img);
+    who.append(shot);
+
+    if (!hasPhoto(p.id)) {
+      const keep = el('button', 'link-btn', 'use this as their photo');
+      keep.type = 'button';
+      keep.onclick = async () => {
+        await putPhotoDataUrl(p.id, pub.photo);
+        notifyMutate();
+        renderAll();
+        toast(`That is ${(pub.name || p.name).split(' ')[0]}’s photo now`);
+      };
+      who.append(keep);
+    }
+    block.append(who);
+  }
 
   if (pub.summary) block.append(el('p', 'theirs-summary', pub.summary));
 

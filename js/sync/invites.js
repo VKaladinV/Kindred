@@ -94,8 +94,7 @@ async function previewInvite(token) {
 
 const invitePhotoPath = id => `invites/${id}.jpg`;
 
-async function uploadInvitePhoto(inviteId, dataUrl) {
-  const blob = await (await fetch(dataUrl)).blob();
+async function uploadInvitePhoto(inviteId, blob) {
   const r = await api(`/storage/v1/object/${BUCKET}/${invitePhotoPath(inviteId)}`, {
     method: 'POST',
     headers: { 'Content-Type': 'image/jpeg', 'x-upsert': 'true' },
@@ -107,13 +106,23 @@ async function uploadInvitePhoto(inviteId, dataUrl) {
 async function downloadInvitePhoto(inviteId) {
   const r = await api(`/storage/v1/object/${BUCKET}/${invitePhotoPath(inviteId)}`);
   if (!r.ok) return null;
-  const blob = await r.blob();
-  return new Promise(res => {
-    const fr = new FileReader();
-    fr.onload = () => res(fr.result);
-    fr.onerror = () => res(null);
-    fr.readAsDataURL(blob);
-  });
+  return r.blob();
+}
+
+/* An invitation's photo has done its job the moment the invitation is taken
+   up: the only code that ever reads one runs on the joiner's device, in the
+   same breath as the claim. Nothing removed them, so every invitation ever
+   sent left a picture in the bucket for as long as the account existed —
+   the one unbounded write in the app.
+
+   Answers whether it actually went. A database still on an older share.sql
+   has no delete policy for this folder and will say no, and a no that reads
+   as a yes is a picture left behind with nothing ever looking at it again. */
+async function deleteInvitePhoto(inviteId) {
+  try {
+    const r = await api(`/storage/v1/object/${BUCKET}/${invitePhotoPath(inviteId)}`, { method: 'DELETE' });
+    return r.ok;
+  } catch { return false; }
 }
 
 /* Everyone you are linked to, as the other person's id. The list is read

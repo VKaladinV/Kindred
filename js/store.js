@@ -1,8 +1,23 @@
-/* uses: people photos shared */
+/* uses: blobToDataUrl dataUrlToBlob */
 
 const Store = (() => {
   let db = null, mode = 'memory', blocked = false;
   const mem = { people: null, photos: {}, snapshot: null, shared: {} };
+  /* localStorage mode only: the parsed photo map, kept between saves. Saving
+     one photo there means rewriting the string that holds all of them, and
+     without this that would mean turning everybody else's bytes back into
+     base64 first, every time. */
+  let held = null;
+
+  /* Whatever came off the shelf, as { full, thumb, mark } with real Blobs.
+     Three shapes arrive here and this is the only place that knows it:
+     a bare string, which is a crop from before two sizes were kept; a record
+     of data URLs, which is how localStorage has to hold one; and a record of
+     Blobs, which is what IndexedDB gives back. */
+  const asBlob = v => (typeof v === 'string' ? dataUrlToBlob(v) : v);
+  const asRecord = v => (typeof v === 'string'
+    ? { full: dataUrlToBlob(v), thumb: null, mark: null }
+    : { full: asBlob(v.full), thumb: v.thumb ? asBlob(v.thumb) : null, mark: v.mark || null });
 
   function openDb() {
     return new Promise(resolve => {
@@ -67,43 +82,54 @@ const Store = (() => {
       mem.people = people;
     },
 
+    /* Always records, always with Blobs in them, whichever shelf they came
+       off — so nothing above this file ever has to ask what mode it is in. */
     async loadPhotos() {
+      const out = {};
       if (mode === 'indexeddb') {
-        const out = {};
+        const raw = {};
         await new Promise((resolve, reject) => {
           const tx = db.transaction('photos', 'readonly');
           tx.objectStore('photos').openCursor().onsuccess = e => {
             const c = e.target.result;
-            if (c) { out[c.key] = c.value; c.continue(); }
+            if (c) { raw[c.key] = c.value; c.continue(); }
           };
           tx.oncomplete = resolve;
           tx.onerror = () => reject(tx.error);
         });
+        for (const id of Object.keys(raw)) out[id] = asRecord(raw[id]);
         return out;
       }
       if (mode === 'localstorage') {
-        try { return JSON.parse(localStorage.getItem('kindred:photos') || '{}'); }
-        catch { return {}; }
+        try { held = JSON.parse(localStorage.getItem('kindred:photos') || '{}'); }
+        catch { held = {}; }
+        for (const id of Object.keys(held)) out[id] = asRecord(held[id]);
+        return out;
       }
-      return mem.photos;
+      for (const id of Object.keys(mem.photos)) out[id] = mem.photos[id];
+      return out;
     },
 
-    async savePhoto(id, dataUrl) {
-      if (mode === 'indexeddb') return idb('photos', s => s.put(dataUrl, id), true);
+    /* A record in, and in localStorage mode only the crop is kept: that mode
+       is already the one short of room — it is why the crop itself is cut
+       smaller there — and a second copy of every face is exactly the thing it
+       cannot afford. The small copy is derived again when it is needed. */
+    async savePhoto(id, rec) {
+      if (mode === 'indexeddb') return idb('photos', s => s.put(rec, id), true);
       if (mode === 'localstorage') {
-        const all = await this.loadPhotos();
-        all[id] = dataUrl;
-        return localStorage.setItem('kindred:photos', JSON.stringify(all));
+        if (!held) await this.loadPhotos();
+        held[id] = { full: await blobToDataUrl(rec.full), mark: rec.mark || null };
+        return localStorage.setItem('kindred:photos', JSON.stringify(held));
       }
-      mem.photos[id] = dataUrl;
+      mem.photos[id] = rec;
     },
 
     async deletePhoto(id) {
       if (mode === 'indexeddb') return idb('photos', s => s.delete(id), true);
       if (mode === 'localstorage') {
-        const all = await this.loadPhotos();
-        delete all[id];
-        return localStorage.setItem('kindred:photos', JSON.stringify(all));
+        if (!held) await this.loadPhotos();
+        delete held[id];
+        return localStorage.setItem('kindred:photos', JSON.stringify(held));
       }
       delete mem.photos[id];
     },

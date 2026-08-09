@@ -206,6 +206,18 @@ that device, so **adjust focus** can reopen it later exactly where you left it,
 without hunting for the file again. That copy never leaves the device: it isn't
 synced and isn't in your backup.
 
+Two sizes of the crop are kept: the one the badge is drawn from, and a small copy
+for the rows in Today and the prayer list. The small copy is also the one that
+travels — it is the face a linked person receives, small enough to ride along
+with the rest of your profile and good enough to sit in their circle.
+
+### Their face in your circle
+Once you are linked with someone, whatever photo they have put on their own
+profile shows up wherever they appear here, without you having to find a picture
+of them yourself. It stays theirs — it changes when they change it — until you
+tap **use this as their photo** on their page, which keeps that one for good. A
+photo you cropped yourself always wins over the one they published.
+
 ### Three ways to record something
 
 Each has its own section on a person's page, and its own **+** to add to it. They

@@ -15,8 +15,11 @@ async function listRemotePhotos(uid) {
   return new Set(items.map(i => i.name.replace(/\.jpg$/, '')));
 }
 
-async function uploadPhoto(uid, id, dataUrl) {
-  const blob = await (await fetch(dataUrl)).blob();
+/* Bytes in, bytes out. Both directions used to turn a picture into base64 and
+   back again on the way past — the app stored data URLs, so an upload decoded
+   one to send it and a download encoded one to keep it. Photos are stored as
+   bytes now, and this is what that saves at the wire. */
+async function uploadPhoto(uid, id, blob) {
   const r = await api(`/storage/v1/object/${BUCKET}/${photoPath(uid, id)}`, {
     method: 'POST',
     headers: { 'Content-Type': 'image/jpeg', 'x-upsert': 'true' },
@@ -28,13 +31,7 @@ async function uploadPhoto(uid, id, dataUrl) {
 async function downloadPhoto(uid, id) {
   const r = await api(`/storage/v1/object/${BUCKET}/${photoPath(uid, id)}`);
   if (!r.ok) return null;
-  const blob = await r.blob();
-  return new Promise(res => {
-    const fr = new FileReader();
-    fr.onload = () => res(fr.result);
-    fr.onerror = () => res(null);
-    fr.readAsDataURL(blob);
-  });
+  return r.blob();
 }
 
 async function deletePhoto(uid, id) {

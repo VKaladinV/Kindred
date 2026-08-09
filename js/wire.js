@@ -1,12 +1,12 @@
 /* uses: CADENCES GROUPS KINDS TYPES · $ $$ el today · Store
-   · byId me notifyMutate openId photos queueSave removeFromRoster saveRoster
-   · dueFromGestation · clamp · toast
+   · byId flushSave me notifyMutate openId queueSave removeFromRoster saveRoster
+   · dropPhoto · dueFromGestation · clamp · toast
    · SIZE_MIN applyBadgeSize badgeSizePref phone · hexCols hexMetrics
    · markCircleFlip · paintFilterDialog · renderCircle
    · goToMonth monthKey shiftMonth
    · closeSheet openSheet wireDialogLayers · renderSheet · chooseHow
    · checkClaimedInvites clearPendingJoin copyInviteLink finishJoin joining sendInviteOnWhatsApp shareInviteLink
-   · countryCode editingPersonId fillFromContact holdPhoto paintPhotoPreview personDialog
+   · countryCode editingPersonId fillFromContact holdPhoto paintPhotoPreview personDialog showPending
    · adjustPhoto pickPhoto wireCropper · savePerson
    · editingEvent paintBabyFields paintGestationFrom saveEvent setEventType
    · editingHealth saveAnswered saveHealth saveReleased saveRemoved
@@ -53,6 +53,15 @@ function fillSelects() {
 function wire() {
   $$('.nav-item[data-view]').forEach(t => { t.onclick = () => switchView(t.dataset.view); });
 
+  /* Both, because neither covers the ground on its own: pagehide is what a
+     desktop tab closing fires, and on a phone an app is far more often
+     switched away from than closed — which is visibilitychange and nothing
+     else. A save owed and not yet written is paid here. */
+  window.addEventListener('pagehide', flushSave);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') flushSave();
+  });
+
   $('#btn-add').onclick = () => personDialog(null, { future: activeView === 'future' });
   $('#btn-add-first').onclick = () => personDialog(null);
   $('#btn-add-future-first').onclick = () => personDialog(null, { future: true });
@@ -88,9 +97,22 @@ function wire() {
   $('#photo-adjust').onclick = adjustPhoto;
   $('#photo-clear').onclick = () => {
     holdPhoto(null, null);
-    paintPhotoPreview(null, $('#f-name').value);
+    paintPhotoPreview(showPending(null), $('#f-name').value);
     $('#photo-input').value = '';
   };
+  /* A crop cut and then thought better of still has its bytes held open by
+     the preview. Nothing else lets go of them — savePerson only runs on the
+     way out through Save — so closing the dialog by any road at all is where
+     that has to happen, and there are four of those roads: Cancel, Escape,
+     the backdrop, and a back press unwinding the layer.
+
+     Watching the attribute rather than listening for `close`, which is the
+     same choice wireDialogLayers made and for the same reason: once the
+     cropper has been opened over this dialog, the close event stops arriving
+     — the nested modal and the history entry between them see to that — while
+     the open attribute is simply the truth and is never not told. */
+  new MutationObserver(() => { if (!$('#dlg-person').open) showPending(null); })
+    .observe($('#dlg-person'), { attributes: true, attributeFilter: ['open'] });
   wireCropper();
 
   $('#btn-delete-person').onclick = async () => {
@@ -101,8 +123,7 @@ function wire() {
       : `Remove ${p.name} and everything recorded about them? This cannot be undone.`;
     if (!confirm(ask)) return;
     removeFromRoster(p);
-    delete photos[p.id];
-    await Store.deletePhoto(p.id);
+    await dropPhoto(p.id);
     await Store.deleteOriginal(p.id);
     await saveRoster();
     notifyMutate();

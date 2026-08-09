@@ -4,7 +4,7 @@
 
 function todayRow(p, { when = '', calm = false, sub = '' } = {}) {
   const row = el('div', 'today-row');
-  row.append(avatar(p, 'thumb', true));
+  row.append(avatar(p, 'thumb', true, 'thumb'));
 
   const who = el('div', 'who');
   who.append(el('strong', null, p.name));

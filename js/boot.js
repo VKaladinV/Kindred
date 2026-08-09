@@ -1,6 +1,7 @@
 /* uses: $ $$ · Store
-   · byId me mutateHooks people photos readyPromise resolveReady roster setRoster shared
-   · normalise · downscale loadImage · toast
+   · byId me mutateHooks people readyPromise resolveReady roster setRoster shared
+   · dropPhoto hasPhoto landPhoto loadPhotoRecords photoBytes photoMarks photoThumbDataUrl repairPhotos
+   · normalise · toast
    · applyBadgeSize badgeSizePref · openSheet
    · checkClaimedInvites offerPendingJoin takeLaunchFragment
    · nudgeIfDue paintNotifState · checkBio
@@ -65,7 +66,11 @@ async function boot() {
 
   await Store.init();
   setRoster(await Store.loadPeople());   // splits you back out of the roster
-  photos = await Store.loadPhotos();
+  /* Handles, not pictures. What comes back here is a Blob per face and a mark
+     of its bytes; the base64 that used to be read into memory in full before
+     anybody could see their circle is gone, and with it the tens of megabytes
+     it cost to hold a few hundred people. */
+  await loadPhotoRecords();
   shared = await Store.loadShared();
   resolveReady();
 
@@ -97,6 +102,11 @@ async function boot() {
      so all five are drawn once and nothing can be opened for the first time
      onto an empty page. */
   renderEverything();
+  /* After the faces are up, never before: photos stored before this app kept
+     a small copy and a mark need a decode and two re-encodes each to be given
+     one, and that is not work to do while somebody is waiting to see their
+     circle. A crop on its own already draws correctly everywhere. */
+  repairPhotos();
   paintNotifState();
   paintLockState();
   if (!locked) nudgeIfDue();
@@ -131,8 +141,29 @@ window.Kindred = {
   get people() { return roster(); },
   set people(v) { setRoster(v); },
   get self() { return me; },
-  get photos() { return photos; },
-  set photos(v) { photos = v; },
+
+  /* ── faces ──────────────────────────────────────────────────────────
+     There used to be a `photos` here, a map of id to base64, and the sync
+     read it for two different things: to know whether a face had changed,
+     and to get the bytes to send. Those have been separated, because they
+     want different answers.
+
+     `photoMarks` is the identity half — a short fingerprint per person,
+     computed once when the picture was stored — and it is what flatten and
+     the whole photo reconciliation compare. The other three fetch or land
+     actual bytes, and look like it.
+
+     The old name is deleted rather than quietly given the new meaning. In an
+     app with no bundler, no modules and no types, a reader left comparing a
+     mark against a data URL would find them unequal and re-upload a photo on
+     every sync forever, in silence. A name that is gone throws instead. */
+  get photoMarks() { return photoMarks; },
+  set photoMarks(v) { photoMarks = v; },
+  hasPhoto: id => hasPhoto(id),
+  photoBytes: id => photoBytes(id),
+  landPhoto: (id, blob) => landPhoto(id, blob),
+  dropPhoto: id => dropPhoto(id),
+  photoThumbDataUrl: id => photoThumbDataUrl(id),
   /* What your linked people have published, keyed by their account id.
      Entirely separate from `people` — sync's five-table pipeline has never
      heard of this map and must never be given the chance to push it back. */
@@ -141,8 +172,6 @@ window.Kindred = {
   get linkedUids() { return people.filter(p => p.linkedUid).map(p => p.linkedUid); },
   Store,
   normalise,
-  downscale,
-  loadImage,
   toast,
   ready: readyPromise,
   render: () => renderRemote(),

@@ -1,5 +1,6 @@
-/* uses: MAX_TOUCHES · el today · Store
-   · addToRoster futures me notifyMutate people photos roster saveRoster
+/* uses: MAX_TOUCHES · el today
+   · addToRoster futures me notifyMutate people roster saveRoster
+   · hasPhoto photosForBackup putPhotoDataUrl
    · normalise normaliseGroups · toast · renderAll
 */
 
@@ -9,7 +10,12 @@ async function exportAll() {
     version: 3,
     exportedAt: new Date().toISOString(),
     people: roster(),          // your own profile is part of what you are backing up
-    photos: await Store.loadPhotos(),
+    /* Base64 again on the way out, and deliberately: a backup is a JSON file
+       that has to survive being copied about and read back by any version of
+       this app, so the format is unchanged from when photos were stored that
+       way. Turning the bytes back into text is a cost paid once, on purpose,
+       by somebody who asked for a file. */
+    photos: await photosForBackup(),
   };
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
   const a = el('a');
@@ -64,17 +70,16 @@ async function importAll(file) {
       incoming.touches.forEach(t => { if (!days.has(t.date)) { days.add(t.date); existing.touches.push(t); } });
       existing.touches.sort((a, b) => a.date.localeCompare(b.date));
       existing.touches = existing.touches.slice(-MAX_TOUCHES);
-      if (data.photos?.[raw.id] && !photos[existing.id]) {
-        photos[existing.id] = data.photos[raw.id];
-        await Store.savePhoto(existing.id, data.photos[raw.id]);
+      /* The small copy and the mark are worked out on the way in, so a photo
+         out of a backup written by any version of this app arrives in the
+         same shape as one just cropped. */
+      if (data.photos?.[raw.id] && !hasPhoto(existing.id)) {
+        await putPhotoDataUrl(existing.id, data.photos[raw.id]);
       }
       merged++;
     } else {
       addToRoster(incoming);
-      if (data.photos?.[raw.id]) {
-        photos[incoming.id] = data.photos[raw.id];
-        await Store.savePhoto(incoming.id, data.photos[raw.id]);
-      }
+      if (data.photos?.[raw.id]) await putPhotoDataUrl(incoming.id, data.photos[raw.id]);
       added++;
     }
   }

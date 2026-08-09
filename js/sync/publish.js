@@ -37,21 +37,6 @@ function projectSelf(me, photoDataUrl) {
   };
 }
 
-/* Run back through the same downscale a new photo gets, to a size meant for
-   a small circle rather than a full crop — a published face costs 5–8KB
-   this way instead of the 30–60KB the local one is. Kept inside the payload
-   itself rather than in storage, which avoids touching the photo bucket's
-   policies at all and keeps sync()'s own photo reconciliation, which only
-   ever looks at <uid>/, from needing to learn about a second convention. */
-async function projectPhoto(me) {
-  const src = Kindred.photos[me.id];
-  if (!src) return '';
-  try {
-    const img = await Kindred.loadImage(src);
-    return Kindred.downscale(img, 160, 0.7);
-  } catch { return ''; }   // a photo that will not load is not worth failing a sync over
-}
-
 async function publishMine(uid) {
   const me = Kindred.self;
 
@@ -67,13 +52,27 @@ async function publishMine(uid) {
     return;
   }
 
-  const payload = projectSelf(me, await projectPhoto(me));
-  const body = JSON.stringify(payload);
-  /* The same cheap content mark photos already use, run over the whole
-     payload — sharing nothing new is the ordinary case on most syncs, and
-     this is what keeps that case a single comparison rather than a request. */
-  const mark = photoMark(body);
+  /* Everything but the face first, and the question asked before the face is
+     fetched at all. Sharing nothing new is the ordinary case on most syncs,
+     and this is what keeps that case a single string comparison.
+
+     It used to be the other way round, which cost more than it looked like:
+     the photo was made ready before the mark could be taken, because the mark
+     was taken *of* the finished payload — so every sync decoded a full crop
+     and re-encoded it small, then almost always threw the answer away. The
+     mark is taken of the skeleton and the picture's own mark instead, which
+     answers the same question without needing the picture in hand.
+
+     The published face is the small copy: 10–14KB rather than the 30–60KB the
+     crop is. It travels inside the payload rather than in storage, which
+     avoids the photo bucket's policies entirely and keeps sync()'s own photo
+     reconciliation, which only ever looks at <uid>/, from having to learn
+     about a second convention. */
+  const skeleton = projectSelf(me, '');
+  const mark = photoMark(JSON.stringify(skeleton) + '|' + (Kindred.photoMarks[me.id] || ''));
   if (mark === localStorage.getItem('kindred:publishedMark')) return;
+
+  const payload = { ...skeleton, photo: await Kindred.photoThumbDataUrl(me.id) };
 
   const r = await api(rest('profiles'), {
     method: 'POST',

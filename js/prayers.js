@@ -85,7 +85,7 @@ function archiveCards(box, pick, sortKey, state, list = people) {
       count += done.length;
       const card = el('div', 'pcard');
       const head = el('div', 'pcard-head');
-      head.append(avatar(p, 'thumb', true));
+      head.append(avatar(p, 'thumb', true, 'thumb'));
       const idBox = el('div');
       idBox.append(el('h3', null, p.name));
       head.append(idBox);
@@ -115,7 +115,7 @@ function renderPrayers() {
     card.style.setProperty('--i', i);
 
     const head = el('div', 'pcard-head');
-    head.append(avatar(p, 'thumb', true));
+    head.append(avatar(p, 'thumb', true, 'thumb'));
     const idBox = el('div');
     idBox.append(el('h3', null, p.name));
     if (p.relationship) idBox.append(el('div', 'who', p.relationship));

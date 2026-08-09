@@ -1,7 +1,8 @@
 /* ══════════════════════════════════════════════════════════════
    Fellowship — all data lives on this device.
    people    → IndexedDB "kv" store (or localStorage fallback)
-   photos    → IndexedDB "photos" store, keyed by person id
+   photos    → IndexedDB "photos" store, keyed by person id: the crop, a
+               small copy of it, and a mark of the crop's bytes
    originals → IndexedDB "originals" store, keyed by person id:
                the picked image before cropping, so the focus can be
                nudged later. Never synced, never exported.

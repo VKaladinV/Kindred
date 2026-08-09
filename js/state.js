@@ -1,11 +1,10 @@
-/* uses: Store · normalise · toast · openSheet · renderAll */
+/* uses: Store · adoptPhoto hasPhoto · normalise · toast · openSheet · renderAll */
 
 let people = [];
 /* Flagged as a possible future connection — someone you'd like to get to
    know, not yet someone you're keeping in touch with. Split out the same
    way `me` is, below, and for the same reason. */
 let futures = [];
-let photos = {};
 /* What the people you have linked with publish, keyed by their account id.
    Never written by anything in this file — sync.js is the only writer, and
    the only reader besides the sheet is the bridge below. */
@@ -93,10 +92,7 @@ function mergeSelves(mine) {
     if (other.createdAt && other.createdAt < winner.createdAt) winner.createdAt = other.createdAt;
     /* A face is kept on the side, keyed by id, so it does not travel with
        the fields above and has to be carried over deliberately. */
-    if (!photos[winner.id] && photos[other.id]) {
-      photos[winner.id] = photos[other.id];
-      Store.savePhoto(winner.id, photos[other.id]).catch(() => {});
-    }
+    if (!hasPhoto(winner.id)) adoptPhoto(other.id, winner.id);
   }
   winner.touches.sort((a, b) => a.date.localeCompare(b.date));
   return winner;
@@ -187,11 +183,53 @@ function notifyMutate() {
   for (const fn of mutateHooks) { try { fn(); } catch (e) { console.error(e); } }
 }
 
-function queueSave() {
+/* ── writing the roster down ─────────────────────────────────────
+   Saving means handing the whole roster to structured clone: every person,
+   every event, prayer, medication and condition, and up to sixty check-ins
+   each. That is the shape the data is stored in and it is not worth changing
+   — the alternative, a row per person, turns four places that delete somebody
+   by simply not returning them (mergeSelves and claimAsSelf, above) into four
+   places that leave the husk on disk to be read back on the next boot.
+
+   What is worth changing is when the clone happens. It used to land 350ms
+   after a tap, which on a big circle is a stutter arriving just as the finger
+   lifts. Now the debounce only decides that a save is owed; the browser says
+   when there is a spare moment to pay it, and the timeout is the promise that
+   "spare" never means "never". */
+let savePending = false;
+let saveIdle = null;
+
+const dropIdle = window.cancelIdleCallback ? window.cancelIdleCallback.bind(window) : clearTimeout;
+
+function writeRoster() {
+  savePending = false;
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => saveRoster().catch(e => {
+  saveTimer = null;
+  if (saveIdle !== null) { dropIdle(saveIdle); saveIdle = null; }
+  return saveRoster().catch(e => {
     toast('Could not save — storage may be full');
     console.error(e);
-  }), 350);
+  });
+}
+
+/* Deferring a write is only safe if there is somewhere it is always paid.
+   This is that place, and it is the whole argument for the idle callback
+   above: an app put in the background or closed a second after a check-in
+   must not be the app that forgot the check-in. Best effort by nature — the
+   database write is asynchronous and the page may not live to see it finish —
+   but a transaction that has already been opened is usually allowed to
+   complete, and starting it is strictly better than not. */
+function flushSave() {
+  if (savePending) writeRoster();
+}
+
+function queueSave() {
+  savePending = true;
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    saveTimer = null;
+    if (!window.requestIdleCallback) return writeRoster();
+    saveIdle = requestIdleCallback(() => { saveIdle = null; writeRoster(); }, { timeout: 1000 });
+  }, 350);
   notifyMutate();
 }

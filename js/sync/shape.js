@@ -2,16 +2,31 @@
 
 const d = v => (v ? v : null);            // '' means "not set", which is null in SQL
 
-/* A photo is a data URL, and comparing two of them in full on every sync is
-   wasteful — but length alone calls two different crops of the same picture
-   identical often enough to matter, and the changed one never uploads. */
+/* Two crops of the same picture have to be told apart, and length alone calls
+   them identical often enough to matter — the changed one would then never
+   upload. So it is a content mark rather than a size, and it always was.
+
+   What changed is where it is worked out. This used to be run over the whole
+   base64 of every photo, per person, inside flatten — which sync() calls four
+   times a run. A face is a mark now from the moment it is stored (blobMark, in
+   photo-store.js), computed once over the bytes, and flatten simply reads it.
+
+   Marks written by the old function do not match marks written by the new one,
+   so the first sync after this update finds every photo changed and uploads
+   the whole circle again. That is expected and it is safe: the bytes are
+   identical, x-upsert puts them where they already were, and nothing in the
+   photo pass can read a changed mark as a deletion. It settles on the next
+   run — the same one-off the people table paid when occupation and is_future
+   were added below.
+
+   The one caller left is publishMine, which marks a payload, not a picture. */
 const photoMark = s => {
   let h = 0;
   for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
   return s.length + ':' + (h >>> 0).toString(36);
 };
 
-function flatten(people, photos) {
+function flatten(people, marks) {
   const rows = { people: {}, records: {}, prayers: {}, touches: {}, health: {} };
   const photoLens = {};
   for (const p of people) {
@@ -64,7 +79,10 @@ function flatten(people, photos) {
          every check-in on every sync. */
       rows.touches[id] = { id, person_id: p.id, touched_on: t.date, kind: t.kind || '' };
     }
-    if (photos[p.id]) photoLens[p.id] = photoMark(photos[p.id]);
+    /* photoLens is what the snapshot has always called this and it stays that
+       — it is written to disk, and renaming it would quietly tell every
+       device on earth that it had never agreed anything about any photo. */
+    if (marks[p.id]) photoLens[p.id] = marks[p.id];
   }
   return { rows, photoLens };
 }
@@ -123,7 +141,32 @@ function nest(rows) {
   return people;
 }
 
-const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+/* Every row is stringified once and remembered against the object itself.
+   The same row is compared five to eight times in a single sync — mergeTable
+   asks whether it changed, planPush asks twice more, carryEdits asks again on
+   the way out, and sameMap asks a fourth time to decide whether the screen
+   needs repainting at all — and each of those was a fresh walk of the whole
+   object.
+
+   Safe because nothing here is ever written to after it is built: flatten
+   writes each row from a single object literal, mergeTable and planPush build
+   theirs by rest-spread, carryEdits only ever reassigns references, and rows
+   read back out of the snapshot are never touched again. A row that was
+   mutated in place would go on comparing as its old self, so that has to
+   stay true.
+
+   The null guard earns its line: typeof null is 'object', and a WeakMap
+   cannot take null as a key. undefined falls through to JSON.stringify's own
+   undefined, which is the same non-string comparison this made before. */
+const transcripts = new WeakMap();
+const transcript = o => {
+  if (o === null || typeof o !== 'object') return JSON.stringify(o);
+  let s = transcripts.get(o);
+  if (s === undefined) transcripts.set(o, s = JSON.stringify(o));
+  return s;
+};
+
+const same = (a, b) => transcript(a) === transcript(b);
 
 /* same() compares transcripts, and a transcript remembers what order the keys
    were written in. Row against row that is safe and deliberate — flatten

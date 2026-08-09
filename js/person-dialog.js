@@ -1,8 +1,21 @@
-/* uses: $ $$ el initialsOf · Store · people photos · toast */
+/* uses: $ $$ el initialsOf · Store · people · photoFullUrl · toast */
 
 let editingPersonId = null;
-let pendingPhoto = undefined;    // undefined = untouched, null = cleared, string = new
+let pendingPhoto = undefined;    // undefined = untouched, null = cleared, {full,thumb} = new
 let pendingOriginal = undefined; // the same three states, for the uncropped picture
+
+/* A crop that has been cut but not yet saved has no record to be read out of,
+   so it needs a URL of its own — and one that is let go of again, or every
+   photo picked and then thought better of would leave its bytes behind for as
+   long as the app was open. Held here rather than in photo-store.js because
+   this is a picture of nobody yet: it belongs to a form, not to a person. */
+let pendingPreviewUrl = '';
+
+function showPending(blob) {
+  if (pendingPreviewUrl) URL.revokeObjectURL(pendingPreviewUrl);
+  pendingPreviewUrl = blob ? URL.createObjectURL(blob) : '';
+  return pendingPreviewUrl;
+}
 
 /* The two always move together — the cropper sets both when a face is cut,
    and clearing the photo clears the picture it was cut from with it. */
@@ -52,7 +65,11 @@ function personDialog(p, { self = false, future = false } = {}) {
   $('#contact-pick').hidden = mine || !!p || !canPickContacts();
   $('#photo-input').value = '';
 
-  paintPhotoPreview(p && photos[p.id] ? photos[p.id] : null, p?.name || '');
+  /* The crop and not the small copy: adjusting the focus re-cuts from
+     whatever the preview is showing, and re-cutting the 256 would shrink the
+     photo a little more every time somebody nudged it. */
+  showPending(null);
+  paintPhotoPreview(p ? photoFullUrl(p.id) : '', p?.name || '');
   $('#dlg-person').showModal();
   setTimeout(() => $('#f-name').focus(), 60);
 }
@@ -68,19 +85,19 @@ function paintGroupPick(groups) {
 const readGroupPick = () =>
   $$('#f-groups .chip').filter(b => b.getAttribute('aria-pressed') === 'true').map(b => b.dataset.group);
 
-function paintPhotoPreview(dataUrl, name) {
+function paintPhotoPreview(src, name) {
   const box = $('#photo-preview');
   box.textContent = '';
-  if (dataUrl) {
+  if (src) {
     const img = el('img');
-    img.src = dataUrl;
+    img.src = src;
     img.alt = '';
     box.append(img);
   } else {
     box.append(el('span', null, initialsOf(name)));
   }
-  $('#photo-clear').hidden = !dataUrl;
-  $('#photo-adjust').hidden = !dataUrl;
+  $('#photo-clear').hidden = !src;
+  $('#photo-adjust').hidden = !src;
 }
 
 /* ─────────────── filling someone in from a contact ──────────────
@@ -165,7 +182,7 @@ async function fillFromContact() {
 /* ─────────────────────────── the cropper ───────────────────────
    The stage is a square window onto the picture. The picture is sized so
    that at zoom 1 its shorter edge exactly fills the stage, then slid
-   behind it. What the window frames is what renderCrop() cuts out, so
+   behind it. What the window frames is what renderCropBlobs() cuts out, so
    the circle in the dialog is not a preview of the badge — it is the badge.
    ──────────────────────────────────────────────────────────────── */
 

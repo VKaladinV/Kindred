@@ -1,5 +1,5 @@
 /* uses: configured · Session recover signIn signOut signUp
-   · claimInvite createInvite downloadInvitePhoto joinUrl listInvites listLinks previewInvite revokeInvite unlink uploadInvitePhoto
+   · claimInvite createInvite deleteInvitePhoto downloadInvitePhoto joinUrl listInvites listLinks previewInvite revokeInvite unlink uploadInvitePhoto
    · flatten mergeTable nest planPush · projectSelf publishMine pullShared
    · status sync · openSignIn · syncBoot
 */
@@ -16,7 +16,7 @@ if (configured) {
   window.KindredSync = {
     sync, signIn, signUp, recover, signOut, Session, status: () => status, openSignIn,
     createInvite, claimInvite, previewInvite, listLinks, listInvites, revokeInvite, unlink, joinUrl,
-    uploadInvitePhoto, downloadInvitePhoto,
+    uploadInvitePhoto, downloadInvitePhoto, deleteInvitePhoto,
     projectSelf, publishMine, pullShared,
     flatten, nest, mergeTable, planPush,   // exported so the rules can be tested
   };

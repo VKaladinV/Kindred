@@ -427,6 +427,10 @@
   margin-bottom: 2rem;
 }
 .theirs-sub { margin: -.4rem 0 .8rem; font-size: .74rem; color: var(--ink-faint); font-style: italic; }
+/* Their face and the offer to keep it, side by side — the same .thumb the
+   lists use, so it reads as a face in a row rather than as a second portrait
+   competing with the one at the top of the page. */
+.theirs-face { display: flex; align-items: center; gap: .7rem; margin-bottom: .9rem; }
 .theirs-summary {
   font-size: .9rem; line-height: 1.5; color: var(--ink-soft);
   margin: 0 0 1rem; white-space: pre-wrap;

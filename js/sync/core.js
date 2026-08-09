@@ -1,5 +1,5 @@
 /* uses: Session · selectSince upsert
-   · carryEdits flatten mergeTable nest photoMark planPush sameMap
+   · carryEdits flatten mergeTable nest planPush sameMap
    · deletePhoto downloadPhoto listRemotePhotos uploadPhoto
    · publishMine pullShared
 */
@@ -39,8 +39,12 @@ async function sync({ manual = false } = {}) {
     const since = localStorage.getItem('kindred:syncedAt') || '1970-01-01T00:00:00Z';
 
     const people = Kindred.people;
-    const photos = Kindred.photos;
-    const { rows: local, photoLens } = flatten(people, photos);
+    /* Not the pictures — a mark of each, worked out once when it was stored.
+       Everything below asks the same two questions it always asked, "is there
+       a face here" and "is it the one we agreed", and a map of short strings
+       answers both. The bytes are fetched only where they are actually sent. */
+    const marks = Kindred.photoMarks;
+    const { rows: local, photoLens } = flatten(people, marks);
     /* Built from TABLES rather than written out again. The hand-written version
        of this had lost `health` when that table was added, and planPush reaches
        Object.keys(snap) unconditionally — so a device with no snapshot yet threw
@@ -53,7 +57,7 @@ async function sync({ manual = false } = {}) {
     const remote = {};
     let watermark = since;
     for (const t of TABLES) {
-      remote[t] = await selectSince(t, since);
+      remote[t] = await selectSince(t, since, uid);
       for (const r of remote[t]) if (r.updated_at > watermark) watermark = r.updated_at;
     }
 
@@ -80,7 +84,7 @@ async function sync({ manual = false } = {}) {
     }
 
     /* 4 ─ photos */
-    const nextPhotos = { ...photos };
+    const nextPhotos = { ...marks };
     const remoteSet = await listRemotePhotos(uid);
     /* An id lands here when its upload comes back not-ok — a network blip, a
        transient 5xx, whatever. Left unmarked below, so the snapshot does not
@@ -92,27 +96,42 @@ async function sync({ manual = false } = {}) {
     const failedUploads = new Set();
     /* What the server can be said to hold for each photo once this is done —
        the mark of the exact bytes sent or fetched, rather than whatever is in
-       the map by the time we come to write the snapshot. `photos` is the live
+       the map by the time we come to write the snapshot. `marks` is the live
        object by reference, not a copy the way `local` is, so a crop finished
        while these requests were in flight would otherwise be recorded as
        agreed and never sent at all. */
     const sent = {};
     if (remoteSet) {
       for (const id of Object.keys(merged.people)) {
-        const localLen = photos[id] && photoMark(photos[id]);
-        const snapLen = snap.photoLens[id];
-        if (localLen && localLen !== snapLen) {
-          if (await uploadPhoto(uid, id, photos[id])) sent[id] = localLen;        // new or changed here
+        const localMark = marks[id];
+        const snapMark = snap.photoLens[id];
+        if (localMark && localMark !== snapMark) {
+          /* The bytes and the mark of those bytes out of one read of the
+             record, and sent[] recorded from that mark rather than from the
+             one read at the top of this iteration. There is an await between
+             the two now, and a crop finished inside it would otherwise be
+             written down as agreed while the picture before it was the one
+             that actually went. */
+          const got = await Kindred.photoBytes(id);
+          if (got && await uploadPhoto(uid, id, got.blob)) sent[id] = got.mark;   // new or changed here
           else failedUploads.add(id);
-        } else if (!localLen && remoteSet.has(id)) {
-          const got = await downloadPhoto(uid, id);            // arrived from elsewhere
-          if (got) { nextPhotos[id] = got; await Kindred.Store.savePhoto(id, got); sent[id] = photoMark(got); }
-        } else if (localLen) {
-          sent[id] = snapLen;                                  // untouched, and already agreed
+        } else if (!localMark && !Kindred.hasPhoto(id) && remoteSet.has(id)) {
+          /* Asks whether there is a picture, not whether there is a mark for
+             one. A photo stored before this app kept marks has none until the
+             repair pass reaches it, and asked the other way this would read
+             that as "nothing here" and fetch back a face already on disk. */
+          const blob = await downloadPhoto(uid, id);           // arrived from elsewhere
+          if (blob) {
+            const landed = await Kindred.landPhoto(id, blob);
+            nextPhotos[id] = landed;
+            sent[id] = landed;
+          }
+        } else if (localMark) {
+          sent[id] = snapMark;                                 // untouched, and already agreed
         }
       }
       for (const id of Object.keys(snap.photoLens)) {
-        if (!photos[id] && remoteSet.has(id) && merged.people[id]) await deletePhoto(uid, id);
+        if (!marks[id] && remoteSet.has(id) && merged.people[id]) await deletePhoto(uid, id);
       }
       for (const id of remoteSet) {
         if (!merged.people[id]) await deletePhoto(uid, id);    // person is gone
@@ -124,7 +143,7 @@ async function sync({ manual = false } = {}) {
     /* Read live rather than reusing the freeze from the top of this function.
        Fifteen round-trips have gone by since then, several of them carrying
        photographs, and the roster has gone on being written in all that time. */
-    const now = flatten(Kindred.people, Kindred.photos);
+    const now = flatten(Kindred.people, Kindred.photoMarks);
 
     const carried = {};
     for (const t of TABLES) carried[t] = carryEdits(merged[t], local[t], now.rows[t]);
@@ -143,14 +162,14 @@ async function sync({ manual = false } = {}) {
     /* The same window, and the same rule, for pictures: one chosen while the
        requests were in flight is newer than whatever this sync settled on, and
        one cleared in that window has to stay cleared. */
-    for (const [id, data] of Object.entries(Kindred.photos)) {
+    for (const [id, data] of Object.entries(Kindred.photoMarks)) {
       if (carried.people[id] && data !== nextPhotos[id]) nextPhotos[id] = data;
     }
     for (const id of Object.keys(nextPhotos)) {
-      if (photoLens[id] && !Kindred.photos[id]) delete nextPhotos[id];
+      if (photoLens[id] && !Kindred.photoMarks[id]) delete nextPhotos[id];
     }
     for (const id of Object.keys(nextPhotos)) {
-      if (!carried.people[id]) { delete nextPhotos[id]; await Kindred.Store.deletePhoto(id); }
+      if (!carried.people[id]) { delete nextPhotos[id]; await Kindred.dropPhoto(id); }
     }
 
     const nextPeople = nest(carried).map(Kindred.normalise);
@@ -172,7 +191,7 @@ async function sync({ manual = false } = {}) {
       /* No listing means the photo pass never ran, so nothing was agreed this
          time round and the marks stand exactly where the last sync left them. */
       const agreed = remoteSet ? sent[id] : snap.photoLens[id];
-      if (photoMark(nextPhotos[id]) !== agreed) failedUploads.add(id);
+      if (nextPhotos[id] !== agreed) failedUploads.add(id);   // nextPhotos holds marks
     }
     for (const id of failedUploads) delete settled.photoLens[id];
     await Kindred.Store.saveSnapshot(settled);
@@ -190,11 +209,11 @@ async function sync({ manual = false } = {}) {
     if (changed) {
       /* Photos before people: setting people runs setRoster, which merges any
          duplicate self-rows and, while doing it, carries a photo across by
-         reading this same photos object directly (mergeSelves, in app.js).
+         asking this same marks map who has one (mergeSelves, in state.js).
          Landing it here first means that carry-over reads what this sync just
          decided rather than what was true before it ran — read the other way
          round, whatever it decided was silently overwritten a line later. */
-      Kindred.photos = nextPhotos;
+      Kindred.photoMarks = nextPhotos;
       Kindred.people = nextPeople;
       await Kindred.Store.savePeople(nextPeople);
     }
