@@ -94,16 +94,53 @@ async function pullShared(uid) {
   const partners = new Set((await lr.json()).map(row => (row.a === uid ? row.b : row.a)));
 
   const since = localStorage.getItem('kindred:sharedAt') || '1970-01-01T00:00:00Z';
-  const pr = await api(rest('profiles', `?select=user_id,payload,updated_at&updated_at=gt.${encodeURIComponent(since)}`));
-  if (!pr.ok) throw new Error('profiles: ' + (await pr.text()).slice(0, 140));
-
   const cached = (await Kindred.Store.loadShared()) || {};
+
+  /* Whose profiles to ask for, said outright rather than left to row-level
+     security to work out — the same argument selectSince makes for the five
+     tables, and this is the one read that had not heard it.
+
+     It matters more here than it does there. profiles_read is `user_id =
+     auth.uid() or is_linked(user_id)`, and is_linked takes the row's own id
+     as its argument, so unlike a bare auth.uid() the planner cannot lift it
+     out and answer it once: it runs per row it is asked about. Ask with only
+     a watermark and the watermark is 1970 — which it is on every first sync —
+     and there is nothing to narrow the scan, so that is every profile row
+     belonging to every account in the database, each one asked whether it is
+     a friend of yours. Named, it is a primary-key lookup of the handful of
+     rows that could ever have been returned anyway.
+
+     The partners are already in hand: the links read above happens first, and
+     always did. Nothing new is fetched to make this possible. */
+  const known = [...partners].filter(id => cached[id]);
+  const fresh = [...partners].filter(id => !cached[id]);
+
+  /* Two reads, and only when there is something for each to do. Somebody
+     linked a moment ago is asked for without a watermark, because theirs is
+     almost certainly behind it — a profile published last week is older than
+     a mark that has been kept current since, so the incremental read steps
+     straight over it and their card would stay blank until they happened to
+     publish again. That is the one case a watermark cannot serve, and it is
+     rare enough to be worth its own request: linking is not something that
+     happens on an ordinary sync, so the ordinary sync still makes one call. */
+  const reads = [];
+  if (known.length) reads.push(`?select=user_id,payload,updated_at&user_id=in.(${known.join(',')})`
+    + `&updated_at=gt.${encodeURIComponent(since)}`);
+  if (fresh.length) reads.push(`?select=user_id,payload,updated_at&user_id=in.(${fresh.join(',')})`);
+
   const next = { ...cached };
   let mark = since;
-  for (const row of await pr.json()) {
-    if (row.updated_at > mark) mark = row.updated_at;
-    if (row.user_id === uid) continue;      // your own row comes back too
-    next[row.user_id] = { ...row.payload, at: row.updated_at };
+  for (const qs of reads) {
+    const pr = await api(rest('profiles', qs));
+    if (!pr.ok) throw new Error('profiles: ' + (await pr.text()).slice(0, 140));
+    for (const row of await pr.json()) {
+      /* Only ever climbs, so a fresh partner's older row cannot drag it back
+         over changes this device has already seen and settled. Your own row
+         no longer moves it either — it is not asked for now, and it never had
+         any business setting the mark for what other people have published. */
+      if (row.updated_at > mark) mark = row.updated_at;
+      next[row.user_id] = { ...row.payload, at: row.updated_at };
+    }
   }
   /* Ended links stop being read here rather than being told to leave —
      nobody sends a tombstone for a friendship, the row for it just stops
@@ -117,9 +154,16 @@ async function pullShared(uid) {
   const moved = !same(cached, next);
   Kindred.shared = next;
   await Kindred.Store.saveShared(next);
+  /* Only when something actually came back. The mark used to be rewritten on
+     every sync, which was harmless while your own row was in the answer and
+     kept pushing it forward; without that it would be rewound two seconds by
+     a sync that had read nothing, and again by the next, walking backwards
+     for as long as nobody published anything. */
   // the same small rewind the main watermark uses, and for the same reason
-  localStorage.setItem('kindred:sharedAt',
-    new Date(Date.parse(mark) - 2000).toISOString());
+  if (mark !== since) {
+    localStorage.setItem('kindred:sharedAt',
+      new Date(Date.parse(mark) - 2000).toISOString());
+  }
   return moved;
 }
 
