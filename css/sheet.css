@@ -19,26 +19,41 @@
   display: flex; flex-direction: column;
 }
 @keyframes slide-in { from { transform: translateX(4%); opacity: 0; } }
-@media (max-width: 640px) {
-  .sheet { width: 100vw; top: calc(2.2rem + env(safe-area-inset-top, 0px)); border-radius: 18px 18px 0 0; border-left: 0; border-top: 1px solid var(--rule); }
-  /* Every other fixed, edge-touching surface in the app threads the inset
-     through (.topbar in circle.css, the bottom nav in nav.css) — this was the
-     one that didn't, so a phone with a status bar or camera cutout taller than
-     the bare 2.2rem+1rem this used to be could bury the close button under
-     system UI: still on screen, but not reachable by a tap that never lands. */
-  .sheet-close { top: calc(1rem + env(safe-area-inset-top, 0px)); right: calc(1rem + env(safe-area-inset-right, 0px)); }
-  @keyframes slide-in { from { transform: translateY(6%); opacity: 0; } }
-}
-.sheet-close {
-  position: absolute; top: 1rem; right: 1rem; z-index: 3;
+
+/* Stacked in one corner rather than either sitting beside the name — a name
+   long enough to wrap the name-row to two lines used to push the edit
+   button's flex-centered position up into .sheet-close's own square, the
+   two overlapping no matter how the name broke. Fixed to a corner instead,
+   .sheet-edit a line's height below .sheet-close, so nothing about the name
+   can ever move it again. */
+.sheet-close, .sheet-edit {
+  position: absolute; right: 1rem; z-index: 3;
   width: 2.4rem; height: 2.4rem; border-radius: 50%;
   border: 1px solid var(--rule); background: var(--paper-raise);
   color: var(--ink-soft); cursor: pointer;
   display: grid; place-items: center;
   transition: all .2s;
 }
-.sheet-close svg { width: 1rem; height: 1rem; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; }
-.sheet-close:hover { color: var(--green); border-color: var(--green); transform: rotate(90deg); }
+.sheet-close { top: 1rem; }
+.sheet-edit { top: calc(1rem + 2.4rem + .6rem); }
+.sheet-close svg, .sheet-edit svg { width: 1rem; height: 1rem; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; }
+.sheet-close:hover, .sheet-edit:hover { color: var(--green); border-color: var(--green); }
+.sheet-close:hover { transform: rotate(90deg); }
+
+@media (max-width: 640px) {
+  .sheet { width: 100vw; top: calc(2.2rem + env(safe-area-inset-top, 0px)); border-radius: 18px 18px 0 0; border-left: 0; border-top: 1px solid var(--rule); }
+  /* Every other fixed, edge-touching surface in the app threads the inset
+     through (.topbar in circle.css, the bottom nav in nav.css) — this was the
+     one that didn't, so a phone with a status bar or camera cutout taller than
+     the bare 2.2rem+1rem this used to be could bury the close button under
+     system UI: still on screen, but not reachable by a tap that never lands.
+     .sheet-edit threads the same inset, kept a line's height below it. This
+     has to come after the plain rule above — same specificity, so whichever
+     is last in the file is the one a matching media query would win with. */
+  .sheet-close { top: calc(1rem + env(safe-area-inset-top, 0px)); right: calc(1rem + env(safe-area-inset-right, 0px)); }
+  .sheet-edit { top: calc(1rem + env(safe-area-inset-top, 0px) + 2.4rem + .6rem); right: calc(1rem + env(safe-area-inset-right, 0px)); }
+  @keyframes slide-in { from { transform: translateY(6%); opacity: 0; } }
+}
 
 .sheet-scroll {
   overflow-y: auto; overscroll-behavior: contain;

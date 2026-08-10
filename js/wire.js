@@ -218,6 +218,7 @@ function wire() {
   };
 
   $('#sheet-close').onclick = closeSheet;
+  $('#sheet-edit').onclick = () => { const p = byId(openId); if (p) personDialog(p); };
   $('#scrim').onclick = closeSheet;
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape' && openId && !$$('dialog[open]').length) closeSheet();

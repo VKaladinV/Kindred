@@ -25,18 +25,14 @@ function renderSheet() {
   head.append(avatar(p, 'person-photo'));
   const idBox = el('div', 'person-id');
 
-  /* The name and the way into editing it, on one line — a circle rather than
-     a text link, so it reads as the same kind of control as the close button
-     it sits diagonally across from, not as one more line of prose. */
+  /* The way into editing lives outside this row now, stacked below
+     #sheet-close (see .sheet-edit in sheet.css) — a name long enough to
+     wrap this row to two lines used to carry an inline edit button up into
+     the close button's own corner. Only its label follows the name here. */
   const nameRow = el('div', 'name-row');
   nameRow.append(el('h2', null, p.name));
-  const edit = el('button', 'icon-btn edit-pencil');
-  edit.type = 'button';
-  edit.setAttribute('aria-label', `Edit ${p.name}’s details`);
-  edit.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.5 4.5l4 4L7 21H3v-4L15.5 4.5z"/><path d="M13.5 6.5l4 4"/></svg>';
-  edit.onclick = () => personDialog(p);
-  nameRow.append(edit);
   idBox.append(nameRow);
+  $('#sheet-edit').setAttribute('aria-label', `Edit ${p.name}’s details`);
 
   const facts = el('div', 'person-facts');
   const bd = nextBirthday(p);
