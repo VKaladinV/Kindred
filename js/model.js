@@ -27,6 +27,16 @@ const TERM_DAYS = 280;
 
 const isBaby = r => r.type === 'upcoming' && r.kind === 'baby';
 
+/* A pregnancy can be either shape now. isBaby is the old one — an upcoming
+   record with kind 'baby' — kept exactly as it was so a record made before
+   this update goes on rendering and notifying the way it always did, even
+   though nothing in the UI can make a new one that way any more. The new
+   shape is a season carrying a dueDate: the pregnancy is the season itself,
+   from when it starts until the due date, and it ends the way any season
+   does. Both count as "a pregnancy" wherever that question is asked. */
+const isPregnancy = r => isBaby(r) || (r.type === 'season' && !!r.dueDate);
+const pregnancyDate = r => r.type === 'season' ? r.dueDate : r.date;
+
 function gestationOn(dueDate, on = today()) {
   const days = TERM_DAYS - daysBetween(on, dueDate);
   /* Before conception or well past overdue, a week count says nothing useful. */
@@ -175,7 +185,8 @@ const DATE_WINDOW = 30;
 function hasDateWithin(p, within = DATE_WINDOW) {
   const bd = nextBirthday(p);
   if (bd && bd.inDays <= within) return true;
-  return upcomingOf(p).some(({ r, o }) => o.inDays >= 0 && (o.inDays <= within || isBaby(r)));
+  if (upcomingOf(p).some(({ r, o }) => o.inDays >= 0 && (o.inDays <= within || isBaby(r)))) return true;
+  return activeSeasons(p).some(isPregnancy);
 }
 
 const FOCUS = {
@@ -206,12 +217,12 @@ function byNeed(a, b) {
    any day; `short` leaves it out, for the calendar, where the square or the
    heading above the list has already said which day this is. */
 function dateEntry(p, r, o) {
-  const g = isBaby(r) ? gestationOn(o.date) : null;
+  const g = isPregnancy(r) ? gestationOn(o.date) : null;
   const short = g ? `${r.title} · ${gestationWords(g)}` : r.title;
   return {
     p, inDays: o.inDays, date: o.date, label: r.title, kind: r.kind, short,
     sub: g ? `${short} · due ${prettyDate(o.date)}` : `${short} · ${prettyDate(o.date)}`,
-    glyph: (KINDS[r.kind] || KINDS.other).glyph,
+    glyph: isPregnancy(r) ? KINDS.baby.glyph : (KINDS[r.kind] || KINDS.other).glyph,
   };
 }
 
@@ -235,6 +246,14 @@ function datesAhead(withinDays = 45) {
          from the day you hear about it. */
       if (o.inDays > withinDays && !isBaby(r)) return;
       out.push(dateEntry(p, r, o));
+    });
+
+    /* The season-shaped pregnancy has no occurrence of its own — seasons
+       don't run through occurrenceOf/upcomingOf — so one is built here, the
+       same way upcomingOf builds one for an ordinary date. */
+    activeSeasons(p).filter(isPregnancy).forEach(r => {
+      const date = pregnancyDate(r);
+      out.push(dateEntry(p, r, { date, inDays: daysBetween(today(), date), years: 0 }));
     });
   });
   return out.sort((a, b) => a.inDays - b.inDays);
@@ -273,19 +292,31 @@ function datesIn(fromYmd, toYmd) {
       const dates = r.repeatsYearly ? annualDates(r.date) : (within(r.date) ? [r.date] : []);
       dates.forEach(date => out.push(dateEntry(p, r, { date, inDays: daysBetween(today(), date), years: 0 })));
     });
+
+    /* A pregnancy-season's due date, the same as any other date on this
+       grid — parity with the legacy shape above, which already reaches the
+       calendar via recordsOf(p, 'upcoming'). */
+    activeSeasons(p).filter(isPregnancy).forEach(r => {
+      const date = r.dueDate;
+      if (within(date)) out.push(dateEntry(p, r, { date, inDays: daysBetween(today(), date), years: 0 }));
+    });
   });
   return out.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.p.name.localeCompare(b.p.name)));
 }
 
-/* Pregnancies near enough to say something about. */
+/* Pregnancies near enough to say something about, under either shape. An
+   ended season is already out of activeSeasons, so a birth naturally drops
+   off this list the same moment it stops being "due". */
 function babiesDue(withinDays = 30) {
   const out = [];
-  people.forEach(p => recordsOf(p, 'upcoming').forEach(r => {
-    if (!isBaby(r)) return;
-    const inDays = daysBetween(today(), r.date);
-    if (inDays > withinDays || inDays < -21) return;   // past three weeks over, let it be
-    out.push({ p, r, inDays, gestation: gestationOn(r.date) });
-  }));
+  people.forEach(p => {
+    [...recordsOf(p, 'upcoming'), ...activeSeasons(p)].filter(isPregnancy).forEach(r => {
+      const due = pregnancyDate(r);
+      const inDays = daysBetween(today(), due);
+      if (inDays > withinDays || inDays < -21) return;   // past three weeks over, let it be
+      out.push({ p, r, inDays, gestation: gestationOn(due) });
+    });
+  });
   return out.sort((a, b) => a.inDays - b.inDays);
 }
 

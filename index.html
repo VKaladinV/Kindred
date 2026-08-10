@@ -395,22 +395,23 @@
       <input type="text" id="e-title" required maxlength="80" autocomplete="off" placeholder="Started chemo">
     </label>
 
-    <div class="field-row">
-      <label class="field">
-        <span id="e-date-label">When</span>
-        <input type="date" id="e-date" required>
-      </label>
-      <label class="field">
-        <span>Kind</span>
-        <select id="e-kind"></select>
-      </label>
-    </div>
+    <label class="field">
+      <span id="e-date-label">When</span>
+      <input type="date" id="e-date" required>
+    </label>
 
-    <!-- Only for a baby on the way, where the date can be arrived at from
-         either end: you either know the due date, or you know how far along
-         they are today. Filling in one works out the other. -->
+    <label class="check-field" id="wrap-baby" hidden>
+      <input type="checkbox" id="e-baby">
+      <span>Expecting a baby <em>tracks a due date until this season ends</em></span>
+    </label>
+
+    <!-- Only while expecting: the due date can be arrived at from either end —
+         you either know the date, or you know how far along they are today.
+         Filling in one works out the other. -->
     <div class="field" id="wrap-gestation" hidden>
-      <span>Or how far along they are now</span>
+      <span>Due date</span>
+      <input type="date" id="e-due">
+      <span class="gest-label">Or how far along they are now</span>
       <div class="gest-row">
         <label class="gest-box">
           <input type="number" id="e-weeks" min="0" max="42" inputmode="numeric" aria-label="Weeks">
@@ -443,6 +444,22 @@
       <button type="button" class="btn btn-danger-quiet" id="btn-delete-event" hidden>Delete</button>
       <span class="spacer"></span>
       <button type="button" class="btn btn-quiet" id="btn-event-cancel">Cancel</button>
+      <button type="submit" class="btn btn-primary">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- ─────────── ADD A PRAYER ─────────── -->
+<dialog class="dlg" id="dlg-prayer">
+  <form id="form-prayer" method="dialog">
+    <h2 class="dlg-title">Add to the prayer list</h2>
+    <label class="field">
+      <span>What would you like to pray for?</span>
+      <input type="text" id="pr-text" maxlength="240" autocomplete="off" placeholder="Add something to pray for…">
+    </label>
+    <div class="dlg-actions">
+      <span class="spacer"></span>
+      <button type="button" class="btn btn-quiet" id="btn-prayer-cancel">Cancel</button>
       <button type="submit" class="btn btn-primary">Save</button>
     </div>
   </form>
@@ -901,6 +918,7 @@
 <script src="js/cropper.js"></script>
 <script src="js/save-person.js"></script>
 <script src="js/event-dialog.js"></script>
+<script src="js/prayer-dialog.js"></script>
 <script src="js/backup.js"></script>
 
 <!-- reminders, and the PIN in front of all of it -->

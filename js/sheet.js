@@ -1,12 +1,11 @@
-/* uses: CADENCES KINDS TOUCH_KINDS
-   · $ agoWords aheadWords el monthYear parseYmd prettyDate shortMonth today
+/* uses: CADENCES KINDS TOUCH_KINDS TYPES
+   · $ agoWords aheadWords daysBetween el monthYear parseYmd prettyDate shortMonth today
    · byId claimAsSelf me openId queueSave selfWeight shared
-   · normalisePrayer
    · activeSeasons answeredPrayers gestationOn gestationWords historyOf isBaby lastTouchDate nextBirthday openPrayers releasedPrayers statusOf touchOn upcomingOf
    · avatar · prayerLine sharePill · closeSheet
    · blockHead fromThemBlock · howDialog undoConnected
    · inviteDialog linkApi unlinkPerson · endSeason moveToHistory
-   · dialNumber personDialog telLink · promoteToCircle · eventDialog
+   · dialNumber personDialog telLink · promoteToCircle · eventDialog · prayerDialog
    · quiet renderAll
 */
 
@@ -25,12 +24,19 @@ function renderSheet() {
   const head = el('div', 'person-head');
   head.append(avatar(p, 'person-photo'));
   const idBox = el('div', 'person-id');
-  idBox.append(el('h2', null, p.name));
-  /* Joined rather than separate fields on screen: for most people this reads
-     as "grandmother · Retired teacher", and for a future connection — who has
-     no relationship yet — it's just the occupation, alone, in the same spot. */
-  const idLine = [p.relationship, p.occupation].filter(Boolean).join(' · ');
-  if (idLine) idBox.append(el('p', 'person-rel', idLine));
+
+  /* The name and the way into editing it, on one line — a circle rather than
+     a text link, so it reads as the same kind of control as the close button
+     it sits diagonally across from, not as one more line of prose. */
+  const nameRow = el('div', 'name-row');
+  nameRow.append(el('h2', null, p.name));
+  const edit = el('button', 'icon-btn edit-pencil');
+  edit.type = 'button';
+  edit.setAttribute('aria-label', `Edit ${p.name}’s details`);
+  edit.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.5 4.5l4 4L7 21H3v-4L15.5 4.5z"/><path d="M13.5 6.5l4 4"/></svg>';
+  edit.onclick = () => personDialog(p);
+  nameRow.append(edit);
+  idBox.append(nameRow);
 
   const facts = el('div', 'person-facts');
   const bd = nextBirthday(p);
@@ -53,6 +59,15 @@ function renderSheet() {
   }
   idBox.append(facts);
 
+  /* Joined rather than separate fields on screen: for most people this reads
+     as "grandmother · Retired teacher", and for a future connection — who has
+     no relationship yet — it's just the occupation, alone, in the same spot.
+     Sits below the facts rather than right under the name — a single quiet
+     line of context, read after what they're called and how to reach them,
+     not before. */
+  const idLine = [p.relationship, p.occupation].filter(Boolean).join(' · ');
+  if (idLine) idBox.append(el('p', 'person-rel', idLine));
+
   if (p.groups.length) {
     const tags = el('div', 'group-pills');
     p.groups.forEach(g => {
@@ -68,17 +83,11 @@ function renderSheet() {
     const pills = el('div', 'season-pills');
     seasons.forEach(sn => {
       const pill = el('span', 'pill');
-      pill.append(el('span', 'glyph', (KINDS[sn.kind] || KINDS.other).glyph), document.createTextNode(sn.title));
+      pill.append(el('span', 'glyph', sn.dueDate ? KINDS.baby.glyph : TYPES.season.glyph), document.createTextNode(sn.title));
       pills.append(pill);
     });
     idBox.append(pills);
   }
-
-  const edit = el('button', 'link-btn', 'edit details');
-  edit.type = 'button';
-  edit.style.marginTop = '.7rem';
-  edit.onclick = () => personDialog(p);
-  idBox.append(edit);
 
   /* Linking, on the page of the person it would be with. Only for somebody
      else, only once there is a sync layer to do it through, and only while
@@ -204,7 +213,7 @@ function renderSheet() {
      an ongoing story with them that starts once they're in the circle. */
   if (!p.isFuture) {
   snBlock = el('div', 'sheet-block');
-  snBlock.append(blockHead('Right now', '+ start a season', () => eventDialog(p.id, null, 'season')));
+  snBlock.append(blockHead('Present', () => eventDialog(p.id, null, 'season'), 'Start a season'));
   if (seasons.length) {
     seasons.sort((a, b) => (a.date < b.date ? 1 : -1)).forEach(sn => {
       const card = el('div', 'season-card');
@@ -213,6 +222,13 @@ function renderSheet() {
       h.title = 'Edit this season';
       h.onclick = () => eventDialog(p.id, sn.id);
       top.append(h, el('span', 'since', `since ${monthYear(sn.date)} · ${agoWords(sn.date).replace(' ago', '')}`));
+      /* How far along, the same reading a legacy baby-kind date gives in
+         Future — read from the due date rather than the start, because how
+         far along they are now is the thing you actually want to read. */
+      if (sn.dueDate) {
+        const g = gestationOn(sn.dueDate);
+        if (g) top.append(el('span', 'up-gest', `${gestationWords(g)} · due ${aheadWords(daysBetween(today(), sn.dueDate))}`));
+      }
       card.append(top);
       if (sn.note) card.append(el('p', 'tl-note', sn.note));
       const endBtn = el('button', 'btn btn-quiet btn-tiny season-end', 'this has ended');
@@ -264,31 +280,11 @@ function renderSheet() {
 
   /* ── prayers ── */
   const prBlock = el('div', 'sheet-block');
-  prBlock.append(blockHead('Prayer list'));
+  prBlock.append(blockHead('Prayer list', () => prayerDialog(p.id), 'Add a prayer'));
 
   const open = openPrayers(p).sort((a, b) => (a.createdAt < b.createdAt ? -1 : 1));
   if (open.length) open.forEach(pr => prBlock.append(prayerLine(p, pr, 'open')));
   else prBlock.append(el('p', 'quiet-note', 'Nothing on the list yet.'));
-
-  const addPrayer = el('form', 'add-line');
-  const prInput = el('input');
-  prInput.placeholder = 'Add something to pray for…';
-  prInput.maxLength = 240;
-  prInput.setAttribute('aria-label', 'Add a prayer');
-  const prBtn = el('button', 'btn btn-quiet', 'Add');
-  prBtn.type = 'submit';
-  addPrayer.append(prInput, prBtn);
-  addPrayer.onsubmit = e => {
-    e.preventDefault();
-    const text = prInput.value.trim();
-    if (!text) return;
-    byId(p.id).prayers.push(normalisePrayer({ text }));
-    prInput.value = '';
-    queueSave();
-    renderAll();
-    setTimeout(() => $('.add-line input', $('#sheet-scroll'))?.focus(), 30);
-  };
-  prBlock.append(addPrayer);
 
   /* Both archives, each tucked away and each still reachable. */
   const archive = (list, sortKey, state, word) => {
@@ -307,7 +303,7 @@ function renderSheet() {
   /* ── coming up ── */
   if (!p.isFuture) {
   upBlock = el('div', 'sheet-block');
-  upBlock.append(blockHead('Coming up', '+ add a date', () => eventDialog(p.id, null, 'upcoming')));
+  upBlock.append(blockHead('Future', () => eventDialog(p.id, null, 'upcoming'), 'Add a date'));
   const ups = upcomingOf(p);
   if (ups.length) {
     ups.forEach(({ r, o }) => {
@@ -355,7 +351,7 @@ function renderSheet() {
   /* ── history ── */
   if (!p.isFuture) {
   evBlock = el('div', 'sheet-block');
-  evBlock.append(blockHead('History', '+ add to history', () => eventDialog(p.id, null, 'history')));
+  evBlock.append(blockHead('Past', () => eventDialog(p.id, null, 'history'), 'Add to history'));
 
   const hist = historyOf(p);
   if (hist.length) {
@@ -400,34 +396,22 @@ function renderSheet() {
    where the cursor sat inside it. Most of the app can afford that because most
    of the app is read rather than written; this page is the one you write on.
 
-   Two boxes here are live, and they need different things. The summary saves
-   as you type, so its words are already in the roster and come back on their
-   own — only the caret needs putting back. The prayer line is rebuilt empty
-   and holds its words nowhere else at all, so it is remembered whether or not
-   it has the focus: tapping a tick in the list above hands the focus to that
-   button before the repaint it causes, and a line remembered only while
-   focused would be gone by the time anything thought to look.
+   The summary is the one live box left here — it saves as you type, so its
+   words are already in the roster and come back on their own, and only the
+   caret needs putting back.
 
    Found by selector rather than by node, because the node this measured does
    not survive to be compared against. */
 function keepPlace(root) {
   const top = root.scrollTop;
-  const pending = $('.add-line input', root);
-  const pendingText = pending ? pending.value : '';
 
   const a = document.activeElement;
-  const sel = a && root.contains(a)
-    ? (a.matches('.summary-area') ? '.summary-area'
-      : a.matches('.add-line input') ? '.add-line input'
-      : null)
-    : null;
+  const sel = a && root.contains(a) && a.matches('.summary-area') ? '.summary-area' : null;
   const from = sel ? a.selectionStart : 0;
   const to = sel ? a.selectionEnd : 0;
 
   return () => {
     root.scrollTop = top;
-    const line = $('.add-line input', root);
-    if (line && pendingText) line.value = pendingText;
     if (!sel) return;
     const next = $(sel, root);
     if (!next) return;

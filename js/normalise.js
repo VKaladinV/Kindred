@@ -12,6 +12,12 @@ function normaliseRecord(r) {
     type,
     date: r.date || today(),
     endDate: type === 'season' ? (r.endDate || '') : '',
+    /* When a season is a pregnancy: the date it's expected to end, distinct
+       from endDate — which stays empty until the season actually ends (the
+       birth), exactly as it does for any other season. Never set outside a
+       season, the same conditional-blanking normaliseRecord already gives
+       endDate and repeatsYearly below. */
+    dueDate: type === 'season' ? (r.dueDate || '') : '',
     kind: KINDS[r.kind] ? r.kind : 'other',
     title: (r.title || '').trim() || 'Untitled',
     note: r.note || '',

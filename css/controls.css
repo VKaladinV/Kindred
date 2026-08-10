@@ -8,6 +8,12 @@
   cursor: pointer;
   transition: all .22s var(--ease);
   display: inline-flex; align-items: center; gap: .45rem;
+  /* Without this, tapping paints the platform's default highlight — a
+     rectangle — across the button for one frame before anything else happens.
+     .badge-frame (circle.css) diagnosed and fixed this same flash once,
+     locally; put here, on the base class every dialog button shares, it is
+     fixed everywhere at once. */
+  -webkit-tap-highlight-color: transparent;
 }
 .btn:hover { transform: translateY(-1px); border-color: var(--green); }
 .btn:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
@@ -90,6 +96,11 @@
 .check-field input { width: 1.1rem; height: 1.1rem; margin-top: .15rem; accent-color: var(--green); flex: 0 0 auto; }
 .check-field em { display: block; font-style: normal; font-size: .74rem; color: var(--ink-faint); }
 
+/* The second half of #wrap-gestation, under its own label rather than
+   #wrap-gestation's own — that one names the due-date field above it, and
+   this names the alternate way of arriving at the same date. */
+.gest-label { display: block; margin: .8rem 0 .3rem; font-size: .68rem; letter-spacing: .18em; text-transform: uppercase; color: var(--ink-faint); font-weight: 700; }
+
 /* how far along, as two small boxes rather than a full-width field */
 .gest-row { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
 .gest-box { display: flex; align-items: center; gap: .35rem; }
@@ -167,6 +178,11 @@
   touch-action: none;
   cursor: grab;
   user-select: none;
+  /* #crop-img has pointer-events:none, so this box is the actual pointerdown
+     target while dragging — the first touch on it is exactly the kind of tap
+     that paints the platform's default highlight rectangle. */
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
 }
 .crop-stage:active { cursor: grabbing; }
 .crop-stage:focus-visible { outline: 2px solid var(--green); outline-offset: 3px; }

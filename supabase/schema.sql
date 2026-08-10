@@ -115,6 +115,10 @@ alter table public.prayers add column if not exists released_on date;
 alter table public.prayers add column if not exists shared boolean not null default false;
 alter table public.records add column if not exists shared boolean not null default false;
 
+-- The date a pregnancy is due, when a season is the thing tracking it —
+-- distinct from ends_on, which is set later (at birth) via "this has ended".
+alter table public.records add column if not exists due_on date;
+
 -- ── check-ins ────────────────────────────────────────────────────────
 -- id is derived from person + date on the client, so the same check-in
 -- recorded on two devices collapses to one row instead of colliding.

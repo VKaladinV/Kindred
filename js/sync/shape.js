@@ -44,10 +44,16 @@ function flatten(people, marks, groups = []) {
       occupation: p.occupation, is_future: !!p.isFuture,
     };
     for (const r of p.events) {
+      /* due_on goes last for the same reason prayed_on/released_on did above:
+         same() compares these stringified, and adding a field anywhere but
+         the end changes the transcript of every record already agreed with
+         the server, which re-pushes the whole circle once and settles on the
+         next run — expected, and already documented at the top of this file. */
       rows.records[r.id] = {
         id: r.id, person_id: p.id, type: r.type, starts_on: r.date,
         ends_on: d(r.endDate), kind: r.kind, title: r.title, note: r.note,
         repeats_yearly: !!r.repeatsYearly, shared: !!r.shared,
+        due_on: d(r.dueDate),
       };
     }
     for (const pr of p.prayers) {
@@ -115,7 +121,7 @@ function nest(rows) {
     p.events.push({
       id: r.id, type: r.type, date: r.starts_on, endDate: r.ends_on || '',
       kind: r.kind, title: r.title, note: r.note || '', repeatsYearly: !!r.repeats_yearly,
-      shared: !!r.shared,
+      shared: !!r.shared, dueDate: r.due_on || '',
     });
   }
   for (const r of Object.values(rows.prayers)) {

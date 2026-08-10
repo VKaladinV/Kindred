@@ -3,12 +3,14 @@
    · normalisePrayer · toast · renderAll
 */
 
-function blockHead(title, addLabel, onAdd) {
+function blockHead(title, onAdd, ariaLabel) {
   const head = el('div', 'block-head');
   head.append(el('h3', null, title));
-  if (addLabel) {
-    const btn = el('button', 'link-btn', addLabel);
+  if (onAdd) {
+    const btn = el('button', 'icon-btn icon-btn-sm');
     btn.type = 'button';
+    btn.setAttribute('aria-label', ariaLabel || 'Add');
+    btn.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';
     btn.onclick = onAdd;
     head.append(btn);
   }

@@ -1,4 +1,4 @@
-/* uses: CADENCES GROUPS KINDS TYPES · $ $$ el today · Store
+/* uses: CADENCES GROUPS TYPES · $ $$ el today · Store
    · byId flushSave me notifyMutate openGroup openId queueSave removeFromRoster saveRoster
    · deleteGroup groupDialog saveGroup · leaveGroup
    · dropPhoto · dueFromGestation · clamp · toast
@@ -10,6 +10,7 @@
    · countryCode editingPersonId fillFromContact holdPhoto paintPhotoPreview personDialog showPending
    · adjustPhoto pickPhoto wireCropper · savePerson
    · editingEvent paintBabyFields paintGestationFrom saveEvent setEventType
+   · savePrayer
    · saveAnswered saveReleased saveRemoved
    · exportAll importAll
    · enableNotifications nudgeIfDue paintNotifState
@@ -37,8 +38,6 @@ function fillSelects() {
 
   const c = $('#f-cadence');
   CADENCES.forEach(([days, label]) => c.append(new Option(label, String(days))));
-  const k = $('#e-kind');
-  Object.entries(KINDS).forEach(([key, v]) => k.append(new Option(`${v.glyph}  ${v.label}`, key)));
 
   const pick = $('#type-pick');
   Object.entries(TYPES).forEach(([key, v]) => {
@@ -149,15 +148,20 @@ function wire() {
   $('#form-event').onsubmit = saveEvent;
   $('#btn-event-cancel').onclick = () => $('#dlg-event').close();
 
-  /* The kind can change without the type changing, and only one kind asks a
-     second question, so the fields follow the select as well as the tabs. */
-  $('#e-kind').onchange = paintBabyFields;
-  $('#e-date').onchange = () => { if (!$('#wrap-gestation').hidden) paintGestationFrom($('#e-date').value); };
+  $('#form-prayer').onsubmit = savePrayer;
+  $('#btn-prayer-cancel').onclick = () => $('#dlg-prayer').close();
 
+  /* Whether it's a pregnancy can change without the type changing, so the
+     gestation fields follow the checkbox as well as the tabs. */
+  $('#e-baby').onchange = paintBabyFields;
+  $('#e-due').onchange = () => { if (!$('#wrap-gestation').hidden) paintGestationFrom($('#e-due').value); };
+
+  /* Writes the due date, not "when it began" — #e-date keeps its own meaning
+     for a season regardless of whether it's a pregnancy. */
   const fromGestation = () => {
     const w = clamp(Number($('#e-weeks').value) || 0, 0, 42);
     const d = clamp(Number($('#e-days').value) || 0, 0, 6);
-    $('#e-date').value = dueFromGestation(w, d);
+    $('#e-due').value = dueFromGestation(w, d);
     $('#gestation-now').textContent = `${w}w ${d}d today`;
   };
   $('#e-weeks').oninput = fromGestation;

@@ -14,6 +14,7 @@
 const publishedFields = r => ({
   id: r.id, type: r.type, date: r.date, endDate: r.endDate || '',
   kind: r.kind, title: r.title, note: r.note || '', repeatsYearly: !!r.repeatsYearly,
+  dueDate: r.dueDate || '',
 });
 
 /* What leaves the device when you publish. Everything else about a person —

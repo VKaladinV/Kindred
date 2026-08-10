@@ -20,7 +20,13 @@
 }
 @keyframes slide-in { from { transform: translateX(4%); opacity: 0; } }
 @media (max-width: 640px) {
-  .sheet { width: 100vw; top: 2.2rem; border-radius: 18px 18px 0 0; border-left: 0; border-top: 1px solid var(--rule); }
+  .sheet { width: 100vw; top: calc(2.2rem + env(safe-area-inset-top, 0px)); border-radius: 18px 18px 0 0; border-left: 0; border-top: 1px solid var(--rule); }
+  /* Every other fixed, edge-touching surface in the app threads the inset
+     through (.topbar in circle.css, the bottom nav in nav.css) — this was the
+     one that didn't, so a phone with a status bar or camera cutout taller than
+     the bare 2.2rem+1rem this used to be could bury the close button under
+     system UI: still on screen, but not reachable by a tap that never lands. */
+  .sheet-close { top: calc(1rem + env(safe-area-inset-top, 0px)); right: calc(1rem + env(safe-area-inset-right, 0px)); }
   @keyframes slide-in { from { transform: translateY(6%); opacity: 0; } }
 }
 .sheet-close {
@@ -105,7 +111,7 @@
   transition: transform .45s var(--ease);
 }
 
-.person-head { display: flex; gap: 1.3rem; align-items: flex-start; margin-bottom: 1.6rem; }
+.person-head { display: flex; gap: 1.3rem; align-items: flex-start; margin-bottom: 1.3rem; }
 /* .person-head is .sheet-scroll's first child and would otherwise inherit
    the generic rise entrance below — a translateY on the head that carries
    .person-photo along with it. Harmless on an ordinary open; wrong the
@@ -133,15 +139,19 @@
 .person-photo img { width: 100%; height: 100%; object-fit: cover; }
 .person-photo span { font-family: var(--display); font-size: 2.2rem; color: var(--ink-faint); }
 .person-id { padding-top: .3rem; min-width: 0; animation: rise .5s var(--ease) both; animation-delay: .04s; }
+.name-row { display: flex; align-items: center; justify-content: space-between; gap: .8rem; }
 .person-id h2 {
   font-family: var(--display);
   font-size: clamp(1.8rem, 6vw, 2.5rem); font-weight: 500;
   font-variation-settings: "SOFT" 30, "WONK" 1, "opsz" 72;
   letter-spacing: -.02em; line-height: 1.02;
-  margin: 0 0 .3rem; overflow-wrap: break-word;
+  margin: 0; overflow-wrap: break-word;
 }
-.person-rel { margin: 0; font-size: .78rem; letter-spacing: .16em; text-transform: uppercase; color: var(--green); font-weight: 700; }
-.person-facts { margin: .7rem 0 0; display: flex; flex-wrap: wrap; gap: .4rem .9rem; }
+/* Below the facts rather than the name — a quiet closing line of context read
+   last, so it is styled as a plain sentence rather than the shouty tracked-out
+   label a fact or a heading gets. */
+.person-rel { margin: .55rem 0 0; font-size: .84rem; color: var(--ink-soft); font-weight: 500; letter-spacing: normal; text-transform: none; }
+.person-facts { margin: .5rem 0 0; display: flex; flex-wrap: wrap; gap: .4rem .9rem; }
 .fact { font-size: .78rem; color: var(--ink-soft); display: flex; align-items: center; gap: .35rem; }
 .fact b { font-weight: 600; color: var(--ink); }
 /* A number you can ring. Reads as the fact it already was, until you touch it. */
@@ -153,7 +163,7 @@
 .fact-link:hover { color: var(--green); border-color: var(--green); }
 .fact-link:focus-visible { outline: 2px solid var(--green); outline-offset: 3px; }
 
-.season-pills { display: flex; flex-wrap: wrap; gap: .35rem; margin: .7rem 0 0; }
+.season-pills { display: flex; flex-wrap: wrap; gap: .35rem; margin: .6rem 0 0; }
 .pill {
   display: inline-flex; align-items: center; gap: .35rem;
   font-size: .74rem; font-weight: 600;
@@ -167,7 +177,7 @@
 
 /* which groups they belong to — the same pill, in the app's own green
    rather than the gold that marks a season */
-.group-pills { display: flex; flex-wrap: wrap; gap: .35rem; margin: .7rem 0 0; }
+.group-pills { display: flex; flex-wrap: wrap; gap: .35rem; margin: .6rem 0 0; }
 .pill-group {
   background: none;
   border-color: color-mix(in oklab, var(--green) 34%, transparent);
@@ -206,7 +216,7 @@
 
 .sheet-block { margin-bottom: 2.4rem; }
 .block-head {
-  display: flex; align-items: baseline; justify-content: space-between; gap: 1rem;
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
   border-bottom: 1px solid var(--rule);
   padding-bottom: .5rem; margin-bottom: 1rem;
 }
@@ -217,9 +227,30 @@
   color: var(--green); letter-spacing: .04em; white-space: nowrap;
   border-bottom: 1px solid color-mix(in oklab, var(--green) 40%, transparent);
   transition: color .2s, border-color .2s;
+  -webkit-tap-highlight-color: transparent;
 }
 .link-btn:hover { color: var(--ink); border-color: var(--ink); }
 .link-btn:focus-visible { outline: 2px solid var(--green); outline-offset: 3px; }
+
+/* A circular action, the same visual language as .sheet-close and .group-back
+   (groups.css) but relatively positioned rather than pinned to a corner — it
+   sits inline wherever it's put, whether that's beside a name or inside a
+   section heading. */
+.icon-btn {
+  flex: 0 0 auto;
+  width: 2.2rem; height: 2.2rem; border-radius: 50%;
+  border: 1px solid var(--rule); background: var(--paper-raise);
+  color: var(--ink-soft); cursor: pointer;
+  display: grid; place-items: center;
+  transition: all .2s;
+  -webkit-tap-highlight-color: transparent;
+}
+.icon-btn svg { width: 1rem; height: 1rem; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.icon-btn:hover { color: var(--green); border-color: var(--green); }
+.icon-btn:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+/* Smaller, for a section heading's add-button rather than the name row's. */
+.icon-btn-sm { width: 1.9rem; height: 1.9rem; }
+.icon-btn-sm svg { width: .85rem; height: .85rem; }
 
 .summary-area {
   width: 100%;

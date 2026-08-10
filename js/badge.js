@@ -1,4 +1,4 @@
-/* uses: KINDS · daysSinceWords el hashCode plural sinceShort · Store
+/* uses: KINDS TYPES · daysSinceWords el hashCode plural sinceShort · Store
    · SMALL activeSeasons badgeScale lastTouchDate openPrayers statusOf
    · clamp · avatar · openSheet
 */
@@ -41,7 +41,7 @@ function badge(p, i, scale = badgeScale(p)) {
 
   const seasons = activeSeasons(p);
   if (seasons.length) {
-    const mark = el('div', 'badge-season', (KINDS[seasons[0].kind] || KINDS.other).glyph);
+    const mark = el('div', 'badge-season', seasons[0].dueDate ? KINDS.baby.glyph : TYPES.season.glyph);
     mark.title = seasons.map(x => x.title).join(' · ');
     frame.append(mark);
   }
