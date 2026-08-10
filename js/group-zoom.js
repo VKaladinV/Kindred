@@ -38,29 +38,57 @@ const ZOOM_SCALE = 2.6;
    ghostAway keeps behind its own fade. */
 const ZOOM_SWEEP = 900;
 
+/* How long settleZoom gives the landing fade before tearing the clones out
+   from under it regardless — longer than the slowest thing it ever waits on,
+   .zoom-field's own .45s opacity transition. */
+const ZOOM_SETTLE = 500;
+
 let zoomParts = [];      // the clones in flight, if any
 let zoomTimer = null;
 let groupLayer = null;
 
-/* Everything the last flight put on the screen, gone, and the live grid handed
-   back whatever it was holding for it. Safe to call when nothing is flying,
-   which is what lets it be both the landing and the way a second tap starts. */
+/* The badges have been standing still, held back, for the whole flight. Let
+   go of the hold and an animation restarting from its own 0% is exactly what
+   CSS does in that instant — so each is told once to stay where it is. The
+   next render builds them again and none of this survives it. Guarded, so
+   calling this when nothing was ever held back — the ordinary case, most of
+   the time nothing is flying — does not walk every badge for nothing. */
+function revealGrid() {
+  const grid = $('#grid-groups');
+  if (!grid) return;
+  if (!grid.classList.contains('is-arriving') && !grid.classList.contains('is-lifted')) return;
+  for (const b of grid.querySelectorAll('.badge')) b.style.animation = 'none';
+  grid.classList.remove('is-arriving', 'is-lifted');
+}
+
+/* Everything the last flight put on the screen, gone at once, and the live
+   grid handed back whatever it was holding for it. This is the hard reset —
+   used to clear a flight a second tap interrupted, where a lingering fade
+   would only be one more thing fighting the new one — not the ordinary way a
+   flight ends; see settleZoom for that. Safe to call when nothing is flying,
+   which is what lets it also be the way a second tap starts clean. */
 function clearZoom() {
   clearTimeout(zoomTimer);
   zoomTimer = null;
   for (const n of zoomParts) n.remove();
   zoomParts = [];
+  revealGrid();
+}
 
-  const grid = $('#grid-groups');
-  if (!grid) return;
-  if (!grid.classList.contains('is-arriving') && !grid.classList.contains('is-lifted')) return;
+/* The ordinary way a flight ends. Reveals what was underneath first, exactly
+   as clearZoom does, then lets what was flying fade away over it rather than
+   vanish out from under it — so a pixel of drift between the two, if there
+   is ever one, is a thing that fades rather than a thing that clicks. */
+function settleZoom() {
+  clearTimeout(zoomTimer);
+  zoomTimer = null;
+  revealGrid();
 
-  /* The badges have been standing still, held back, for the whole flight. Let
-     go of the hold and an animation restarting from its own 0% is exactly what
-     CSS does in that instant — so each is told once to stay where it is. The
-     next render builds them again and none of this survives it. */
-  for (const b of grid.querySelectorAll('.badge')) b.style.animation = 'none';
-  grid.classList.remove('is-arriving', 'is-lifted');
+  const parts = zoomParts;
+  zoomParts = [];
+  if (!parts.length) return;
+  for (const n of parts) n.style.opacity = '0';
+  setTimeout(() => { for (const n of parts) n.remove(); }, ZOOM_SETTLE);
 }
 
 /* Where each face is now, keyed by the person it belongs to. One shape for both
@@ -190,10 +218,10 @@ function runZoom(pairs, field, dir) {
     c.addEventListener('transitionend', function land(e) {
       if (e.target !== c || e.propertyName !== 'transform') return;
       c.removeEventListener('transitionend', land);
-      if (--left === 0) clearZoom();
+      if (--left === 0) settleZoom();
     });
   }
-  zoomTimer = setTimeout(clearZoom, ZOOM_SWEEP);
+  zoomTimer = setTimeout(settleZoom, ZOOM_SWEEP);
 }
 
 /* ── in ──────────────────────────────────────────────────────────── */

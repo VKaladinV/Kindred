@@ -97,7 +97,10 @@
   box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--ink) 10%, transparent), var(--shadow-lift);
   display: grid; place-items: center;
   pointer-events: none;
-  transition: transform .5s var(--ease);
+  /* transform carries the flight; opacity is untouched until settleZoom
+     (group-zoom.js) fades the clone away once it's landed, over whatever the
+     real face underneath — already revealed by then — turns out to be. */
+  transition: transform .5s var(--ease), opacity .2s var(--ease);
 }
 .zoom-face img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
@@ -109,6 +112,16 @@
   pointer-events: none;
   transition: transform .5s var(--ease), opacity .45s var(--ease);
 }
+/* Frozen, and meant to move only as the one transform applied to the field
+   itself — but liftField clones the grid's *children*, not the grid element
+   the animation-suppressing classes (.is-arriving/.is-lifted) actually sit
+   on, so a cloned badge arrives with none of that ancestry and plays its own
+   pop entrance the instant it's inserted, on top of the zoom. That compound,
+   per-badge, staggered wobble is what was reading as the whole field flying
+   sideways rather than opening straight toward you, and — on the way back —
+   as the tapped group's own badge still mid-pop when the flying faces
+   finished landing on it, a beat before it settled into place. */
+.zoom-field .badge { animation: none; }
 /* Held back until the flight lands, so nothing draws twice. The badge's own
    pop is off for the same reason the sheet's slide-in is when a photo is
    carried into it: a face cannot arrive and be carried at the same time. */
