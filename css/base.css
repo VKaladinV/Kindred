@@ -157,3 +157,17 @@ body.is-locked { overflow: hidden; }
     radial-gradient(56rem 38rem at 6% -14%, color-mix(in oklab, var(--sage) 20%, transparent), transparent 68%),
     radial-gradient(44rem 32rem at 102% 6%, color-mix(in oklab, var(--green) 13%, transparent), transparent 70%);
 }
+
+/* Pinned to the screen itself, not laid out with anything — the one rule
+   that puts it top-right on a phone and on a computer alike, with no
+   breakpoint needed to keep the two in step. Above .sidenav/.topbar (120),
+   which it should stay visible over; below .scrim (200), so a sheet or
+   dialog covers it exactly as it covers the rest of the app's chrome.
+   env() first, so a notch or a punch-hole camera is given its due before the
+   2mm is measured from whatever is left — the same reasoning .sheet-close
+   already leans on in css/sheet.css. */
+.theme-toggle {
+  position: fixed; z-index: 130;
+  top: calc(2mm + env(safe-area-inset-top, 0px));
+  right: calc(2mm + env(safe-area-inset-right, 0px));
+}
