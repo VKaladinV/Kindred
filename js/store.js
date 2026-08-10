@@ -2,7 +2,7 @@
 
 const Store = (() => {
   let db = null, mode = 'memory', blocked = false;
-  const mem = { people: null, photos: {}, snapshot: null, shared: {} };
+  const mem = { people: null, groups: null, photos: {}, snapshot: null, shared: {} };
   /* localStorage mode only: the parsed photo map, kept between saves. Saving
      one photo there means rewriting the string that holds all of them, and
      without this that would mean turning everybody else's bytes back into
@@ -80,6 +80,25 @@ const Store = (() => {
       if (mode === 'indexeddb') return idb('kv', s => s.put(people, 'people'), true);
       if (mode === 'localstorage') return localStorage.setItem('kindred:people', JSON.stringify(people));
       mem.people = people;
+    },
+
+    /* The groups, kept under their own key rather than folded into the roster
+       blob. A group is not a person and does not belong in an array every
+       renderer in the app walks expecting people — and on the server it is its
+       own table for the same reason records and prayers are. */
+    async loadGroups() {
+      if (mode === 'indexeddb') return (await idb('kv', s => s.get('groups'))) || [];
+      if (mode === 'localstorage') {
+        try { return JSON.parse(localStorage.getItem('kindred:groups') || '[]'); }
+        catch { return []; }
+      }
+      return mem.groups || [];
+    },
+
+    async saveGroups(list) {
+      if (mode === 'indexeddb') return idb('kv', s => s.put(list || [], 'groups'), true);
+      if (mode === 'localstorage') return localStorage.setItem('kindred:groups', JSON.stringify(list || []));
+      mem.groups = list || [];
     },
 
     /* Always records, always with Blobs in them, whichever shelf they came

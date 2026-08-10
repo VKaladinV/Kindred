@@ -26,8 +26,8 @@ const photoMark = s => {
   return s.length + ':' + (h >>> 0).toString(36);
 };
 
-function flatten(people, marks) {
-  const rows = { people: {}, records: {}, prayers: {}, touches: {} };
+function flatten(people, marks, groups = []) {
+  const rows = { people: {}, records: {}, prayers: {}, touches: {}, groups: {} };
   const photoLens = {};
   for (const p of people) {
     /* Key order follows the table's columns, and the two new ones go last for
@@ -75,6 +75,15 @@ function flatten(people, marks) {
        — it is written to disk, and renaming it would quietly tell every
        device on earth that it had never agreed anything about any photo. */
     if (marks[p.id]) photoLens[p.id] = marks[p.id];
+  }
+  /* Outside the loop, because a group is not a person's — it holds ids and
+     hangs from nobody. Key order follows the table's columns, the same rule
+     every literal above obeys and for the same reason: same() compares these
+     stringified, and a different order would re-push every group every sync. */
+  for (const g of groups) {
+    rows.groups[g.id] = {
+      id: g.id, name: g.name, members: g.members, created_on: d(g.createdAt),
+    };
   }
   return { rows, photoLens };
 }
@@ -125,6 +134,19 @@ function nest(rows) {
   for (const p of people) p.touches.sort((a, b) => a.date.localeCompare(b.date));
   return people;
 }
+
+/* The groups, back out of their rows. A function of its own rather than a
+   second return value from nest: nest's shape is read at four call sites, and
+   a group is not a person no matter how nearly the two loops rhyme. */
+const nestGroups = rows => Object.values(rows).map(r => ({
+  id: r.id,
+  name: r.name || 'Untitled',
+  /* Anything flatten writes has to be read back here — nest's result replaces
+     the whole in-memory list on every sync, so a column written and not read is
+     not merely lost between devices, it is wiped on this one seconds later. */
+  members: Array.isArray(r.members) ? r.members : [],
+  createdAt: r.created_on || '',
+}));
 
 /* Every row is stringified once and remembered against the object itself.
    The same row is compared five to eight times in a single sync — mergeTable

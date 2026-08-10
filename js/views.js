@@ -1,5 +1,5 @@
-/* uses: $ $$ · byId me openId · avatar
-   · paintCircleCount renderCircle renderFuture · renderPrayers
+/* uses: $ $$ · byId me openGroup openId · avatar
+   · paintCircleCount renderCircle renderFuture · renderGroups leaveGroup · renderPrayers
    · paintTodayCount renderToday
    · calPicked clearPickedDay renderCalendar · renderSheet
 */
@@ -25,13 +25,23 @@ function switchView(name) {
      looking at. */
   if (name !== 'calendar' && calPicked) { clearPickedDay(); renderCalendar(); }
 
+  /* Standing inside a group is the same kind of thing as an open day, and goes
+     the same way for the same reason: a layer left standing for it would make a
+     later back press zoom out of a group nobody is looking at. Silent, because
+     there is nothing to zoom out of once the view it happened in is hidden. */
+  if (name !== 'groups' && openGroup) leaveGroup({ animate: false });
+
   /* Anything that changed while this view was hidden is paid for here, now
      that it can be seen. The circle is repainted whether or not it was noted
      as stale: renderCircle measures the grid to work out how many faces fit
      across, and a hidden grid measures zero — which is what used to make the
      faces come back stacked with their discs missing. The one render that
      reads the DOM always runs while that DOM can be seen. */
-  if (name === 'circle') { stale.delete('circle'); renderCircle(); }
+  /* Groups is in here for the same reason: inside a group it paints through
+     paintFaces, which measures the grid to work out how many faces fit across,
+     and a hidden grid measures zero. Whichever of the two reads the DOM, it
+     reads it while that DOM can be seen. */
+  if (name === 'circle' || name === 'groups') { stale.delete(name); painters[name](); }
   else paintIfStale(name);
 
   window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -72,6 +82,7 @@ function renderMe() {
    whenever it is open, whatever is behind it. */
 const painters = {
   circle: renderCircle,
+  groups: renderGroups,
   future: renderFuture,
   prayers: renderPrayers,
   today: renderToday,

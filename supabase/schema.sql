@@ -133,11 +133,36 @@ create table if not exists public.touches (
 -- kind this database has never heard of rather than be refused.
 alter table public.touches add column if not exists kind text not null default '';
 
+-- ── groups: people you have put together and named ───────────────────
+-- Not people.circles. That column holds the four fixed filters a person is
+-- shelved under; this is a thing you made, with a name you chose.
+--
+-- Membership is an array on the group rather than a join table, the same shape
+-- circles takes above. It costs row-level merging of the membership — two
+-- devices adding a different person at the same time, and the later write
+-- wins — which is the right trade here: a join table would double the tables
+-- the sync walks to make a case that is rare and cheap to redo by hand.
+--
+-- No foreign key to people, deliberately. The sync lands tables in order and a
+-- member whose person has not arrived yet is an ordinary moment, not an error;
+-- the app resolves ids when it draws (membersOf) and only ever prunes one when
+-- you delete that person yourself.
+create table if not exists public.groups (
+  id         text primary key,
+  user_id    uuid not null references auth.users(id) on delete cascade,
+  name       text not null default 'Untitled',
+  members    text[] not null default '{}',
+  created_on date,
+  updated_at timestamptz not null default now(),
+  deleted_at timestamptz
+);
+
 -- ── indexes: the sync reads "everything changed since X" ─────────────
 create index if not exists people_user_updated  on public.people  (user_id, updated_at);
 create index if not exists records_user_updated on public.records (user_id, updated_at);
 create index if not exists prayers_user_updated on public.prayers (user_id, updated_at);
 create index if not exists touches_user_updated on public.touches (user_id, updated_at);
+create index if not exists groups_user_updated  on public.groups  (user_id, updated_at);
 create index if not exists records_person on public.records (person_id);
 create index if not exists prayers_person on public.prayers (person_id);
 create index if not exists touches_person on public.touches (person_id);
@@ -146,7 +171,7 @@ create index if not exists touches_person on public.touches (person_id);
 do $$
 declare t text;
 begin
-  foreach t in array array['people', 'records', 'prayers', 'touches'] loop
+  foreach t in array array['people', 'records', 'prayers', 'touches', 'groups'] loop
     execute format('drop trigger if exists %I on public.%I', t || '_touch', t);
     execute format(
       'create trigger %I before update on public.%I
@@ -157,7 +182,7 @@ end $$;
 -- ── grants (Supabase sets these by default; explicit is safer) ───────
 grant usage on schema public to authenticated;
 grant select, insert, update, delete
-  on public.people, public.records, public.prayers, public.touches
+  on public.people, public.records, public.prayers, public.touches, public.groups
   to authenticated;
 
 -- ══════════════════════════════════════════════════════════════════════
@@ -170,6 +195,7 @@ alter table public.people  enable row level security;
 alter table public.records enable row level security;
 alter table public.prayers enable row level security;
 alter table public.touches enable row level security;
+alter table public.groups  enable row level security;
 
 -- auth.uid() is wrapped in a scalar subselect rather than called directly.
 -- Left bare it is evaluated once per row the policy is asked about; wrapped,
@@ -180,7 +206,7 @@ alter table public.touches enable row level security;
 do $$
 declare t text;
 begin
-  foreach t in array array['people', 'records', 'prayers', 'touches'] loop
+  foreach t in array array['people', 'records', 'prayers', 'touches', 'groups'] loop
     execute format('drop policy if exists own_rows on public.%I', t);
     execute format(
       'create policy own_rows on public.%I

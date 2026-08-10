@@ -1,7 +1,7 @@
 /* uses: $ $$ · Store
-   · byId me mutateHooks people readyPromise resolveReady roster setRoster shared
+   · byId groups me mutateHooks people readyPromise resolveReady roster setRoster shared
    · dropPhoto hasPhoto landPhoto loadPhotoRecords photoBytes photoMarks photoThumbDataUrl repairPhotos
-   · normalise · toast
+   · normalise normaliseGroup · toast
    · applyBadgeSize badgeSizePref · openSheet
    · checkClaimedInvites offerPendingJoin takeLaunchFragment
    · nudgeIfDue paintNotifState · checkBio
@@ -66,6 +66,7 @@ async function boot() {
 
   await Store.init();
   setRoster(await Store.loadPeople());   // splits you back out of the roster
+  groups = (await Store.loadGroups()).map(normaliseGroup);
   /* Handles, not pictures. What comes back here is a Blob per face and a mark
      of its bytes; the base64 that used to be read into memory in full before
      anybody could see their circle is gone, and with it the tens of megabytes
@@ -142,6 +143,12 @@ window.Kindred = {
   set people(v) { setRoster(v); },
   get self() { return me; },
 
+  /* The groups, plainly — there is no self to split out of them and no second
+     list they are kept apart from, so unlike `people` above this getter is
+     what it looks like. */
+  get groups() { return groups; },
+  set groups(v) { groups = v; },
+
   /* ── faces ──────────────────────────────────────────────────────────
      There used to be a `photos` here, a map of id to base64, and the sync
      read it for two different things: to know whether a face had changed,
@@ -172,6 +179,7 @@ window.Kindred = {
   get linkedUids() { return people.filter(p => p.linkedUid).map(p => p.linkedUid); },
   Store,
   normalise,
+  normaliseGroup,
   toast,
   ready: readyPromise,
   render: () => renderRemote(),

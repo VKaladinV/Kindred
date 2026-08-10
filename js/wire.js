@@ -1,5 +1,6 @@
 /* uses: CADENCES GROUPS KINDS TYPES · $ $$ el today · Store
-   · byId flushSave me notifyMutate openId queueSave removeFromRoster saveRoster
+   · byId flushSave me notifyMutate openGroup openId queueSave removeFromRoster saveRoster
+   · deleteGroup groupDialog saveGroup · leaveGroup
    · dropPhoto · dueFromGestation · clamp · toast
    · SIZE_MIN applyBadgeSize badgeSizePref phone · hexCols hexMetrics
    · markCircleFlip · paintFilterDialog · renderCircle
@@ -62,6 +63,17 @@ function wire() {
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') flushSave();
   });
+
+  /* Three ways in and one way out, all of them the same dialog. Editing is
+     offered from inside a group rather than from a pip on its circle: the
+     circle has one job, which is to be tapped to go in. */
+  $('#btn-group-new').onclick = () => groupDialog();
+  $('#btn-group-first').onclick = () => groupDialog();
+  $('#btn-group-edit').onclick = () => groupDialog(openGroup);
+  $('#btn-group-back').onclick = () => leaveGroup();
+  $('#form-group').onsubmit = saveGroup;
+  $('#btn-group-cancel').onclick = () => $('#dlg-group').close();
+  $('#btn-group-delete').onclick = deleteGroup;
 
   $('#btn-add').onclick = () => personDialog(null, { future: activeView === 'future' });
   $('#btn-add-first').onclick = () => personDialog(null);

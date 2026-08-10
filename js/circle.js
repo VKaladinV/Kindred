@@ -15,6 +15,22 @@ function paintCircleCount() {
   $('#tagline').textContent = n ? 'the people I hold, and how they are' : 'a quiet place to begin';
 }
 
+/* Faces into a grid, at the sizes the whole set argues for. Split out because
+   there are two grids that want exactly this now — the circle, and a group you
+   have zoomed into — and the second is meant to be the first: the point of
+   opening a group is that what you land on is the ordinary dashboard, with the
+   real rings and the real sizes and the phone's own packing, asked a narrower
+   question. Two copies of these four lines would have drifted the first time
+   one of them was touched. */
+function paintFaces(grid, list) {
+  /* Worked out once here rather than twice inside the renderers, because how
+     big a face is drawn depends on the whole of what is on screen with it. */
+  const scales = scalesFor(list);
+  grid.classList.toggle('is-hex', phone.matches);
+  if (phone.matches) hexCols = layoutHex(grid, list, scales);
+  else list.forEach((p, i) => grid.append(badge(p, i, scales.get(p.id))));
+}
+
 function renderCircle() {
   const grid = $('#grid');
   /* Taken once and spent once, exactly like calFlipFrom. Every other caller —
@@ -36,13 +52,7 @@ function renderCircle() {
     .filter(p => !q || (p.name + ' ' + p.relationship + ' ' + p.summary + ' ' + p.groups.join(' ')).toLowerCase().includes(q))
     .sort(byNeed);
 
-  /* Worked out once here rather than twice inside the renderers, because how
-     big a face is drawn depends on the whole of what is on screen with it. */
-  const scales = scalesFor(list);
-
-  grid.classList.toggle('is-hex', phone.matches);
-  if (phone.matches) hexCols = layoutHex(grid, list, scales);
-  else list.forEach((p, i) => grid.append(badge(p, i, scales.get(p.id))));
+  paintFaces(grid, list);
 
   if (flip) {
     /* The leavers first: they are already detached, and getting them out of

@@ -1,15 +1,16 @@
 /* uses: MAX_TOUCHES · el today
-   · addToRoster futures me notifyMutate people roster saveRoster
+   · addToRoster futures groups me notifyMutate people roster saveRoster
    · hasPhoto photosForBackup putPhotoDataUrl
-   · normalise normaliseGroups · toast · renderAll
+   · normalise normaliseGroup normaliseGroups · toast · renderAll
 */
 
 async function exportAll() {
   const payload = {
     app: 'kindred',
-    version: 3,
+    version: 4,
     exportedAt: new Date().toISOString(),
     people: roster(),          // your own profile is part of what you are backing up
+    groups,
     /* Base64 again on the way out, and deliberately: a backup is a JSON file
        that has to survive being copied about and read back by any version of
        this app, so the format is unchanged from when photos were stored that
@@ -33,6 +34,12 @@ async function importAll(file) {
   if (!data || !Array.isArray(data.people)) return toast('That is not a Fellowship backup');
 
   let added = 0, merged = 0;
+  /* Which id each person in the file ended up under here. A merge keeps the id
+     the existing record already had, so a group's members — which are ids —
+     would otherwise point at people who, on this device, are called something
+     else. Built while the answer is in hand rather than worked out again after. */
+  const landedAs = new Map();
+
   for (const raw of data.people) {
     const incoming = normalise(raw);
     /* A backup carries your own profile too, and it has to land on yours
@@ -72,13 +79,31 @@ async function importAll(file) {
       if (data.photos?.[raw.id] && !hasPhoto(existing.id)) {
         await putPhotoDataUrl(existing.id, data.photos[raw.id]);
       }
+      landedAs.set(raw.id, existing.id);
       merged++;
     } else {
       addToRoster(incoming);
       if (data.photos?.[raw.id]) await putPhotoDataUrl(incoming.id, data.photos[raw.id]);
+      landedAs.set(raw.id, incoming.id);
       added++;
     }
   }
+
+  /* Groups by name, the way people are matched by name: two files describing
+     the same life should fold together rather than stack up two of everything.
+     Members are unioned — a restore adds back what was lost without taking away
+     anybody you have put in since. */
+  for (const raw of (Array.isArray(data.groups) ? data.groups : [])) {
+    const g = normaliseGroup(raw);
+    /* Ids as this device knows them. An id with no landing is somebody the file
+       did not carry a person for; it is kept rather than dropped, on the same
+       grounds normaliseGroup keeps unresolved members — absent is not gone. */
+    const members = g.members.map(id => landedAs.get(id) || id);
+    const existing = groups.find(x => x.name.toLowerCase() === g.name.toLowerCase());
+    if (existing) existing.members = [...new Set([...existing.members, ...members])];
+    else groups.push({ ...g, members: [...new Set(members)] });
+  }
+
   await saveRoster();
   notifyMutate();
   renderAll();

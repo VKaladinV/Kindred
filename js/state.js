@@ -9,7 +9,14 @@ let futures = [];
    Never written by anything in this file — sync.js is the only writer, and
    the only reader besides the sheet is the bridge below. */
 let shared = {};
+/* People you have deliberately put together and named. Not `people` and never
+   mixed into it: a group holds ids, not persons, so that removing somebody
+   from a group and removing them from your life stay two different acts. */
+let groups = [];
 let openId = null;
+/* The group you have zoomed into, if any — the id, so a sync landing a fresh
+   array of groups underneath cannot leave this pointing at a stale object. */
+let openGroup = null;
 const filterGroups = new Set();   // empty means everyone
 const filterFocus = new Set();    // empty means nothing narrowed beyond the groups
 let query = '';
@@ -146,7 +153,12 @@ async function claimAsSelf(personId) {
 }
 
 const roster = () => [...people, ...futures, ...(me ? [me] : [])];
-const saveRoster = () => Store.savePeople(roster());
+/* The groups go down with the roster rather than through a save path of their
+   own. Everything below — the debounce, the idle callback, the flush on the
+   way out of the app — exists to make sure a write owed is a write paid, and
+   there is nothing to be gained by having two of it. A group is a name and a
+   handful of ids; writing it alongside costs nothing measurable. */
+const saveRoster = () => Promise.all([Store.savePeople(roster()), Store.saveGroups(groups)]);
 
 /* ── which list somebody belongs in ─────────────────────────────
    Decided here rather than at each call site. Adding a person, removing one
@@ -163,6 +175,13 @@ function removeFromRoster(p) {
   if (p.isSelf) me = null;
   futures = futures.filter(x => x.id !== p.id);
   people = people.filter(x => x.id !== p.id);
+  /* And out of every group that was holding them. normaliseGroup deliberately
+     keeps member ids it cannot resolve — a person may simply not have reached
+     this device yet — so this is the one moment it is safe to say an id is not
+     pending but gone, and the only place that knows it. */
+  for (const g of groups) {
+    if (g.members.includes(p.id)) g.members = g.members.filter(id => id !== p.id);
+  }
 }
 
 /* Between the two lists rather than out of the roster: `p` keeps its id, and

@@ -1,7 +1,7 @@
 /* Fellowship service worker — makes the app work offline once loaded.
    Bump CACHE when you change any of the shell files. */
 
-const CACHE = 'kindred-v22';
+const CACHE = 'kindred-v23';
 
 /* The app is the list of files below, in no particular order here — the load
    order that matters is the one in index.html. A file missing from this list
@@ -15,6 +15,7 @@ const SHELL = [
   'css/nav.css',
   'css/masthead.css',
   'css/circle.css',
+  'css/groups.css',
   'css/lists.css',
   'css/calendar.css',
   'css/sheet.css',
@@ -34,6 +35,10 @@ const SHELL = [
   'js/circle-flip.js',
   'js/filters.js',
   'js/circle.js',
+  'js/group-pack.js',
+  'js/groups.js',
+  'js/group-zoom.js',
+  'js/group-dialog.js',
   'js/prayers.js',
   'js/today.js',
   'js/calendar.js',

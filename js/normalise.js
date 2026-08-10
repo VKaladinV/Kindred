@@ -37,6 +37,32 @@ function normaliseGroups(p) {
   return GROUPS.filter(g => keep.has(g));   // always in the order they are shown
 }
 
+/* ── a group, which is not one of the above ─────────────────────
+   The four names in GROUPS are filters: shelves of a life, fixed, and every
+   person is on as many as fit. A group is the other thing — people you have
+   deliberately put together, named yourself, and want to see as one face.
+   They share nothing but a word, which is why normaliseGroups above and this
+   are two functions rather than one with a flag.
+
+   The whitelist rule is the same as normalise()'s: a field not named here is
+   dropped on every load, every import and every sync landing.
+
+   What is pointedly not done here is pruning members whose person is not in
+   the roster. A sync lands people and groups in the same pass, and for the
+   moment in between a member id can be perfectly good and still find nobody —
+   pruning it would quietly empty the group and then push that emptiness to
+   every other device. Absent members are resolved at read time instead
+   (membersOf, in groups.js), and only ever removed when you delete somebody. */
+function normaliseGroup(g) {
+  const raw = Array.isArray(g?.members) ? g.members : [];
+  return {
+    id: g?.id || uid(),
+    name: (g?.name || '').trim() || 'Untitled',
+    members: [...new Set(raw.filter(x => typeof x === 'string' && x))],
+    createdAt: g?.createdAt || today(),
+  };
+}
+
 /* A check-in used to be a bare date. Reading both shapes here means the change
    lands on old data by itself — normalise() runs on every load, every import
    and every sync — and running twice changes nothing. Nothing reads the backup

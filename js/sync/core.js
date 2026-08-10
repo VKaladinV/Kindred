@@ -1,12 +1,15 @@
 /* uses: Session · selectSince upsert
-   · carryEdits flatten mergeTable nest planPush sameMap
+   · carryEdits flatten mergeTable nest nestGroups planPush sameMap
    · deletePhoto downloadPhoto listRemotePhotos uploadPhoto
    · publishMine pullShared
 */
 
 /* ─────────────────────────── the sync ─────────────────────────── */
 
-const TABLES = ['people', 'records', 'prayers', 'touches'];
+/* groups goes last, which costs nothing: it references no other table, so the
+   push order that exists to put people before the rows hanging off them has no
+   opinion about where it sits. */
+const TABLES = ['people', 'records', 'prayers', 'touches', 'groups'];
 
 /* One empty bucket per table. A snapshot that is missing a table is not an
    empty snapshot, it is a broken one — every consumer below assumes a map is
@@ -44,7 +47,8 @@ async function sync({ manual = false } = {}) {
        a face here" and "is it the one we agreed", and a map of short strings
        answers both. The bytes are fetched only where they are actually sent. */
     const marks = Kindred.photoMarks;
-    const { rows: local, photoLens } = flatten(people, marks);
+    const groups = Kindred.groups;
+    const { rows: local, photoLens } = flatten(people, marks, groups);
     /* Built from TABLES rather than written out again. The hand-written version
        of this had lost a table when a new one was added, and planPush reaches
        Object.keys(snap) unconditionally — so a device with no snapshot yet threw
@@ -143,7 +147,7 @@ async function sync({ manual = false } = {}) {
     /* Read live rather than reusing the freeze from the top of this function.
        Fifteen round-trips have gone by since then, several of them carrying
        photographs, and the roster has gone on being written in all that time. */
-    const now = flatten(Kindred.people, Kindred.photoMarks);
+    const now = flatten(Kindred.people, Kindred.photoMarks, Kindred.groups);
 
     const carried = {};
     for (const t of TABLES) carried[t] = carryEdits(merged[t], local[t], now.rows[t]);
@@ -153,7 +157,11 @@ async function sync({ manual = false } = {}) {
        either, leaving it on the server for good. Dropped here instead, while
        the snapshot below can still see that it went. */
     for (const t of TABLES) {
-      if (t === 'people') continue;
+      /* people is what the others hang from, and a group hangs from nobody —
+         it holds ids and has no person_id at all, so asked this question it
+         would answer "my person is not here" about every row and delete every
+         group on the first sync that ran. */
+      if (t === 'people' || t === 'groups') continue;
       for (const [id, row] of Object.entries(carried[t])) {
         if (!carried.people[row.person_id]) delete carried[t][id];
       }
@@ -173,6 +181,7 @@ async function sync({ manual = false } = {}) {
     }
 
     const nextPeople = nest(carried).map(Kindred.normalise);
+    const nextGroups = nestGroups(carried.groups).map(Kindred.normaliseGroup);
 
     /* The snapshot records what the server was told, which is `merged` — not
        what is about to go on screen. A sentence typed after we told it is
@@ -181,7 +190,8 @@ async function sync({ manual = false } = {}) {
        device at all. It is also the only thing that can tombstone a person
        deleted during the window: dropped from `carried` above, kept here, and
        so found by planPush's walk over the snapshot on the next sync. */
-    const settled = flatten(nest(merged).map(Kindred.normalise), nextPhotos);
+    const settled = flatten(nest(merged).map(Kindred.normalise), nextPhotos,
+      nestGroups(merged.groups).map(Kindred.normaliseGroup));
     /* A photo may only be called agreed if the server was given these exact
        bytes. Anything else — an upload that failed, a crop finished after its
        upload went out, a picture swapped while we were busy elsewhere — is
@@ -202,7 +212,7 @@ async function sync({ manual = false } = {}) {
        whatever was typed in the last second goes with them. Skipping it
        outright is what makes a sync something you cannot feel — nothing is
        rebuilt, nothing is repainted, and the words stay where they were put. */
-    const landing = flatten(nextPeople, nextPhotos);
+    const landing = flatten(nextPeople, nextPhotos, nextGroups);
     const changed = !TABLES.every(t => sameMap(landing.rows[t], now.rows[t]))
       || !sameMap(landing.photoLens, now.photoLens);
 
@@ -215,7 +225,9 @@ async function sync({ manual = false } = {}) {
          round, whatever it decided was silently overwritten a line later. */
       Kindred.photoMarks = nextPhotos;
       Kindred.people = nextPeople;
+      Kindred.groups = nextGroups;
       await Kindred.Store.savePeople(nextPeople);
+      await Kindred.Store.saveGroups(nextGroups);
     }
     // rewind the watermark slightly: if the other device wrote between our pull
     // and our push, that row would otherwise sit just under the mark and be

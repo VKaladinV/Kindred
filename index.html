@@ -25,6 +25,7 @@
 <link rel="stylesheet" href="css/nav.css">
 <link rel="stylesheet" href="css/masthead.css">
 <link rel="stylesheet" href="css/circle.css">
+<link rel="stylesheet" href="css/groups.css">
 <link rel="stylesheet" href="css/lists.css">
 <link rel="stylesheet" href="css/calendar.css">
 <link rel="stylesheet" href="css/sheet.css">
@@ -47,6 +48,12 @@
   <button class="nav-item is-active" data-view="circle" aria-current="page">
     <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="9" r="3.6"/><path d="M5.5 19.5a6.8 6.8 0 0 1 13 0"/></svg>
     <span>Circle</span>
+  </button>
+  <!-- Several faces held as one, which is what the icon says: a ring of small
+       circles rather than the single person the Circle icon draws. -->
+  <button class="nav-item" data-view="groups">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="7.6" r="2.6"/><circle cx="8.2" cy="14.2" r="2.6"/><circle cx="15.8" cy="14.2" r="2.6"/></svg>
+    <span>Groups</span>
   </button>
   <!-- Echoes the Circle icon, but dashed — not yet solid. -->
   <button class="nav-item" data-view="future">
@@ -182,6 +189,39 @@
   <!-- The fringe: people you'd like to get to know, not yet kept in touch
        with. Deliberately no toolbar, filter or search — just full-size faces,
        since the list is meant to stay small. -->
+  <!-- ─────────── GROUPS ─────────── -->
+  <!-- One grid, two things in it: the groups themselves, and — once you have
+       zoomed into one — the ordinary dashboard of the people in it. The bar
+       above swaps with it, which is why there are two of them. -->
+  <section class="view" id="view-groups" aria-label="Groups" hidden>
+
+    <div class="section-head" id="groups-out">
+      <h2 class="section-title">Groups</h2>
+      <p class="section-sub">People held together — tap a circle to go in</p>
+      <button type="button" class="btn btn-quiet" id="btn-group-new">New group</button>
+    </div>
+
+    <div class="section-head group-head" id="groups-in" hidden>
+      <button type="button" class="group-back" id="btn-group-back" aria-label="Back to groups">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 5.5 8 12l6.5 6.5"/></svg>
+      </button>
+      <div class="group-head-text">
+        <h2 class="section-title" id="group-title"></h2>
+        <p class="section-sub" id="group-sub"></p>
+      </div>
+      <button type="button" class="btn btn-quiet" id="btn-group-edit">Edit group</button>
+    </div>
+
+    <div class="circle-grid" id="grid-groups"></div>
+
+    <div class="blank" id="blank-groups" hidden>
+      <p class="blank-mark">◎</p>
+      <h2>No groups yet</h2>
+      <p>A group is a few people held together — a family, a small group, a team. It draws as one circle with their faces in it, and opens into just them.</p>
+      <button class="btn btn-primary" id="btn-group-first">Make a group</button>
+    </div>
+  </section>
+
   <section class="view" id="view-future" aria-label="Future connections" hidden>
     <div class="section-head">
       <h2 class="section-title">Future connections</h2>
@@ -216,6 +256,35 @@
   </button>
   <div class="sheet-scroll" id="sheet-scroll"></div>
 </section>
+
+<!-- ─────────── MAKE / EDIT A GROUP ─────────── -->
+<!-- The membership is picked as faces rather than as a list of names, because
+     the thing being made is a circle of faces and this is what it will look
+     like. Same paint-and-read pair as the group chips on a person: pressed
+     state on the button is the state, and nothing is held on the side. -->
+<dialog class="dlg" id="dlg-group">
+  <form id="form-group" method="dialog">
+    <h2 class="dlg-title" id="dlg-group-title">A new group</h2>
+
+    <label class="field">
+      <span>Name</span>
+      <input type="text" id="g-name" required maxlength="40" autocomplete="off" placeholder="Sunday small group">
+    </label>
+
+    <div class="field">
+      <span>Who is in it <em id="g-count"></em></span>
+      <div class="face-pick" id="g-members" role="group" aria-label="Who is in this group"></div>
+      <p class="hint" id="g-empty" hidden>Nobody in your circle yet — add someone first.</p>
+    </div>
+
+    <div class="dlg-actions">
+      <button type="button" class="btn btn-danger-quiet" id="btn-group-delete" hidden>Remove group</button>
+      <span class="spacer"></span>
+      <button type="button" class="btn btn-quiet" id="btn-group-cancel">Cancel</button>
+      <button type="submit" class="btn btn-primary" id="btn-group-save">Save</button>
+    </div>
+  </form>
+</dialog>
 
 <!-- ─────────── ADD / EDIT PERSON ─────────── -->
 <dialog class="dlg" id="dlg-person">
@@ -807,6 +876,12 @@
 <script src="js/circle-flip.js"></script>
 <script src="js/filters.js"></script>
 <script src="js/circle.js"></script>
+
+<!-- several faces held as one, and the zoom in and out of them -->
+<script src="js/group-pack.js"></script>
+<script src="js/groups.js"></script>
+<script src="js/group-zoom.js"></script>
+<script src="js/group-dialog.js"></script>
 
 <!-- the other three views -->
 <script src="js/prayers.js"></script>
