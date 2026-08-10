@@ -116,42 +116,6 @@ function setRoster(list) {
   people = rest.filter(p => !p.isFuture);
 }
 
-/* The way back, for a profile that was demoted into the circle before
-   mergeSelves existed and had that demotion synced — the flag is gone from
-   it by then, so nothing above can recognise it, and only you can say so.
-   Offered narrowly (see the sheet) rather than on everybody's page. */
-async function claimAsSelf(personId) {
-  const p = byId(personId);
-  if (!p || p.isSelf) return;
-  const had = me && me.id !== p.id ? me : null;
-  if (!confirm(
-    `Make ${p.name} your own profile?\n\n`
-    + 'The photo and everything written on this page becomes yours'
-    + (had ? ', and what your profile holds now is folded in with it' : '')
-    + '. They stop being someone in your circle.')) return;
-
-  people = people.filter(x => x.id !== p.id);
-  futures = futures.filter(x => x.id !== p.id);
-  p.isSelf = true;
-  p.isFuture = false;
-  /* This card is named as the winner rather than scored against the old
-     profile: it keeps its id, and with it the photo already stored under
-     that id, which is the whole reason for doing this. */
-  me = mergeSelves(had ? [p, { ...had, isSelf: true }] : [p]);
-  /* How you know them, which group they are in and how often to be nudged
-     are all questions about somebody else — savePerson forces them empty on
-     your own profile, and this has to agree. */
-  me.relationship = '';
-  me.groups = [];
-  me.cadenceDays = 0;
-
-  await saveRoster();
-  notifyMutate();
-  renderAll();
-  openSheet(me.id);
-  toast('That is your profile now');
-}
-
 const roster = () => [...people, ...futures, ...(me ? [me] : [])];
 /* The groups go down with the roster rather than through a save path of their
    own. Everything below — the debounce, the idle callback, the flush on the
@@ -205,9 +169,9 @@ function notifyMutate() {
    Saving means handing the whole roster to structured clone: every person,
    every event and prayer, and up to sixty check-ins each. That is the shape
    the data is stored in and it is not worth changing — the alternative, a
-   row per person, turns four places that delete somebody
-   by simply not returning them (mergeSelves and claimAsSelf, above) into four
-   places that leave the husk on disk to be read back on the next boot.
+   row per person, turns places that delete somebody by simply not returning
+   them (mergeSelves, above, is one) into places that leave the husk on disk
+   to be read back on the next boot.
 
    What is worth changing is when the clone happens. It used to land 350ms
    after a tap, which on a big circle is a stutter arriving just as the finger

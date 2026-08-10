@@ -138,10 +138,14 @@
    near-black, so the ring is the only thing saying where one stops. It does
    that work alone there, and has to be drawn strongly enough to. */
 @media (prefers-color-scheme: dark) {
-  .badge-since {
+  :root:not([data-theme="light"]) .badge-since {
     border-color: color-mix(in oklab, #fdfdfa 52%, transparent);
     box-shadow: 0 2px 8px -2px rgba(0,0,0,.75);
   }
+}
+:root[data-theme="dark"] .badge-since {
+  border-color: color-mix(in oklab, #fdfdfa 52%, transparent);
+  box-shadow: 0 2px 8px -2px rgba(0,0,0,.75);
 }
 
 .badge-name {

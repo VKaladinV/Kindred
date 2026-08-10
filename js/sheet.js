@@ -1,6 +1,6 @@
 /* uses: CADENCES KINDS TOUCH_KINDS TYPES
    · $ agoWords aheadWords daysBetween el monthYear parseYmd prettyDate shortMonth today
-   · byId claimAsSelf me openId queueSave selfWeight shared
+   · byId me openId shared
    · activeSeasons answeredPrayers gestationOn gestationWords historyOf isBaby lastTouchDate nextBirthday openPrayers releasedPrayers statusOf touchOn upcomingOf
    · avatar · prayerLine sharePill · closeSheet
    · blockHead fromThemBlock · howDialog undoConnected
@@ -91,39 +91,28 @@ function renderSheet() {
 
   /* Linking, on the page of the person it would be with. Only for somebody
      else, only once there is a sync layer to do it through, and only while
-     they are not already linked — after that it says so instead. */
+     they are not already linked — after that it says so instead. Condensed
+     to a single icon either way, the same circular language the pencil
+     speaks, rather than a line of text under an already-tall header. */
   if (!p.isSelf && linkApi()) {
     const row = el('div', 'link-row');
     if (p.linkedUid) {
       row.append(el('span', 'pill pill-linked', '⇄ linked'));
-      const cut = el('button', 'link-btn', 'unlink');
+      const cut = el('button', 'icon-btn icon-btn-sm');
       cut.type = 'button';
+      cut.setAttribute('aria-label', `Unlink from ${p.name}`);
+      cut.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 15l6-6"/><path d="M8 8l1.5-1.5a3.5 3.5 0 0 1 5 5L13 13"/><path d="M16 16l-1.5 1.5a3.5 3.5 0 0 1-5-5L11 11"/></svg>';
       cut.onclick = () => unlinkPerson(p.id);
       row.append(cut);
     } else {
-      const inv = el('button', 'link-btn', `invite ${p.name.split(' ')[0]} to share with you`);
+      const inv = el('button', 'icon-btn icon-btn-sm');
       inv.type = 'button';
+      inv.setAttribute('aria-label', `Invite ${p.name.split(' ')[0]} to share with you`);
+      inv.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9.5" cy="8.5" r="3"/><path d="M4 19a5.8 5.8 0 0 1 11 0"/><path d="M18 8v6M15 11h6"/></svg>';
       inv.onclick = () => inviteDialog(p.id);
       row.append(inv);
     }
     idBox.append(row);
-  }
-
-  /* A duplicate of you that an older version demoted into the circle, and
-     synced — the isSelf flag is off it now, so nothing can spot it on its
-     own. Offered only where it could plausibly be true: you have no profile
-     yet, or the one you have is bare, or this card carries your own name.
-     Never on somebody already tied to another account, since that is proof
-     they are not you. */
-  const couldBeMe = !me || selfWeight(me) <= 1
-    || me.name.trim().toLowerCase() === p.name.trim().toLowerCase();
-  if (!p.isSelf && !p.linkedUid && couldBeMe) {
-    const mineRow = el('div', 'link-row');
-    const claim = el('button', 'link-btn', 'this is actually me');
-    claim.type = 'button';
-    claim.onclick = () => claimAsSelf(p.id);
-    mineRow.append(claim);
-    idBox.append(mineRow);
   }
 
   head.append(idBox);
@@ -200,12 +189,10 @@ function renderSheet() {
 
   }   /* end of the not-yourself branch */
 
-  /* ── right now, coming up, history, summary and prayers ──
-     Built here, laid out below. Your own page reads as your story first and
-     who can see it second — history, how you are, what's on now, what's
-     ahead, then the prayer list. Everyone else's leads with who they are,
-     since that's usually why the page was opened, in the order it always
-     read in: who they are, history, right now, coming up, prayers. */
+  /* ── right now, coming up, history and prayers ──
+     Built here, laid out below, in the order it always read in: history,
+     right now, coming up, prayers. Self and everyone else share the same
+     order — there is no longer a summary to lead with on either page. */
   let snBlock, upBlock, evBlock;
 
   /* ── right now: seasons ──
@@ -244,39 +231,6 @@ function renderSheet() {
       : 'Not in any season you have noted — grief, treatment, a new baby, a hard stretch at work.'));
   }
   }
-
-  /* ── summary ── */
-  const sumBlock = el('div', 'sheet-block');
-  const sumHead = el('div', 'block-head');
-  sumHead.append(el('h3', null, p.isSelf ? 'How you are' : p.isFuture ? 'Information about them' : 'Who they are'));
-  const flash = el('span', 'saved-flash', 'saved');
-  flash.setAttribute('aria-hidden', 'true');
-  sumHead.append(flash);
-  sumBlock.append(sumHead);
-
-  const ta = el('textarea', 'summary-area');
-  ta.value = p.summary;
-  ta.placeholder = p.isSelf
-    ? 'Where you are at the moment — what you are carrying, what you are glad of, what you would tell someone who asked properly.'
-    : p.isFuture
-    ? 'What you know about them, and why you would like to get to know them better.'
-    : 'What matters about them right now — what they are carrying, what they love, what you keep forgetting to ask about.';
-  ta.setAttribute('aria-label', 'Summary');
-  let flashTimer;
-  ta.oninput = () => {
-    /* The page can now outlive the person it is about: a repaint waits for you
-       to stop writing, so somebody removed on another device stays on screen
-       until then. Without this the next keystroke throws, silently, and every
-       one after it is lost with no sign that anything went wrong. */
-    const live = byId(p.id);
-    if (!live) return closeSheet();
-    live.summary = ta.value;
-    queueSave();
-    flash.classList.add('show');
-    clearTimeout(flashTimer);
-    flashTimer = setTimeout(() => flash.classList.remove('show'), 1400);
-  };
-  sumBlock.append(ta);
 
   /* ── prayers ── */
   const prBlock = el('div', 'sheet-block');
@@ -384,42 +338,18 @@ function renderSheet() {
   }
   }
 
-  const order = p.isSelf
-    ? [evBlock, sumBlock, snBlock, upBlock, prBlock]
-    : [sumBlock, evBlock, snBlock, upBlock, prBlock];
+  const order = [evBlock, snBlock, upBlock, prBlock];
   root.append(...order.filter(Boolean));
   restore();
 }
 
 /* The sheet is rebuilt from nothing on every render, and a rebuild takes the
-   reader's place with it — where they had scrolled to, which box they were in,
-   where the cursor sat inside it. Most of the app can afford that because most
-   of the app is read rather than written; this page is the one you write on.
-
-   The summary is the one live box left here — it saves as you type, so its
-   words are already in the roster and come back on their own, and only the
-   caret needs putting back.
-
-   Found by selector rather than by node, because the node this measured does
-   not survive to be compared against. */
+   reader's place with it — where they had scrolled to. Nothing left in it
+   writes as you type any more, so scroll position is the whole of what's
+   worth putting back. */
 function keepPlace(root) {
   const top = root.scrollTop;
-
-  const a = document.activeElement;
-  const sel = a && root.contains(a) && a.matches('.summary-area') ? '.summary-area' : null;
-  const from = sel ? a.selectionStart : 0;
-  const to = sel ? a.selectionEnd : 0;
-
-  return () => {
-    root.scrollTop = top;
-    if (!sel) return;
-    const next = $(sel, root);
-    if (!next) return;
-    next.focus({ preventScroll: true });
-    /* Clamped by the browser when a summary that moved on elsewhere has come
-       back shorter than the caret we remembered, which is the right answer. */
-    next.setSelectionRange(from, to);
-  };
+  return () => { root.scrollTop = top; };
 }
 
 /* ─────────────────────────── mutations ─────────────────────── */

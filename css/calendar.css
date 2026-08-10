@@ -78,7 +78,8 @@ body.on-calendar .topbar { display: none; }
 .cal-day.is-empty { background: none; border-color: var(--rule-soft); color: var(--ink-faint); }
 .cal-day.is-today { border-color: var(--green); box-shadow: inset 0 0 0 1px var(--green); }
 .cal-day.is-picked { background: var(--green); border-color: var(--green); color: #fff; }
-@media (prefers-color-scheme: dark) { .cal-day.is-picked { color: #10180f; } }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .cal-day.is-picked { color: #10180f; } }
+:root[data-theme="dark"] .cal-day.is-picked { color: #10180f; }
 
 .cal-n { font-size: .82rem; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1; }
 .cal-dots { display: flex; gap: .16rem; min-height: .34rem; }

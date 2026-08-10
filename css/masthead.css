@@ -79,7 +79,8 @@ main { padding-bottom: 1rem; }
 }
 .chip:hover { border-color: var(--green); color: var(--green); }
 .chip.is-on { background: var(--green); border-color: var(--green); color: #fff; }
-@media (prefers-color-scheme: dark) { .chip.is-on { color: #10180f; } }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .chip.is-on { color: #10180f; } }
+:root[data-theme="dark"] .chip.is-on { color: #10180f; }
 .chip .n { opacity: .6; margin-left: .3rem; font-variant-numeric: tabular-nums; }
 .chip:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
 

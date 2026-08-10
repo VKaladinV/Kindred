@@ -55,7 +55,10 @@ function eventDialog(personId, eventId, presetType) {
   const rec = eventId ? byId(personId)?.events.find(x => x.id === eventId) : null;
   editingEvent = { personId, eventId, type: rec?.type || presetType || 'history' };
 
-  $('#dlg-event-title').textContent = rec ? 'Edit this' : TYPES[editingEvent.type].dlgTitle;
+  /* One title for every tab rather than three — the dialog is a single tool
+     with a type-switch inside it, not three dialogs sharing a shell, and the
+     title should say so. */
+  $('#dlg-event-title').textContent = rec ? 'Edit this' : 'Remember important information';
   $('#e-date').value = rec?.date || today();
   $('#e-end').value = rec?.endDate || '';
   $('#e-baby').checked = !!rec?.dueDate;

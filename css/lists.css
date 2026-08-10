@@ -87,7 +87,8 @@ button.thumb:focus-visible { outline: 2px solid var(--green); outline-offset: 2p
 .prayer-line.is-prayed .tick {
   border-color: var(--green); background: var(--green); color: #fff;
 }
-@media (prefers-color-scheme: dark) { .prayer-line.is-prayed .tick { color: #10180f; } }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .prayer-line.is-prayed .tick { color: #10180f; } }
+:root[data-theme="dark"] .prayer-line.is-prayed .tick { color: #10180f; }
 .prayed-note {
   margin: .18rem 0 0;
   font-size: .7rem; letter-spacing: .05em; color: var(--ink-faint);

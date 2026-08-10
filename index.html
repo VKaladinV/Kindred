@@ -5,8 +5,23 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Fellowship — people I hold close</title>
 <meta name="description" content="A quiet place to remember the people you care about: check-ins, life events, and a prayer list.">
-<meta name="theme-color" content="#fcfdfb" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#141712" media="(prefers-color-scheme: dark)">
+<!-- One tag, not two — an explicit light/dark choice is a DOM attribute, and
+     a `media` condition on a meta tag can never see one, only the OS
+     preference. js/theme.js keeps this one's `content` in step by hand;
+     '#fcfdfb' here is only the guess made before it has had the chance to. -->
+<meta name="theme-color" content="#fcfdfb">
+<!-- Read before anything else, so an explicit choice is on <html> before the
+     stylesheets below are given anything to paint against it — the same
+     no-flash reasoning boot.js's own wireLock()/showLock() already lean on,
+     just earlier still, because this one governs the very first pixel. -->
+<script>
+(() => {
+  try {
+    var t = localStorage.getItem('kindred:theme');
+    if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
+  } catch (e) {}
+})();
+</script>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Fellowship">
 <link rel="manifest" href="manifest.webmanifest">
@@ -103,6 +118,10 @@
   <!-- You. Deliberately not a face in the circle: the circle is the people you
        are holding, and you are not one of them. Filled by app.js. -->
   <div class="me-wrap">
+    <!-- Above the profile circle rather than beside it, so it reads as top-right
+         of the header on a phone (where the bottom bar is the nav, not this)
+         as well as on a computer. Painted by js/theme.js — empty until then. -->
+    <button type="button" class="icon-btn icon-btn-sm theme-toggle" id="btn-theme" aria-label="Change theme"></button>
     <button type="button" class="me-btn" id="btn-me" aria-label="Your profile"></button>
     <span class="me-label">My Profile</span>
   </div>
@@ -385,7 +404,7 @@
 <!-- ─────────── A RECORD: history · coming up · season ─────────── -->
 <dialog class="dlg" id="dlg-event">
   <form id="form-event" method="dialog">
-    <h2 class="dlg-title" id="dlg-event-title">Something to remember</h2>
+    <h2 class="dlg-title" id="dlg-event-title">Remember important information</h2>
 
     <div class="type-pick" id="type-pick" role="radiogroup" aria-label="What kind of record"></div>
     <p class="hint type-hint" id="type-hint"></p>
@@ -927,6 +946,7 @@
 <script src="js/lock.js"></script>
 
 <!-- what repaints, what listens, and the order it starts in -->
+<script src="js/theme.js"></script>
 <script src="js/views.js"></script>
 <script src="js/wire.js"></script>
 <script src="js/boot.js"></script>

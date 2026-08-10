@@ -54,8 +54,14 @@
   --grain-blend: multiply;
 }
 
+/* Dark, either because the OS says so and nothing here has said otherwise, or
+   because the toggle (js/theme.js) said so outright — the two rules below are
+   that same palette twice, once behind each condition, since a plain CSS file
+   has no mixin to hold it once and mean both. :not([data-theme="light"]) is
+   what lets an explicit light choice cancel the OS reading; :root[data-theme
+   ="dark"] is what lets an explicit dark choice hold regardless of it. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --paper:       #141712;
     --paper-sunk:  #0e110c;
     --paper-raise: #20251d;
@@ -79,6 +85,30 @@
     --grain-opacity: .2;
     --grain-blend: screen;
   }
+}
+:root[data-theme="dark"] {
+  --paper:       #141712;
+  --paper-sunk:  #0e110c;
+  --paper-raise: #20251d;
+  --ink:         #eaeee8;
+  --ink-soft:    #a1ae98;
+  --ink-faint:   #809173;
+  --rule:        #373f31;
+  --rule-soft:   #282e24;
+
+  --green:       #67a838;
+  --green-lift:  #252e1f;
+  --sage:        #82c167;
+  --gold:        #d1af47;
+  --alert:       #dc7d5b;
+  --ash:         #5f6b57;
+  --sage-ink:    #56aa41;
+  --gold-ink:    #b4922d;
+
+  --shadow-lift: 0 1px 0 rgba(220,255,230,.03), 0 2px 6px rgba(0,0,0,.32), 0 16px 40px -22px rgba(0,0,0,.55);
+  --shadow-deep: 0 34px 80px -26px rgba(0,0,0,.75), 0 4px 16px rgba(0,0,0,.45);
+  --grain-opacity: .2;
+  --grain-blend: screen;
 }
 
 *, *::before, *::after { box-sizing: border-box; }

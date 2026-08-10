@@ -19,7 +19,8 @@
 .btn:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
 .btn-primary { background: var(--green); border-color: var(--green); color: #fff; }
 .btn-primary:hover { background: var(--ink); border-color: var(--ink); color: var(--paper); }
-@media (prefers-color-scheme: dark) { .btn-primary { color: #10180f; } }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .btn-primary { color: #10180f; } }
+:root[data-theme="dark"] .btn-primary { color: #10180f; }
 .btn-quiet { background: none; }
 .btn-danger-quiet { background: none; border-color: transparent; color: var(--alert); }
 .btn-danger-quiet:hover { border-color: var(--alert); }
@@ -136,7 +137,8 @@
 .type-opt .glyph { font-size: .95rem; }
 .type-opt:hover { color: var(--ink); }
 .type-opt.is-on { background: var(--green); color: #fff; box-shadow: var(--shadow-lift); }
-@media (prefers-color-scheme: dark) { .type-opt.is-on { color: #10180f; } }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .type-opt.is-on { color: #10180f; } }
+:root[data-theme="dark"] .type-opt.is-on { color: #10180f; }
 .type-opt:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
 .type-hint { margin: 0 0 1.3rem; min-height: 2.1em; }
 

@@ -11,6 +11,7 @@
    · adjustPhoto pickPhoto wireCropper · savePerson
    · editingEvent paintBabyFields paintGestationFrom saveEvent setEventType
    · savePrayer
+   · toggleTheme
    · saveAnswered saveReleased saveRemoved
    · exportAll importAll
    · enableNotifications nudgeIfDue paintNotifState
@@ -86,6 +87,7 @@ function wire() {
     e.target.value = '';   // so choosing the same file twice still fires
   };
   $('#btn-me').onclick = () => { if (me) openSheet(me.id); else personDialog(null, { self: true }); };
+  $('#btn-theme').onclick = toggleTheme;
 
   $('#btn-invite-close').onclick = () => $('#dlg-invite').close();
   $('#btn-invite-wa').onclick = sendInviteOnWhatsApp;

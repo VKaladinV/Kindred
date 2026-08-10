@@ -75,24 +75,21 @@ const MAX_TOUCHES = 60;
 
 const TYPES = {
   history: {
-    label: 'Happened', glyph: '✧',
-    dlgTitle: 'Add to their history',
+    label: 'Past', glyph: '✧',
     titleLabel: 'What happened',
     dateLabel: 'When it happened',
     hint: 'Something already behind them — a birth, a diagnosis, a move, a loss, a win.',
     placeholder: 'Started her first job',
   },
   upcoming: {
-    label: 'A date', glyph: '◷',
-    dlgTitle: 'A date ahead',
+    label: 'Future', glyph: '◷',
     titleLabel: 'What is happening',
     dateLabel: 'When it falls',
     hint: 'Something with a date on it. It will appear in Today as the day gets close.',
     placeholder: 'Surgery at Universitas',
   },
   season: {
-    label: 'Season', glyph: '◍',
-    dlgTitle: 'A season they are in',
+    label: 'Present', glyph: '◍',
     titleLabel: 'What they are walking through',
     dateLabel: 'When it began',
     hint: 'A stretch of life, not a single day — grief, treatment, a new baby, job hunting. It stays on their page until you mark it ended.',

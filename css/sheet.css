@@ -185,23 +185,27 @@
 }
 .pill-group .glyph { color: var(--green); }
 
+/* Leaner than it was: tighter padding and gap around the same three things —
+   status, beads, button — rather than a smaller "Connected today" itself.
+   That button is the most-tapped thing on the page, and a smaller touch
+   target would be the wrong place to find the extra room. */
 .touch-bar {
-  display: flex; align-items: center; gap: .9rem; flex-wrap: wrap;
-  padding: .9rem 1.05rem;
+  display: flex; align-items: center; gap: .65rem; flex-wrap: wrap;
+  padding: .6rem .85rem;
   border: 1px solid var(--rule); border-radius: 12px;
   background: var(--paper-raise);
-  margin-bottom: 2rem;
+  margin-bottom: 1.4rem;
 }
 .touch-status { flex: 1; min-width: 9rem; }
 .touch-status .big {
-  font-family: var(--display); font-size: 1.05rem; font-weight: 500;
+  font-family: var(--display); font-size: .96rem; font-weight: 500;
   font-variation-settings: "SOFT" 34, "WONK" 1, "opsz" 20;
   display: block;
 }
-.touch-status .sub { font-size: .72rem; color: var(--ink-faint); letter-spacing: .06em; }
+.touch-status .sub { font-size: .7rem; color: var(--ink-faint); letter-spacing: .06em; }
 /* Both kinds of bead are the same size, so a run of check-ins stays one level
    line whether or not each one remembers how it happened. */
-.beads { display: flex; align-items: center; gap: .28rem; margin-top: .45rem; min-height: .8rem; }
+.beads { display: flex; align-items: center; gap: .28rem; margin-top: .35rem; min-height: .8rem; }
 .bead {
   width: .8rem; height: .8rem; border-radius: 50%;
   display: grid; place-items: center;
@@ -251,25 +255,6 @@
 /* Smaller, for a section heading's add-button rather than the name row's. */
 .icon-btn-sm { width: 1.9rem; height: 1.9rem; }
 .icon-btn-sm svg { width: .85rem; height: .85rem; }
-
-.summary-area {
-  width: 100%;
-  border: 1px solid var(--rule-soft); border-radius: 10px;
-  background: color-mix(in oklab, var(--paper-raise) 70%, transparent);
-  padding: .9rem 1rem;
-  font-family: var(--display); font-size: 1rem; line-height: 1.62;
-  font-variation-settings: "SOFT" 40, "WONK" 0, "opsz" 16;
-  color: var(--ink);
-  resize: vertical; min-height: 7rem; outline: none;
-  transition: border-color .2s, background .2s;
-}
-.summary-area:focus { border-color: var(--green); background: var(--paper-raise); }
-.summary-area::placeholder { color: var(--ink-faint); font-style: italic; }
-.saved-flash {
-  font-size: .68rem; letter-spacing: .18em; text-transform: uppercase;
-  color: var(--sage-ink); opacity: 0; transition: opacity .3s;
-}
-.saved-flash.show { opacity: 1; }
 
 /* ── seasons: what they are walking through ─────────────────── */
 
@@ -405,15 +390,13 @@
 .touch-bar.is-mine { background: var(--green-lift); }
 
 /* ── linking ────────────────────────────────────────────────────
-   Sits under "edit details" on someone's page, so the offer to link is on
+   Sits below the pills, above the check-in bar, so the offer to link is on
    the page of the person it would be with rather than in a list somewhere. */
 .link-row { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; margin-top: .5rem; }
 .pill-linked {
   border-color: color-mix(in oklab, var(--green) 45%, transparent);
   background: var(--green-lift); color: var(--green);
 }
-.link-row .link-btn { color: var(--ink-faint); border-color: transparent; }
-.link-row .link-btn:hover { color: var(--green); border-color: currentColor; }
 
 /* Who the link is for, so the dialog reads as being about somebody rather
    than about a URL — the same avatar treatment personDialog's photo pick

@@ -6,6 +6,7 @@
    · checkClaimedInvites offerPendingJoin takeLaunchFragment
    · nudgeIfDue paintNotifState · checkBio
    · locked paintLockState showLock wireLock
+   · initTheme
    · isWriting renderEverything renderRemote switchView
    · fillSelects wire
 */
@@ -51,6 +52,12 @@ async function checkForUpdate() {
 /* ─────────────────────────── boot ─────────────────────────── */
 
 async function boot() {
+  /* Before anything else — the <html> attribute this reads was already set,
+     if it needed to be, by the inline script in <head>; this only has to
+     catch up the meta theme-color tag and the toggle's icon, and it needs no
+     await to do either. */
+  initTheme();
+
   /* First of all, before the lock and before any layer is pushed: an
      invitation in the address bar has to come out of it straight away. A
      reload must not try to claim it twice, and it should not sit in the
