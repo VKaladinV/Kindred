@@ -26,6 +26,19 @@ const photoMark = s => {
   return s.length + ':' + (h >>> 0).toString(36);
 };
 
+/* Somebody nobody has written a word about should have an empty column rather
+   than a pair of empty braces in it — so the shape is only spelled out once
+   there is something in it to spell. */
+const walkJson = w => (Object.keys(w.marks).length || w.topics.length) ? JSON.stringify(w) : '';
+
+/* A column that will not parse is one bad person, and throwing here would take
+   the whole sync down with it. Read as nothing instead: normalise() fills in
+   the empty shape, and the next edit made here writes a good value over it. */
+const readJson = (s, fallback) => {
+  if (!s) return fallback;
+  try { return JSON.parse(s); } catch { return fallback; }
+};
+
 function flatten(people, marks, groups = []) {
   const rows = { people: {}, records: {}, prayers: {}, touches: {}, groups: {} };
   const photoLens = {};
@@ -42,6 +55,20 @@ function flatten(people, marks, groups = []) {
       cadence_days: p.cadenceDays, created_on: d(p.createdAt),
       is_self: !!p.isSelf, linked_uid: p.linkedUid || null,
       occupation: p.occupation, is_future: !!p.isFuture,
+      /* The six about walking a road with them, last for the same reason
+         every field before them went last. The two JSON ones are stringified
+         here rather than handed over as objects: the column is text, and it
+         is text precisely so that what comes back is what went up, character
+         for character — see the note in supabase/schema.sql. normalise() is
+         what guarantees the key order is the same on both devices.
+
+         '' rather than '{}' for an empty discipleship, so somebody nobody has
+         written anything about carries an empty column rather than a pair of
+         braces. d() turns it into NULL, and nest() reads either. */
+      marital_status: p.maritalStatus, married_on: d(p.marriedOn),
+      divorced_on: d(p.divorcedOn), joined_church_on: d(p.joinedChurchOn),
+      kids: p.kids.length ? JSON.stringify(p.kids) : '',
+      discipleship: walkJson(p.discipleship),
     };
     for (const r of p.events) {
       /* due_on goes last for the same reason prayed_on/released_on did above:
@@ -112,6 +139,9 @@ function nest(rows) {
          one, seconds later. */
       isSelf: !!r.is_self, linkedUid: r.linked_uid || null,
       occupation: r.occupation || '', isFuture: !!r.is_future,
+      maritalStatus: r.marital_status || '', marriedOn: r.married_on || '',
+      divorcedOn: r.divorced_on || '', joinedChurchOn: r.joined_church_on || '',
+      kids: readJson(r.kids, []), discipleship: readJson(r.discipleship, null),
     };
     byId[r.id] = p;
     return p;

@@ -44,6 +44,7 @@
 <link rel="stylesheet" href="css/lists.css">
 <link rel="stylesheet" href="css/calendar.css">
 <link rel="stylesheet" href="css/sheet.css">
+<link rel="stylesheet" href="css/walk.css">
 <link rel="stylesheet" href="css/controls.css">
 <link rel="stylesheet" href="css/lock.css">
 </head>
@@ -486,6 +487,117 @@
     <div class="dlg-actions">
       <span class="spacer"></span>
       <button type="button" class="btn btn-quiet" id="btn-prayer-cancel">Cancel</button>
+      <button type="submit" class="btn btn-primary">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- ─────────── THEIR HOUSEHOLD ───────────
+     Read as a line under their photo once it says anything, and changed from
+     here. "When it ended" only appears against a status that has an ending —
+     asked of anyone else it is a question about something that never happened. -->
+<dialog class="dlg" id="dlg-household">
+  <form id="form-household" method="dialog">
+    <h2 class="dlg-title" id="dlg-household-title">Their household</h2>
+
+    <label class="field">
+      <span>Marital status</span>
+      <select id="h-marital"></select>
+    </label>
+
+    <div class="field-row">
+      <label class="field" id="wrap-h-married">
+        <span>Married since <em>optional</em></span>
+        <input type="date" id="h-married">
+      </label>
+      <label class="field" id="wrap-h-ended" hidden>
+        <span>When it ended <em>optional</em></span>
+        <input type="date" id="h-ended">
+      </label>
+    </div>
+
+    <label class="field">
+      <span>Joined our church <em>optional</em></span>
+      <input type="date" id="h-church">
+    </label>
+
+    <div class="dlg-actions">
+      <span class="spacer"></span>
+      <button type="button" class="btn btn-quiet" id="btn-household-cancel">Cancel</button>
+      <button type="submit" class="btn btn-primary">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- ─────────── A CHILD ───────────
+     A birthday and an age are two ways of saying the same thing, and only one
+     of them stays true by itself — so the form says out loud which one buys a
+     reminder, rather than leaving you to find out in a year's time. -->
+<dialog class="dlg" id="dlg-kid">
+  <form id="form-kid" method="dialog">
+    <h2 class="dlg-title" id="dlg-kid-title">A child</h2>
+
+    <label class="field">
+      <span>Name</span>
+      <input type="text" id="k-name" required maxlength="60" autocomplete="off" placeholder="Anja">
+    </label>
+
+    <div class="field-row">
+      <label class="field">
+        <span>Birthday <em>optional</em></span>
+        <input type="date" id="k-birthday">
+      </label>
+      <label class="field">
+        <span>Or their age</span>
+        <input type="text" id="k-age" inputmode="numeric" maxlength="2" autocomplete="off" placeholder="9">
+      </label>
+    </div>
+    <p class="hint field-aside">A birthday comes round in Today and the calendar, and the
+      age works itself out. An age on its own is only ever what you were told today.</p>
+
+    <label class="field">
+      <span>Where they go to school <em>optional</em></span>
+      <input type="text" id="k-school" maxlength="80" autocomplete="off" placeholder="Grey College">
+    </label>
+
+    <div class="dlg-actions">
+      <button type="button" class="btn btn-danger-quiet" id="btn-kid-delete" hidden>Remove</button>
+      <span class="spacer"></span>
+      <button type="button" class="btn btn-quiet" id="btn-kid-cancel">Cancel</button>
+      <button type="submit" class="btn btn-primary">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- ─────────── ONE STEP ON THE ROAD ───────────
+     One form, two jobs, the way #dlg-auth is one form for signing in and
+     making an account: an item off the fixed pathway has its wording already
+     and only wants a date and a note; a topic you named yourself wants the
+     wording too, and can be removed again. -->
+<dialog class="dlg" id="dlg-walk-item">
+  <form id="form-walk-item" method="dialog">
+    <h2 class="dlg-title" id="dlg-walk-title">Add a topic</h2>
+    <p class="dlg-lede" id="walk-lede" hidden></p>
+
+    <label class="field" id="wrap-walk-title" hidden>
+      <span>What is it</span>
+      <input type="text" id="w-title" maxlength="80" autocomplete="off" placeholder="Forgiving his father">
+    </label>
+
+    <label class="field">
+      <span>When <em>optional</em></span>
+      <input type="date" id="w-date">
+    </label>
+
+    <label class="field">
+      <span>Anything to remember <em>optional</em></span>
+      <textarea id="w-note" rows="3" maxlength="600" placeholder="Baptised at the river with his whole family there."></textarea>
+    </label>
+
+    <div class="dlg-actions">
+      <button type="button" class="btn btn-danger-quiet" id="btn-walk-delete" hidden>Remove</button>
+      <span class="spacer"></span>
+      <button type="button" class="btn btn-quiet" id="btn-walk-cancel">Cancel</button>
       <button type="submit" class="btn btn-primary">Save</button>
     </div>
   </form>
@@ -934,6 +1046,8 @@
 <!-- a person's page, and what covers the app while it is open -->
 <script src="js/layers.js"></script>
 <script src="js/sheet-blocks.js"></script>
+<script src="js/walk.js"></script>
+<script src="js/walk-sheet.js"></script>
 <script src="js/sheet.js"></script>
 <script src="js/check-in.js"></script>
 

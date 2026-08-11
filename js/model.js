@@ -1,4 +1,4 @@
-/* uses: KINDS · daysBetween parseYmd prettyDate today ymd · people
+/* uses: KINDS WALK · daysBetween parseYmd prettyDate today ymd · people
    · clamp
 */
 
@@ -186,6 +186,7 @@ function hasDateWithin(p, within = DATE_WINDOW) {
   const bd = nextBirthday(p);
   if (bd && bd.inDays <= within) return true;
   if (upcomingOf(p).some(({ r, o }) => o.inDays >= 0 && (o.inDays <= within || isBaby(r)))) return true;
+  if (kidsWithBirthdays(p).some(k => nextAnnual(k.birthday).inDays <= within)) return true;
   return activeSeasons(p).some(isPregnancy);
 }
 
@@ -226,6 +227,52 @@ function dateEntry(p, r, o) {
   };
 }
 
+/* ── the children on somebody's page ────────────────────────────
+   A child with a birthday is a date like any other and belongs in Today and on
+   the calendar. It appears under the parent's face rather than a face of its
+   own, because the parent is whose page the child lives on and whose page
+   tapping the row should open.
+
+   A child with only a typed age gets none of this, which is the whole reason
+   the two are separate fields: an age is what you were told once, and a
+   birthday is a day that comes round. */
+const kidsWithBirthdays = p => p.kids.filter(k => k.birthday && k.name);
+
+/* How old they are today, worked out from the date when there is one rather
+   than remembered — the same refusal gestationOn makes above, for the same
+   reason. Falls back to the age you typed, which is all there is to say. */
+function kidAge(k) {
+  if (!k.birthday) return k.age;
+  const b = parseYmd(k.birthday), now = new Date();
+  const had = now.getMonth() > b.getMonth()
+    || (now.getMonth() === b.getMonth() && now.getDate() >= b.getDate());
+  const years = now.getFullYear() - b.getFullYear() - (had ? 0 : 1);
+  return years < 0 ? '' : String(years);
+}
+
+const kidEntry = (p, k, date, inDays, turning) => {
+  const label = `${k.name}’s birthday`;
+  const short = `${label} · turning ${turning}`;
+  return {
+    p, inDays, date, label, kind: 'joy', short,
+    sub: `${short} · ${prettyDate(date)}`, glyph: '✦',
+  };
+};
+
+/* How far along each of the three stretches is — the count beside each heading
+   and the line at the top of the page. Topics you named yourself are counted
+   with none of them: they are things you added, not places on the pathway. */
+function walkProgress(p) {
+  const marks = p.discipleship.marks;
+  return WALK.map(s => {
+    const keys = s.parts.flatMap(part => part.items.map(([k]) => `${s.key}.${k}`));
+    return {
+      key: s.key, title: s.title, lede: s.lede,
+      done: keys.filter(k => marks[k]?.done).length, total: keys.length,
+    };
+  });
+}
+
 const birthdayEntry = (p, bd) => ({
   p, inDays: bd.inDays, date: bd.date, label: 'Birthday', kind: 'joy',
   short: `turning ${bd.turning}`,
@@ -238,6 +285,11 @@ function datesAhead(withinDays = 45) {
   people.forEach(p => {
     const bd = nextBirthday(p);
     if (bd && bd.inDays <= withinDays) out.push(birthdayEntry(p, bd));
+
+    kidsWithBirthdays(p).forEach(k => {
+      const n = nextAnnual(k.birthday);
+      if (n.inDays <= withinDays) out.push(kidEntry(p, k, n.date, n.inDays, n.years));
+    });
 
     upcomingOf(p).forEach(({ r, o }) => {
       if (o.inDays < 0) return;
@@ -288,6 +340,13 @@ function datesIn(fromYmd, toYmd) {
         });
       });
     }
+    kidsWithBirthdays(p).forEach(k => {
+      annualDates(k.birthday).forEach(date => {
+        const turning = parseYmd(date).getFullYear() - parseYmd(k.birthday).getFullYear();
+        out.push(kidEntry(p, k, date, daysBetween(today(), date), turning));
+      });
+    });
+
     recordsOf(p, 'upcoming').forEach(r => {
       const dates = r.repeatsYearly ? annualDates(r.date) : (within(r.date) ? [r.date] : []);
       dates.forEach(date => out.push(dateEntry(p, r, { date, inDays: daysBetween(today(), date), years: 0 })));

@@ -73,6 +73,86 @@ const TOUCH_KINDS = {
 };
 const MAX_TOUCHES = 60;
 
+/* ── walking a road with someone ─────────────────────────────────
+   The people you are discipling are an ordinary group — the kind you make
+   yourself, holding ids and hanging off nobody (see js/groups.js). It is given
+   a fixed id rather than a fresh one so both devices agree there is only one
+   of it, and so renaming it can never bring a second into being. */
+const ROAD_ID = 'road-walking';
+const ROAD_NAME = 'People I am walking a road with';
+
+/* The pathway: abide in Christ, belong to his body, contribute to his kingdom.
+   Every key here is a persisted value rather than a label — the same warning
+   KINDS carries above, and for the same reason: renaming one orphans whatever
+   was ticked under it. A mark is stored as `${section}.${item}`. */
+const WALK = [
+  { key: 'abide', title: 'Abide', lede: 'Know & follow Christ', parts: [
+    { title: 'Know Christ', items: [
+      ['saved',     'Accepted Jesus Christ as Lord and Saviour'],
+      ['baptised',  'Baptised in water'],
+      ['spirit',    'Baptised/filled with the Holy Spirit'],
+    ] },
+    { title: 'Follow Christ', items: [
+      ['bible',     'Regular Bible reading'],
+      ['quiet',     'Quiet time with God'],
+      ['prayer',    'Regular prayer'],
+      ['tongues',   'Prays in tongues'],
+      ['obedience', 'Growing in obedience to Christ'],
+    ] },
+  ] },
+  { key: 'belong', title: 'Belong', lede: 'Be part of the body', parts: [
+    { title: '', items: [
+      ['values',      'Understands the importance of the local church'],
+      ['attends',     'Regularly attends church'],
+      ['community',   'Attends a community/small group'],
+      ['leadership',  'Has a clear relationship with church leadership'],
+      ['accountable', 'Has accountability with other believers'],
+    ] },
+  ] },
+  { key: 'contribute', title: 'Contribute', lede: 'Serve & build others', parts: [
+    { title: '', items: [
+      ['ministry',  'Involved in a ministry'],
+      ['prays',     'Regularly prays for others'],
+      ['prophetic', 'Encourages others through prophetic words'],
+      ['serves',    'Practically serves others'],
+      ['outreach',  'Participates in outreach'],
+      ['shares',    'Shares a testimony, Scripture or word during a gathering'],
+    ] },
+  ] },
+];
+
+/* Every mark key the app knows about, in the order they are shown — which is
+   the order normaliseDiscipleship rebuilds them in, so that two devices write
+   the same person down identically and the sync has nothing to argue about. */
+const WALK_KEYS = WALK.flatMap(s => s.parts.flatMap(part => part.items.map(([k]) => `${s.key}.${k}`)));
+
+const WALK_LABELS = Object.fromEntries(
+  WALK.flatMap(s => s.parts.flatMap(part => part.items.map(([k, label]) => [`${s.key}.${k}`, label]))));
+
+/* Stored, not shown — the labels are here and the values are what is written
+   down, so a wording change never orphans anybody's answer. '' is a real
+   state: most people in a circle were never asked. */
+const MARITAL = [
+  ['',          'not noted'],
+  ['single',    'Single'],
+  ['dating',    'Dating'],
+  ['engaged',   'Engaged'],
+  ['married',   'Married'],
+  ['separated', 'Separated'],
+  ['divorced',  'Divorced'],
+  ['widowed',   'Widowed'],
+];
+
+/* The ones that have an ending worth dating. Asked of anyone else, "when it
+   ended" is a question about something that did not happen. */
+const MARITAL_ENDED = ['separated', 'divorced', 'widowed'];
+
+/* And the ones a wedding date belongs to. '' counts, because not having said
+   yet is not the same as having said no — you may know when they married
+   without wanting to file them under a word. Single, dating and engaged do
+   not, which is what stops a record reading "Single · married Aug 2011". */
+const MARITAL_MARRIED = ['married', ...MARITAL_ENDED];
+
 const TYPES = {
   history: {
     label: 'Past', glyph: '✧',

@@ -1,4 +1,4 @@
-/* uses: GROUPS KINDS LEGACY_GROUPS MAX_TOUCHES TOUCH_KINDS TYPES
+/* uses: GROUPS KINDS LEGACY_GROUPS MARITAL MAX_TOUCHES TOUCH_KINDS TYPES WALK_KEYS
    · daysBetween today uid · shared
 */
 
@@ -103,6 +103,71 @@ function normalisePrayer(pr) {
   };
 }
 
+/* ── walking a road with someone ────────────────────────────────
+   Everything below hangs off a person the way prayers and records do, and is
+   normalised the same way: on every load, every import and every sync landing,
+   and running twice changes nothing.
+
+   Two ways of saying how old a child is, and only one of them stays true by
+   itself. A birthday wins and the typed age is dropped, because the age is
+   then worked out from the date rather than stored — the same refusal the app
+   already makes about how far along a pregnancy is (gestationOn, in model.js).
+   An age typed on its own is kept as written and buys no calendar entry, which
+   is the whole distinction between the two. */
+function normaliseKid(k) {
+  const birthday = k?.birthday || '';
+  return {
+    id: k?.id || uid(),
+    name: (k?.name || '').trim(),
+    birthday,
+    age: birthday ? '' : String(k?.age ?? '').replace(/\D/g, '').slice(0, 2),
+    school: (k?.school || '').trim(),
+  };
+}
+
+/* A topic you named yourself. The same three answers a fixed item carries,
+   plus the wording, since nothing else knows what this one is called. */
+function normaliseTopic(t) {
+  return {
+    id: t?.id || uid(),
+    title: (t?.title || '').trim() || 'Untitled',
+    done: !!t?.done,
+    date: t?.date || '',
+    note: t?.note || '',
+  };
+}
+
+const normaliseMark = m => ({ done: !!m?.done, date: m?.date || '', note: m?.note || '' });
+
+/* An untouched item is not stored. Nineteen empty answers per person would
+   ride every sync and say nothing, so a mark exists only once it has been
+   ticked, dated or written on.
+
+   Rebuilt in WALK_KEYS order every time, the way normaliseGroups returns its
+   groups "always in the order they are shown". That is not cosmetic here: the
+   sync compares rows stringified (same(), in js/sync/shape.js), so two devices
+   have to write the same person down character for character or each would
+   read the other's copy as changed and neither would ever accept it.
+
+   Keys this version has never heard of are kept rather than dropped, sorted,
+   after the ones it knows. A device on older code must not quietly wipe a tick
+   a newer one made — which is the one way this differs from normaliseGroups,
+   where an unknown group is a filter that no longer exists rather than an
+   answer somebody gave. */
+function normaliseDiscipleship(d) {
+  const raw = (d?.marks && typeof d.marks === 'object') ? d.marks : {};
+  const known = new Set(WALK_KEYS);
+  const marks = {};
+  const put = k => {
+    const m = normaliseMark(raw[k]);
+    if (m.done || m.date || m.note) marks[k] = m;
+  };
+  WALK_KEYS.forEach(put);
+  Object.keys(raw).filter(k => !known.has(k)).sort().forEach(put);
+
+  return { marks, topics: Array.isArray(d?.topics) ? d.topics.map(normaliseTopic) : [] };
+}
+
 function normalise(p) {
   return {
     id: p.id || uid(),
@@ -130,6 +195,18 @@ function normalise(p) {
     /* Which account this card belongs to, once you have linked with them.
        Null for everyone you have only written down. */
     linkedUid: p.linkedUid || null,
+
+    /* ── what you know about the road they are on ──
+       Asked of anyone, kept for everyone, but only ever shown on the page of
+       someone you are walking a road with — see isWalking, in js/walk.js.
+       Taking them out of that group hides all of this again and destroys none
+       of it, so putting them back finds it where they left it. */
+    maritalStatus: MARITAL.some(([v]) => v === p.maritalStatus) ? p.maritalStatus : '',
+    marriedOn: p.marriedOn || '',
+    divorcedOn: p.divorcedOn || '',
+    joinedChurchOn: p.joinedChurchOn || '',
+    kids: Array.isArray(p.kids) ? p.kids.map(normaliseKid) : [],
+    discipleship: normaliseDiscipleship(p.discipleship),
   };
 }
 

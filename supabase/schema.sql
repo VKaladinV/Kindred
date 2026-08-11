@@ -71,6 +71,31 @@ alter table public.people add column if not exists occupation text not null defa
 -- until they are moved into the circle. Rides the same sync as is_self.
 alter table public.people add column if not exists is_future boolean not null default false;
 
+-- ── walking a road with someone ──────────────────────────────────────
+-- Who is being discipled is not here: that is membership of an ordinary
+-- group (see below), so there is nothing on the person to fall out of step
+-- with it. What is here is what you have written down about the road.
+--
+-- kids and discipleship are text holding JSON, deliberately not jsonb.
+-- The client decides what changed by comparing rows stringified (same(), in
+-- js/sync/shape.js), and jsonb does not keep the key order it was given —
+-- Postgres sorts them, so every person would come back differing from the
+-- copy that was sent. That reads as "changed on this device" forever: this
+-- device would win every merge, push on every sync, and never once accept an
+-- edit made on the phone. Text stores the exact bytes, so the round trip is
+-- stable and the comparison means what it says.
+--
+-- Neither is a child table the way records and prayers are. Those are edited
+-- one row at a time from two devices at once; a checklist is one person's own
+-- notes about one person, and the array-on-the-row trade groups.members
+-- already makes (later write wins) is the right one at this size.
+alter table public.people add column if not exists marital_status   text not null default '';
+alter table public.people add column if not exists married_on       date;
+alter table public.people add column if not exists divorced_on      date;
+alter table public.people add column if not exists joined_church_on date;
+alter table public.people add column if not exists kids             text not null default '';
+alter table public.people add column if not exists discipleship     text not null default '';
+
 -- ── records: history · upcoming · season ─────────────────────────────
 create table if not exists public.records (
   id             text primary key,

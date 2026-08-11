@@ -6,8 +6,40 @@
    · blockHead fromThemBlock · howDialog undoConnected
    · inviteDialog linkApi unlinkPerson · endSeason moveToHistory
    · dialNumber personDialog telLink · promoteToCircle · eventDialog · prayerDialog
+   · isWalking toggleDisciple · householdSummary walkBlocks
    · quiet renderAll
 */
+
+/* Which half of the page is being read. Only ever anything but 'life' for
+   somebody in the road group, and put back to 'life' by openSheet — a person
+   you have just tapped should open on the page you expect, not on wherever you
+   happened to leave the last one. */
+let sheetTab = 'life';
+
+function showSheetTab(key) {
+  if (sheetTab === key) return;
+  sheetTab = key;
+  renderSheet();
+  /* renderSheet puts the reader back where they were scrolled to, which is the
+     right answer for a repaint and the wrong one for arriving at a different
+     page. Said after it, so it wins. */
+  $('#sheet-scroll').scrollTop = 0;
+}
+
+function tabStrip() {
+  const strip = el('div', 'sheet-tabs');
+  strip.setAttribute('role', 'tablist');
+  [['life', 'Their life'], ['walk', 'Discipleship']].forEach(([key, label]) => {
+    const on = sheetTab === key;
+    const b = el('button', 'sheet-tab' + (on ? ' is-on' : ''), label);
+    b.type = 'button';
+    b.setAttribute('role', 'tab');
+    b.setAttribute('aria-selected', String(on));
+    b.onclick = () => showSheetTab(key);
+    strip.append(b);
+  });
+  return strip;
+}
 
 function renderSheet() {
   const p = byId(openId);
@@ -74,6 +106,35 @@ function renderSheet() {
     idBox.append(tags);
   }
 
+  /* Walking a road with someone, offered on their page rather than from a
+     list somewhere — the same reasoning the link row below it follows. Not
+     for yourself, and not for somebody you have only flagged to meet: there
+     is no road with either of them yet, which isWalking says for itself. */
+  const walking = isWalking(p);
+  if (!p.isSelf && !p.isFuture) {
+    const row = el('div', 'walk-row');
+    const pill = el('button', 'share-pill walk-pill' + (walking ? ' is-on' : ''));
+    pill.type = 'button';
+    pill.append(el('span', 'glyph', walking ? '◈' : '◇'),
+      document.createTextNode(walking ? 'Walking a road together' : 'Disciple'));
+    pill.title = walking
+      ? `Stop walking a road with ${p.name.split(' ')[0]}`
+      : `Start walking a road with ${p.name.split(' ')[0]}`;
+    pill.onclick = () => toggleDisciple(p.id);
+    row.append(pill);
+    idBox.append(row);
+
+    /* Their household read as a line rather than filled in as a form — who
+       they are married to and since when, when they joined the church, their
+       children's names and ages. It sits with the birthday and the phone
+       number because it is the same kind of thing: what you would want to know
+       before knocking on the door. Above the tabs, so it is there on both. */
+    if (walking) {
+      const household = householdSummary(p);
+      if (household) idBox.append(household);
+    }
+  }
+
   const seasons = activeSeasons(p);
   if (seasons.length) {
     const pills = el('div', 'season-pills');
@@ -114,6 +175,13 @@ function renderSheet() {
   head.append(idBox);
   root.append(head);
 
+  /* ── two halves of one page ──
+     Only for somebody there is a second half for. Every other person's page
+     has no strip at all, which is the point: this appears the moment you start
+     walking a road with someone rather than sitting on every page waiting. */
+  if (walking) root.append(tabStrip());
+  const onWalk = walking && sheetTab === 'walk';
+
   /* ── from them ──
      Above your own material, because it is the newer thing and often the
      reason you opened the page. No edit affordance anywhere in it — read-only
@@ -121,7 +189,7 @@ function renderSheet() {
      exception: a shared prayer can be copied onto your own list, because
      praying for someone is the point and copying it makes it an ordinary row
      of yours from then on, which is the one bridge between the two worlds. */
-  if (p.linkedUid && shared[p.linkedUid]) fromThemBlock(root, p, shared[p.linkedUid]);
+  if (!onWalk && p.linkedUid && shared[p.linkedUid]) fromThemBlock(root, p, shared[p.linkedUid]);
 
   /* ── check-in bar ──
      Not for yourself: there is no rhythm to be behind on with the person
@@ -139,7 +207,7 @@ function renderSheet() {
     promote.onclick = () => promoteToCircle(p.id);
     box.append(promote);
     root.append(box);
-  } else if (!p.isSelf) {
+  } else if (!p.isSelf && !onWalk) {
 
   const bar = el('div', 'touch-bar');
   const st = el('div', 'touch-status');
@@ -335,7 +403,7 @@ function renderSheet() {
   }
 
   const order = [evBlock, snBlock, upBlock, prBlock];
-  root.append(...order.filter(Boolean));
+  root.append(...(onWalk ? walkBlocks(p) : order.filter(Boolean)));
   restore();
 }
 

@@ -1,0 +1,201 @@
+/* ══════════════════════════════════════════════════════════════
+   Walking a road with someone — the second half of a person's page.
+
+   Nothing here invents a look. The tab strip is the segmented picker the
+   event dialog already uses (.type-pick in controls.css), the Disciple
+   button is the .share-pill from sheet.css, and every section is an
+   ordinary .sheet-block. What this file dresses is only what those had
+   no shape for: the pathway, a child's row, and a tickable line.
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── the two tabs ───────────────────────────────────────────────
+   Wider and quieter than the three-up picker it borrows from: there are two
+   of them, they are sentences rather than words, and they name a half of a
+   page rather than a kind of record. */
+.sheet-tabs {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: .3rem; margin: 0 0 1.6rem;
+  padding: .28rem;
+  background: var(--paper-sunk);
+  border: 1px solid var(--rule); border-radius: 12px;
+}
+.sheet-tab {
+  border: 0; border-radius: 9px; background: none; cursor: pointer;
+  padding: .55rem .4rem;
+  font-family: var(--body); font-size: .76rem; font-weight: 700;
+  letter-spacing: .06em; color: var(--ink-soft);
+  transition: background .2s, color .2s;
+  -webkit-tap-highlight-color: transparent;
+}
+.sheet-tab:hover { color: var(--ink); }
+.sheet-tab.is-on { background: var(--green); color: #fff; box-shadow: var(--shadow-lift); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .sheet-tab.is-on { color: #10180f; } }
+:root[data-theme="dark"] .sheet-tab.is-on { color: #10180f; }
+.sheet-tab:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+
+/* The Disciple pill, on the .share-pill this borrows wholesale. Only the
+   on-state differs: sharing is a thing you switch, and this is a road you
+   are on, so it fills rather than merely lights. */
+.walk-row { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .5rem; }
+.walk-pill.is-on {
+  background: var(--green); border-color: var(--green); color: #fff;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .walk-pill.is-on { color: #10180f; } }
+:root[data-theme="dark"] .walk-pill.is-on { color: #10180f; }
+
+/* ── the pathway ────────────────────────────────────────────────
+   Three steps read left to right. The chevrons are what make it a road
+   rather than three counters, so they hold their place at every width —
+   the steps shrink around them instead. */
+.walk-path-block { margin-bottom: 2rem; }
+.walk-path {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr auto 1fr;
+  align-items: start; gap: .5rem;
+}
+.walk-step { display: flex; flex-direction: column; gap: .22rem; min-width: 0; }
+.walk-step-name {
+  font-family: var(--display); font-size: 1rem; font-weight: 600;
+  font-variation-settings: "SOFT" 34, "WONK" 1, "opsz" 20;
+  line-height: 1.1;
+}
+.walk-step-lede { font-size: .66rem; color: var(--ink-faint); line-height: 1.25; }
+.walk-step-count {
+  font-size: .62rem; letter-spacing: .12em; text-transform: uppercase;
+  font-weight: 700; color: var(--ink-faint);
+}
+.walk-step.is-full .walk-step-name,
+.walk-step.is-full .walk-step-count { color: var(--sage-ink); }
+
+.walk-bar {
+  height: .28rem; border-radius: 999px; margin: .18rem 0 .1rem;
+  background: var(--rule-soft);
+  overflow: hidden;
+}
+.walk-bar i {
+  display: block; height: 100%; border-radius: 999px;
+  width: calc(var(--fill) * 100%);
+  background: var(--green);
+  transition: width .45s var(--ease);
+}
+.walk-step.is-full .walk-bar i { background: var(--sage); }
+
+.walk-arrow {
+  color: var(--ash); font-size: 1.1rem; line-height: 1;
+  padding-top: .1rem;
+}
+
+/* ── their household, under their photo ─────────────────────────
+   The same .fact the birthday and the phone number are already set in, so it
+   reads as one more thing known about them rather than as a panel bolted on.
+   The pencil sits at the end of the row and stays out of the text's way: it
+   is the quiet way to change this, not a second thing to read.
+
+   align-items:start rather than center — the facts wrap to two or three lines
+   on a phone, and a pencil floating in the middle of them would have nothing
+   to do with the line it happened to land beside. */
+.person-household {
+  display: flex; align-items: flex-start; gap: .5rem;
+  margin: .55rem 0 0;
+  padding-top: .5rem;
+  border-top: 1px dotted var(--rule);
+}
+.household-facts {
+  flex: 1; min-width: 0;
+  display: flex; flex-wrap: wrap; gap: .25rem .8rem;
+}
+.household-facts .fact { line-height: 1.35; }
+.household-facts .glyph { color: var(--green); margin-right: .3rem; }
+/* Smaller again than a block heading's, because this one is beside running
+   text rather than above a section. */
+.person-household .icon-btn { width: 1.6rem; height: 1.6rem; }
+.person-household .icon-btn svg { width: .75rem; height: .75rem; }
+
+/* ── their children ─────────────────────────────────────────────
+   .up-item's shape: the number on the left, because that is what the eye
+   runs down, and the name and the rest beside it. */
+.kid-row { display: flex; align-items: flex-start; gap: .9rem; padding: .6rem 0; }
+.kid-row + .kid-row { border-top: 1px dotted var(--rule-soft); }
+.kid-age {
+  flex: 0 0 3.4rem; text-align: center;
+  border: 1px solid var(--rule); border-radius: 9px;
+  background: var(--paper-raise);
+  padding: .3rem .2rem; line-height: 1.15;
+}
+.kid-age .n { display: block; font-family: var(--display); font-size: 1.15rem; font-weight: 600; font-variation-settings: "opsz" 20; }
+.kid-age .m { display: block; font-size: .55rem; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-faint); font-weight: 700; }
+.kid-age.is-blank { opacity: .5; }
+.kid-age.is-blank .n { color: var(--ink-faint); }
+.kid-body { flex: 1; min-width: 0; padding-top: .1rem; }
+.kid-body h4 {
+  margin: 0; font-family: var(--display); font-size: 1.05rem; font-weight: 500;
+  font-variation-settings: "SOFT" 34, "WONK" 1, "opsz" 24;
+  cursor: pointer;
+}
+.kid-body h4:hover { color: var(--green); }
+.kid-sub { font-size: .74rem; color: var(--ink-faint); letter-spacing: .02em; }
+
+/* ── a line to tick ─────────────────────────────────────────────
+   The count sits at the right of the section heading where the + button
+   sits on every other block, so the two rows line up down the page. */
+.walk-count {
+  font-size: .64rem; letter-spacing: .14em; text-transform: uppercase;
+  font-weight: 700; color: var(--ink-faint); white-space: nowrap;
+}
+.walk-lede-line {
+  margin: -.6rem 0 .9rem;
+  font-size: .78rem; color: var(--ink-faint); font-style: italic;
+}
+.walk-part {
+  margin: 1.1rem 0 .5rem;
+  font-size: .64rem; letter-spacing: .2em; text-transform: uppercase;
+  color: var(--ink-soft); font-weight: 700;
+}
+.walk-part:first-of-type { margin-top: 0; }
+
+.walk-item { display: flex; align-items: flex-start; gap: .7rem; padding: .32rem 0; }
+
+/* A ring that fills. Big enough for a thumb without being a button that
+   shouts — this is the most-tapped thing on the page and there are
+   nineteen of them, so it has to be reachable and quiet at once. */
+.walk-tick {
+  flex: 0 0 auto; margin-top: .12rem;
+  width: 1.35rem; height: 1.35rem; border-radius: 50%;
+  border: 1.5px solid var(--rule); background: var(--paper-raise);
+  cursor: pointer; padding: 0;
+  display: grid; place-items: center;
+  transition: background .18s, border-color .18s, transform .18s var(--ease);
+  -webkit-tap-highlight-color: transparent;
+}
+.walk-tick::before {
+  content: "";
+  width: .46rem; height: .26rem;
+  border-left: 2px solid currentColor; border-bottom: 2px solid currentColor;
+  transform: rotate(-45deg) translate(.04rem, -.06rem);
+  opacity: 0; color: #fff;
+  transition: opacity .18s;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .walk-tick::before { color: #10180f; } }
+:root[data-theme="dark"] .walk-tick::before { color: #10180f; }
+.walk-tick:hover { border-color: var(--green); }
+.walk-tick:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+.walk-item.is-done .walk-tick { background: var(--sage); border-color: var(--sage); }
+.walk-item.is-done .walk-tick::before { opacity: 1; }
+
+.walk-item-body { flex: 1; min-width: 0; }
+.walk-label {
+  border: 0; background: none; padding: 0; cursor: pointer;
+  text-align: left; width: 100%;
+  font-family: var(--body); font-size: .92rem; line-height: 1.4;
+  color: var(--ink-soft);
+  transition: color .2s;
+  -webkit-tap-highlight-color: transparent;
+}
+.walk-label:hover { color: var(--green); }
+.walk-label:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; border-radius: 4px; }
+.walk-item.is-done .walk-label { color: var(--ink); font-weight: 600; }
+.walk-when {
+  font-size: .64rem; letter-spacing: .13em; text-transform: uppercase;
+  font-weight: 700; color: var(--sage-ink);
+}
+.walk-item .tl-note { font-size: .82rem; }

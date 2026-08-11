@@ -1,4 +1,4 @@
-/* uses: $ $$ · openId · renderSheet · flushHeldRender */
+/* uses: $ $$ · openId · renderSheet sheetTab · flushHeldRender */
 
 /* guard()'s pushState carries no URL because a layer is never meant to move
    the page — but the browser's own scroll restoration is a second, older
@@ -158,6 +158,9 @@ function flyHeroPhoto(clone, srcRect) {
 
 function openSheet(id) {
   openId = id;
+  /* Whichever half of the last person's page you were reading is not a
+     question about this one. Set before renderSheet below, which reads it. */
+  sheetTab = 'life';
   /* A second tap — another badge, or this one again — should not leave an
      earlier flight stuck mid-air. */
   clearHeroGhost();

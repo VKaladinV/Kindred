@@ -11,6 +11,8 @@
    · adjustPhoto pickPhoto wireCropper · savePerson
    · editingEvent paintBabyFields paintGestationFrom saveEvent setEventType
    · savePrayer
+   · removeKid removeTopic
+   · editingKid editingWalkItem paintMaritalEnd saveHouseholdForm saveKidForm saveWalkItem
    · toggleTheme
    · saveAnswered saveReleased saveRemoved
    · exportAll importAll
@@ -152,6 +154,28 @@ function wire() {
 
   $('#form-prayer').onsubmit = savePrayer;
   $('#btn-prayer-cancel').onclick = () => $('#dlg-prayer').close();
+
+  $('#form-household').onsubmit = saveHouseholdForm;
+  $('#btn-household-cancel').onclick = () => $('#dlg-household').close();
+  $('#h-marital').onchange = paintMaritalEnd;
+
+  $('#form-kid').onsubmit = saveKidForm;
+  $('#btn-kid-cancel').onclick = () => $('#dlg-kid').close();
+  /* The two fields are alternatives and normaliseKid settles it by dropping
+     the age — so the form drops it in front of you rather than letting you
+     type something that will not be kept. */
+  $('#k-birthday').onchange = () => { if ($('#k-birthday').value) $('#k-age').value = ''; };
+  $('#btn-kid-delete').onclick = () => {
+    removeKid(editingKid.personId, editingKid.kidId);
+    $('#dlg-kid').close();
+  };
+
+  $('#form-walk-item').onsubmit = saveWalkItem;
+  $('#btn-walk-cancel').onclick = () => $('#dlg-walk-item').close();
+  $('#btn-walk-delete').onclick = () => {
+    removeTopic(editingWalkItem.personId, editingWalkItem.topicId);
+    $('#dlg-walk-item').close();
+  };
 
   /* Whether it's a pregnancy can change without the type changing, so the
      gestation fields follow the checkbox as well as the tabs. */

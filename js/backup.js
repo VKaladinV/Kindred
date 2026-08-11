@@ -1,7 +1,7 @@
 /* uses: MAX_TOUCHES · el today
    · addToRoster futures groups me notifyMutate people roster saveRoster
    · hasPhoto photosForBackup putPhotoDataUrl
-   · normalise normaliseGroup normaliseGroups · toast · renderAll
+   · normalise normaliseDiscipleship normaliseGroup normaliseGroups · toast · renderAll
 */
 
 async function exportAll() {
@@ -73,6 +73,22 @@ async function importAll(file) {
       incoming.touches.forEach(t => { if (!days.has(t.date)) { days.add(t.date); existing.touches.push(t); } });
       existing.touches.sort((a, b) => a.date.localeCompare(b.date));
       existing.touches = existing.touches.slice(-MAX_TOUCHES);
+      /* The road they are on, under the same rule as everything above: what is
+         already here wins, and the file fills in the blanks. Children and
+         topics are unioned by id the way events and prayers are; the marks are
+         a map, so what is here is simply laid over what arrived. */
+      existing.maritalStatus = existing.maritalStatus || incoming.maritalStatus;
+      existing.marriedOn = existing.marriedOn || incoming.marriedOn;
+      existing.divorcedOn = existing.divorcedOn || incoming.divorcedOn;
+      existing.joinedChurchOn = existing.joinedChurchOn || incoming.joinedChurchOn;
+      const kidIds = new Set(existing.kids.map(k => k.id));
+      incoming.kids.forEach(k => { if (!kidIds.has(k.id)) existing.kids.push(k); });
+      const topicIds = new Set(existing.discipleship.topics.map(t => t.id));
+      existing.discipleship = normaliseDiscipleship({
+        marks: { ...incoming.discipleship.marks, ...existing.discipleship.marks },
+        topics: [...existing.discipleship.topics,
+          ...incoming.discipleship.topics.filter(t => !topicIds.has(t.id))],
+      });
       /* The small copy and the mark are worked out on the way in, so a photo
          out of a backup written by any version of this app arrives in the
          same shape as one just cropped. */
@@ -99,7 +115,13 @@ async function importAll(file) {
        did not carry a person for; it is kept rather than dropped, on the same
        grounds normaliseGroup keeps unresolved members — absent is not gone. */
     const members = g.members.map(id => landedAs.get(id) || id);
-    const existing = groups.find(x => x.name.toLowerCase() === g.name.toLowerCase());
+    /* By id before name. Name alone was enough while every group's id came out
+       of uid(), but the road group's id is a fixed literal — so a group renamed
+       on this device and then restored from a file that still calls it the old
+       thing would be pushed on as a second group wearing the same id, and
+       groupById would only ever find one of them. */
+    const existing = groups.find(x => x.id === g.id)
+      || groups.find(x => x.name.toLowerCase() === g.name.toLowerCase());
     if (existing) existing.members = [...new Set([...existing.members, ...members])];
     else groups.push({ ...g, members: [...new Set(members)] });
   }
