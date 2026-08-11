@@ -81,6 +81,25 @@
 .badge-frame:focus-visible { outline: none; }
 .badge-frame:focus-visible::after { inset: -9.5%; border-width: 2.5px; border-color: var(--green); }
 
+/* The ring landing after a group-entry flight (group-zoom.js) does not fade
+   in step with the photo flying under it — two independently-timed
+   animations reconciled by luck, not by design — so instead of trying to
+   sync them it is swept into view on its own: a clock hand starting at
+   twelve, feathered rather than a hard edge so the sweep line reads as
+   soft. --sweep is a real angle, not a number, so animating it animates the
+   gradient itself rather than snapping between frames. */
+@property --sweep {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: -26deg;
+}
+.badge-frame.is-ring-in::after {
+  -webkit-mask-image: conic-gradient(from -90deg, #000 calc(var(--sweep) - 26deg), transparent var(--sweep));
+  mask-image: conic-gradient(from -90deg, #000 calc(var(--sweep) - 26deg), transparent var(--sweep));
+  animation: ring-sweep .55s var(--ease) forwards;
+}
+@keyframes ring-sweep { to { --sweep: 386deg; } }
+
 .badge-photo {
   position: absolute; inset: 0;
   border-radius: 50%; overflow: hidden;

@@ -73,6 +73,29 @@ function clearZoom() {
   for (const n of zoomParts) n.remove();
   zoomParts = [];
   revealGrid();
+  stripRingIn();
+}
+
+/* Whatever the last flight left mid-sweep, cleared with it — a second tap
+   interrupting the first should not leave some other badge's ring frozen
+   half drawn. Its own animationend usually beats this to it (see ringIn);
+   this is only the case where a flight is cut short before that fires. */
+function stripRingIn() {
+  const grid = $('#grid-groups');
+  if (!grid) return;
+  for (const f of grid.querySelectorAll('.badge-frame.is-ring-in')) f.classList.remove('is-ring-in');
+}
+
+/* Swept in once this face's photo has actually landed on it, rather than on
+   a timer that assumes every flight covers the same distance — the ring is
+   the last thing to appear, and each face earns its own moment for it. */
+function ringIn(frame) {
+  frame.classList.add('is-ring-in');
+  frame.addEventListener('animationend', function done(e) {
+    if (e.target !== frame || e.animationName !== 'ring-sweep') return;
+    frame.removeEventListener('animationend', done);
+    frame.classList.remove('is-ring-in');
+  });
 }
 
 /* The ordinary way a flight ends. Reveals what was underneath first, exactly
@@ -214,13 +237,17 @@ function runZoom(pairs, field, dir) {
      A group with nobody in it has no face to wait on; the sweep below is what
      lands that one. */
   let left = clones.length;
-  for (const c of clones) {
+  clones.forEach((c, i) => {
+    const frame = pairs[i].frame;
     c.addEventListener('transitionend', function land(e) {
       if (e.target !== c || e.propertyName !== 'transform') return;
       c.removeEventListener('transitionend', land);
+      /* Only going in: coming out, a face lands on a group's disc, which has
+         no ring to sweep. */
+      if (dir === 'in' && frame) ringIn(frame);
       if (--left === 0) settleZoom();
     });
-  }
+  });
   zoomTimer = setTimeout(settleZoom, ZOOM_SWEEP);
 }
 
@@ -319,7 +346,11 @@ function pairsBetween(from, to) {
   const out = [];
   for (const [id, was] of from) {
     const now = to.get(id);
-    if (now) out.push({ el: was.el, from: was.rect, to: now.rect });
+    /* .badge-photo's own parent, rather than a lookup by id later — the same
+       reason groupDiscIn walks the grid instead of trusting an id into a
+       selector string, except here the element is already in hand. Used to
+       sweep that face's ring in once its flight actually lands on it. */
+    if (now) out.push({ el: was.el, from: was.rect, to: now.rect, frame: now.el.parentElement });
   }
   return out;
 }
