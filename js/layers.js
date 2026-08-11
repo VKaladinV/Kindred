@@ -1,5 +1,15 @@
 /* uses: $ $$ · openId · renderSheet · flushHeldRender */
 
+/* guard()'s pushState carries no URL because a layer is never meant to move
+   the page — but the browser's own scroll restoration is a second, older
+   promise-breaker: left on 'auto', it can shift the scroll position of its
+   own accord on a back navigation, asynchronously and on no schedule this
+   file controls. A flight built from rects measured before that shift lands
+   somewhere the page has since scrolled out from under it. Off, once, for
+   the life of the app — nothing here restores a scroll position on its own,
+   so there is never anything for the browser's guess to be better than. */
+history.scrollRestoration = 'manual';
+
 const layers = [];     // what is covering the app, innermost last
 let guarded = false;   // our one history entry is on the stack
 
