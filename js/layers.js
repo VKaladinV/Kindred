@@ -87,10 +87,20 @@ let heroGhost = null;   // the photo mid-flight from a badge to the sheet, if an
 /* .badge already carries data-id (badge.js), and this is the same lookup
    circle-flip.js already uses to find one — iterate and match, rather than
    build a querySelector string out of an id that has never been promised
-   to be CSS-selector-safe. */
+   to be CSS-selector-safe.
+
+   The same person can have a badge in more than one grid at once — Circle
+   always has one, and Groups, Future or Discipleship may each have their
+   own sitting hidden behind whichever view is not the one on screen. A
+   hidden view measures a zero rect, so taking the first match in document
+   order — Circle's, since it comes first in the markup — flew every photo
+   in from the top-left corner regardless of which grid was actually tapped.
+   Skipping past zero-size matches is what makes it the visible one instead. */
 function findBadgePhoto(id) {
   for (const b of document.querySelectorAll('.badge[data-id]')) {
-    if (b.dataset.id === id) return b.querySelector('.badge-photo');
+    if (b.dataset.id !== id) continue;
+    const photo = b.querySelector('.badge-photo');
+    if (photo && photo.getBoundingClientRect().width) return photo;
   }
   return null;
 }
