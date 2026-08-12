@@ -11,7 +11,12 @@ function normaliseRecord(r) {
     id: r.id || uid(),
     type,
     date: r.date || today(),
-    endDate: type === 'season' ? (r.endDate || '') : '',
+    /* A season's ending, and a task's ticking-off. Two names for one fact —
+       this is finished — so they share the field rather than spending a
+       second column saying the same thing about a different type. Blank on
+       the other two, the same conditional-blanking dueDate and repeatsYearly
+       get below. */
+    endDate: (type === 'season' || type === 'task') ? (r.endDate || '') : '',
     /* When a season is a pregnancy: the date it's expected to end, distinct
        from endDate — which stays empty until the season actually ends (the
        birth), exactly as it does for any other season. Never set outside a

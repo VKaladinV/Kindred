@@ -1,4 +1,4 @@
-/* uses: KINDS · daysBetween parseYmd prettyDate today ymd · people
+/* uses: KINDS TYPES · daysBetween parseYmd prettyDate today ymd · me people
    · clamp
 */
 
@@ -137,6 +137,34 @@ function occurrenceOf(rec) {
 const recordsOf = (p, type) => p.events.filter(r => r.type === type);
 const activeSeasons = p => p.events.filter(r => r.type === 'season' && !r.endDate);
 const historyOf = p => p.events.filter(r => r.type === 'history' || (r.type === 'season' && r.endDate));
+
+/* ── things you mean to do ──────────────────────────────────────
+   A task's endDate is the day it was ticked off, so "still to do" is simply
+   not having one — the same question activeSeasons asks of a season, which
+   is the whole reason the two share the field.
+
+   Everyone a task could hang from: the circle, and you. Your own profile is
+   deliberately not one of `people` (js/state.js) and must not become one —
+   but it is where a to-do that is about nobody else lives, so it is walked
+   here, for tasks and for nothing else. Nothing else on your own card
+   reaches Today or the calendar through this: your birthday is still yours
+   to know rather than a date the app tells you about. */
+const tasksOf = p => p.events.filter(r => r.type === 'task');
+const openTasksOf = p => tasksOf(p).filter(r => !r.endDate);
+const taskHolders = () => (me ? [...people, me] : [...people]);
+
+/* Shaped like dateEntry's result so Today and the calendar can lay it out
+   with the row they already have. `isTask` is what tells them the tick means
+   completeTask rather than completeUpcoming, and `done` is what says the
+   tick has already been given — a finished task still shows on its own day
+   in the calendar, because having done it is worth seeing there. */
+const taskEntry = (p, r) => ({
+  p, inDays: daysBetween(today(), r.date), date: r.date,
+  label: r.title, kind: r.kind, short: r.title,
+  sub: `${r.title} · ${prettyDate(r.date)}`,
+  glyph: r.endDate ? '☑' : TYPES.task.glyph,
+  id: r.id, isTask: true, done: !!r.endDate,
+});
 
 /* everything with a date ahead, nearest first; past one-offs sink to the end */
 function upcomingOf(p) {
@@ -316,6 +344,19 @@ function datesAhead(withinDays = 45) {
       out.push(dateEntry(p, r, { date, inDays: daysBetween(today(), date), years: 0 }));
     });
   });
+
+  /* Only the ones still to do — a task you have ticked off has nothing left
+     to say about what is coming. Kept when its day has already gone, which
+     is the one place this disagrees with everything above: a date that has
+     passed is history, but a thing you meant to do and have not done is more
+     worth seeing for being late, not less. Today's own Overdue group is
+     where they land. */
+  taskHolders().forEach(p => {
+    openTasksOf(p).forEach(r => {
+      const e = taskEntry(p, r);
+      if (e.inDays <= withinDays) out.push(e);
+    });
+  });
   return out.sort((a, b) => a.inDays - b.inDays);
 }
 
@@ -367,6 +408,13 @@ function datesIn(fromYmd, toYmd) {
       const date = r.dueDate;
       if (within(date)) out.push(dateEntry(p, r, { date, inDays: daysBetween(today(), date), years: 0 }));
     });
+  });
+
+  /* Ticked-off ones too, unlike datesAhead above: a calendar is a record of
+     what a day held, and having done the thing is part of that. A task never
+     repeats, so there is no annualDates pass to make over it. */
+  taskHolders().forEach(p => {
+    tasksOf(p).forEach(r => { if (within(r.date)) out.push(taskEntry(p, r)); });
   });
   return out.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.p.name.localeCompare(b.p.name)));
 }

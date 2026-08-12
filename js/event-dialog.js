@@ -1,8 +1,36 @@
-/* uses: TOUCH_KINDS TYPES · $ $$ el today uid · byId queueSave · normaliseRecord
-   · gestationOn gestationWords · renderAll
+/* uses: TOUCH_KINDS TYPES · $ $$ el today uid · byId ensureSelf me people queueSave
+   · normaliseRecord · gestationOn gestationWords · renderAll
 */
 
 let editingEvent = { personId: null, eventId: null, type: 'history', connectKind: '' };
+
+/* Who the record belongs to, asked only when there is a real question. A
+   to-do can be about nobody, and the calendar's own add button opens this
+   dialog with nobody in hand — those are the two cases, and both are read
+   off the state rather than passed in as a flag.
+
+   '' means you. Your own profile is an ordinary person record, so a to-do of
+   your own is an ordinary record on it; ensureSelf (js/state.js) makes one
+   at the moment of saving if there is not one yet.
+
+   The holder is added to the list when it is somebody the list would not
+   otherwise offer — a future connection, say — so that opening an existing
+   record can never quietly re-point it at somebody else just by being
+   opened and saved again. */
+function paintEventWho(holderId) {
+  const sel = $('#e-who');
+  sel.textContent = '';
+  sel.append(new Option('Just me', ''));
+
+  const offered = [...people].sort((a, b) => a.name.localeCompare(b.name));
+  const mine = me && holderId === me.id;
+  if (holderId && !mine && !offered.some(p => p.id === holderId)) {
+    const held = byId(holderId);
+    if (held) offered.unshift(held);
+  }
+  offered.forEach(p => sel.append(new Option(p.name, p.id)));
+  sel.value = mine ? '' : (holderId || '');
+}
 
 function setEventType(type) {
   editingEvent.type = TYPES[type] ? type : 'history';
@@ -30,6 +58,12 @@ function setEventType(type) {
      is happening. */
   $('#wrap-baby').hidden = editingEvent.type !== 'season';
   $('#wrap-connect').hidden = editingEvent.type !== 'upcoming';
+  /* A to-do always asks, because it is the one kind that can be about
+     nobody. Anything opened without somebody already in hand asks too — that
+     is the calendar's add button, which knows the day but not the person,
+     and switching the type away from To do there must not leave the record
+     with nowhere to go. */
+  $('#wrap-e-who').hidden = editingEvent.type !== 'task' && !!editingEvent.personId;
   paintBabyFields();
   paintConnectKind();
 }
@@ -89,7 +123,9 @@ function paintGestationFrom(dateStr) {
     : dateStr ? 'outside the forty weeks a due date is counted over' : '';
 }
 
-function eventDialog(personId, eventId, presetType) {
+/* presetDate is the calendar's: the day you opened, so what you add lands on
+   the day you were looking at rather than on today. */
+function eventDialog(personId, eventId, presetType, presetDate) {
   const rec = eventId ? byId(personId)?.events.find(x => x.id === eventId) : null;
   editingEvent = { personId, eventId, type: rec?.type || presetType || 'history', connectKind: rec?.connectKind || '' };
 
@@ -97,7 +133,8 @@ function eventDialog(personId, eventId, presetType) {
      with a type-switch inside it, not three dialogs sharing a shell, and the
      title should say so. */
   $('#dlg-event-title').textContent = rec ? 'Edit this' : 'Remember important information';
-  $('#e-date').value = rec?.date || today();
+  paintEventWho(personId);
+  $('#e-date').value = rec?.date || presetDate || today();
   $('#e-end').value = rec?.endDate || '';
   $('#e-baby').checked = !!rec?.dueDate;
   $('#e-due').value = rec?.dueDate || '';
@@ -114,13 +151,23 @@ function eventDialog(personId, eventId, presetType) {
 
 function saveEvent(e) {
   e.preventDefault();
-  const p = byId(editingEvent.personId);
+
+  /* Whoever the row is offering, when it is on screen at all; otherwise
+     whoever the dialog was opened from. ensureSelf is called only here, at
+     the moment there is actually something to put on your profile — asking
+     for one earlier would leave an empty card behind every time somebody
+     opened this dialog and thought better of it. */
+  const asked = !$('#wrap-e-who').hidden;
+  const p = asked
+    ? ($('#e-who').value ? byId($('#e-who').value) : ensureSelf())
+    : byId(editingEvent.personId);
   if (!p) return;
 
   const title = $('#e-title').value.trim();
   if (!title) return;
 
-  const existing = editingEvent.eventId ? p.events.find(x => x.id === editingEvent.eventId) : null;
+  const was = editingEvent.personId ? byId(editingEvent.personId) : null;
+  const existing = editingEvent.eventId ? was?.events.find(x => x.id === editingEvent.eventId) : null;
   const baby = editingEvent.type === 'season' && $('#e-baby').checked;
   const connect = editingEvent.type === 'upcoming' && $('#e-connect').checked;
 
@@ -140,7 +187,14 @@ function saveEvent(e) {
     connectKind: connect ? editingEvent.connectKind : '',
   });
 
-  if (existing) Object.assign(existing, data);
+  /* Pointing a to-do at somebody else moves the record rather than copying
+     it: the row keeps its id, so on the server it is the same row changing
+     which person it hangs from, and nothing of what was written on it is
+     left behind on the old one. */
+  if (existing && was && was.id !== p.id) {
+    was.events = was.events.filter(x => x.id !== existing.id);
+    p.events.push(data);
+  } else if (existing) Object.assign(existing, data);
   else p.events.push(data);
 
   queueSave();

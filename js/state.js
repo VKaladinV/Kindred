@@ -135,6 +135,18 @@ function addToRoster(p) {
   else people.push(p);
 }
 
+/* Where a to-do about nobody else goes. Your own profile is an ordinary
+   person record, so a task of your own is an ordinary record on it — but
+   there may not be one yet, and "add a to-do" is not a moment to stop and
+   ask somebody to fill in a profile first. Made with the same shape the
+   dialog would have made, and openable and editable afterwards exactly like
+   one that was. Only ever called with something to put on it, so this never
+   leaves an empty profile behind for nothing. */
+function ensureSelf() {
+  if (!me) addToRoster(normalise({ isSelf: true, name: 'You' }));
+  return me;
+}
+
 function removeFromRoster(p) {
   if (p.isSelf) me = null;
   futures = futures.filter(x => x.id !== p.id);

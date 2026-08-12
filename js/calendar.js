@@ -1,6 +1,6 @@
 /* uses: $ $$ el pad parseYmd plural prettyDate shortMonth today ymd
    · datesIn · clamp · block todayRow · closeLayer openLayer · quiet
-   · completeUpcoming
+   · completeTask completeUpcoming · eventDialog
 */
 
 const MONTH_NAMES = 'January February March April May June July August September October November December'.split(' ');
@@ -194,7 +194,8 @@ function monthSectionFor(month, onDay) {
       when: `${x.glyph} ${open ? '' : parseYmd(x.date).getDate() + ' ' + shortMonth(x.date)}`.trim(),
       calm: x.date !== today(),
       sub: x.short,
-      onDone: x.completable ? () => completeUpcoming(x.p.id, x.id) : null,
+      done: x.done,
+      onDone: rowDone(x),
     })));
   } else {
     details = el('p', 'quiet-note', open
@@ -204,8 +205,30 @@ function monthSectionFor(month, onDay) {
   if (open) details.classList.add('cal-enter');
   section.append(details);
 
+  /* Only inside an open day, because only then is there a day for what you
+     add to land on — and it is handed that day rather than today's. Below
+     the list rather than up in the heading, so it is the last thing on an
+     empty day as well as a full one: a day with nothing on it is exactly
+     when this is worth reaching for. */
+  if (open) {
+    const add = el('button', 'btn btn-quiet btn-tiny cal-add');
+    add.type = 'button';
+    add.append(el('span', 'glyph', '+'), document.createTextNode('Add to this day'));
+    add.onclick = () => eventDialog(null, null, 'task', calPicked);
+    section.append(add);
+  }
+
   return section;
 }
+
+/* Which tick a row gets, if any. A to-do is ticked off where it stands and
+   keeps its date; a planned coffee becomes history and a check-in. Both are
+   "I did this", and they are two different writes — see completeTask and
+   completeUpcoming, in js/mutations.js. */
+const rowDone = x =>
+  x.isTask ? (x.done ? null : () => completeTask(x.p.id, x.id))
+    : x.completable ? () => completeUpcoming(x.p.id, x.id)
+      : null;
 
 /* The number, carried from where it was to where it now is.
 

@@ -63,6 +63,34 @@ function undoCompleteUpcoming(personId, recId, hadKind) {
   renderAll();
 }
 
+/* Ticking a to-do off. It keeps its date — the day you meant to do it — and
+   gains an endDate, which is the day you actually did. Nothing is moved and
+   nothing is retyped, so it goes on sitting where it always sat in the
+   calendar, ticked; it is only Today that stops asking about it.
+
+   Deliberately not completeUpcoming's move. That one turns a plan into
+   history because a planned coffee really did become a thing that happened
+   to the two of you. A chore is not an event in somebody's life, and filing
+   "drop off the casserole" into their story alongside a diagnosis would be
+   the app mistaking your errand for their life. */
+function completeTask(personId, recId) {
+  const r = byId(personId)?.events.find(x => x.id === recId);
+  if (!r || r.type !== 'task') return;
+  r.endDate = today();
+  queueSave();
+  renderAll();
+  toast('Done', { label: 'Undo', run: () => uncompleteTask(personId, recId) });
+}
+
+function uncompleteTask(personId, recId) {
+  const r = byId(personId)?.events.find(x => x.id === recId);
+  if (!r || r.type !== 'task') return;
+  r.endDate = '';
+  queueSave();
+  renderAll();
+  toast('Back on the list');
+}
+
 const prayerBy = (personId, prayerId) => byId(personId)?.prayers.find(x => x.id === prayerId) || null;
 
 /* One tick a day, and tapping it again takes it back — the same shape as a

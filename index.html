@@ -452,6 +452,16 @@
     <div class="type-pick" id="type-pick" role="radiogroup" aria-label="What kind of record"></div>
     <p class="hint type-hint" id="type-hint"></p>
 
+    <!-- Only a to-do can be about nobody, and only a to-do is ever opened
+         from a day in the calendar rather than from somebody's page — so this
+         is the one field in here that asks who the record belongs to at all.
+         Filled by paintEventWho; "Just me" is your own profile, which is an
+         ordinary person record like any other. -->
+    <label class="field" id="wrap-e-who" hidden>
+      <span>Who is it about</span>
+      <select id="e-who"></select>
+    </label>
+
     <label class="field">
       <span id="e-title-label">What happened</span>
       <input type="text" id="e-title" required maxlength="80" autocomplete="off" placeholder="Started chemo">

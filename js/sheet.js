@@ -1,10 +1,10 @@
 /* uses: CADENCES KINDS TOUCH_KINDS TYPES
    · $ agoWords aheadWords daysBetween el monthYear parseYmd prettyDate shortMonth today
    · byId me openId shared
-   · activeSeasons answeredPrayers gestationOn gestationWords historyOf isBaby lastTouchDate nextBirthday openPrayers releasedPrayers statusOf touchOn upcomingOf
+   · activeSeasons answeredPrayers gestationOn gestationWords historyOf isBaby lastTouchDate nextBirthday openPrayers releasedPrayers statusOf tasksOf touchOn upcomingOf
    · avatar · prayerLine sharePill · closeSheet
    · blockHead fromThemBlock · howDialog undoConnected
-   · inviteDialog linkApi unlinkPerson · endSeason moveToHistory
+   · inviteDialog linkApi unlinkPerson · endSeason moveToHistory · completeTask uncompleteTask
    · dialNumber personDialog telLink · promoteToCircle · eventDialog · prayerDialog
    · isWalking stopDiscipling · discipleIntroDialog householdSummary walkBlocks
    · quiet renderAll
@@ -270,7 +270,7 @@ function renderSheet() {
      Built here, laid out below, in the order it always read in: history,
      right now, coming up, prayers. Self and everyone else share the same
      order — there is no longer a summary to lead with on either page. */
-  let snBlock, upBlock, evBlock;
+  let snBlock, upBlock, evBlock, tdBlock;
 
   /* ── right now: seasons ──
      Not for a future connection — seasons, coming up and history all model
@@ -415,7 +415,55 @@ function renderSheet() {
   }
   }
 
-  const order = [evBlock, snBlock, upBlock, prBlock];
+  /* ── to do ──
+     The same records the calendar and Today already list, gathered onto the
+     page of whoever they are for. Without this a to-do pointed at somebody
+     would be real, dated and synced, and yet invisible on the one page that
+     is entirely about them.
+
+     Outstanding first and finished after, rather than the finished ones
+     dropped: a to-do that is done is the record of having done it, and it is
+     the only place that record is kept — completeTask deliberately does not
+     file it into their history the way a planned coffee is filed. */
+  if (!p.isFuture) {
+  tdBlock = el('div', 'sheet-block');
+  tdBlock.append(blockHead('To do', () => eventDialog(p.id, null, 'task'), 'Add a to-do'));
+
+  const tasks = tasksOf(p);
+  if (tasks.length) {
+    [...tasks]
+      .sort((a, b) => (!!a.endDate - !!b.endDate) || (a.date < b.date ? -1 : a.date > b.date ? 1 : 0))
+      .forEach(t => {
+        const item = el('div', 'todo-item' + (t.endDate ? ' is-done' : ''));
+
+        const tick = el('button', 'tick');
+        tick.type = 'button';
+        tick.title = t.endDate ? 'Put it back on the list' : 'Mark as done';
+        tick.setAttribute('aria-label', tick.title);
+        tick.innerHTML = '<svg viewBox="0 0 24 24"><path d="M5 13l4.5 4.5L19 7"/></svg>';
+        tick.onclick = () => (t.endDate ? uncompleteTask(p.id, t.id) : completeTask(p.id, t.id));
+        item.append(tick);
+
+        const text = el('div', 'todo-text');
+        const line = el('button', 'todo-title');
+        line.type = 'button';
+        line.textContent = t.title;
+        line.onclick = () => eventDialog(p.id, t.id);
+        text.append(line);
+        text.append(el('small', null, t.endDate
+          ? `done ${prettyDate(t.endDate)}`
+          : prettyDate(t.date)));
+        if (t.note) text.append(el('p', 'tl-note', t.note));
+        item.append(text);
+
+        tdBlock.append(item);
+      });
+  } else {
+    tdBlock.append(el('p', 'quiet-note', 'Nothing to do for them right now.'));
+  }
+  }
+
+  const order = [evBlock, snBlock, upBlock, tdBlock, prBlock];
   body.append(...(onWalk ? walkBlocks(p) : order.filter(Boolean)));
   restore();
 }

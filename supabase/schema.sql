@@ -156,6 +156,24 @@ alter table public.records add column if not exists due_on date;
 -- an upcoming record.
 alter table public.records add column if not exists connect_kind text not null default '';
 
+-- ── to-dos ───────────────────────────────────────────────────────────
+-- A fourth type: a thing you mean to do, rather than a thing happening to
+-- somebody. It needs no column of its own — starts_on is the day it is for,
+-- and ends_on is the day it was ticked off, which is the same thing ends_on
+-- already means for a season. What it does need is room in the check, and
+-- that has to be replaced rather than added to.
+--
+-- Run this before using the To do type on any device. Until it is run, this
+-- database will refuse a task row, and refusing one row fails the batch it
+-- travelled in — so a device that has them will not sync at all.
+--
+-- A to-do that is nobody else's hangs off your own self card, which is an
+-- ordinary row in people, so person_id stays not null and nothing about the
+-- foreign key changes.
+alter table public.records drop constraint if exists records_type_check;
+alter table public.records add constraint records_type_check
+  check (type in ('history', 'upcoming', 'season', 'task'));
+
 -- ── check-ins ────────────────────────────────────────────────────────
 -- id is derived from person + date on the client, so the same check-in
 -- recorded on two devices collapses to one row instead of colliding.

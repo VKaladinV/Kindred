@@ -126,6 +126,17 @@ body.on-calendar .topbar { display: none; }
 /* The day's own list arrives on the same rise the views come in on. */
 .cal-enter { animation: rise .38s var(--ease) both; }
 
+/* Only ever inside an open day. Full width and centred so it reads as the
+   end of that day rather than as another control in the row above — and so
+   it is still obviously the thing to press on a day with nothing on it. */
+.cal-add {
+  display: flex; align-items: center; justify-content: center; gap: .4rem;
+  width: 100%; margin-top: .9rem;
+  border-style: dashed;
+  animation: rise .38s var(--ease) both;
+}
+.cal-add .glyph { font-size: 1rem; line-height: 1; }
+
 @media (max-width: 460px) {
   .cal-grid { gap: .2rem; }
   .cal-day { border-radius: 8px; }

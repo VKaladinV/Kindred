@@ -194,6 +194,22 @@ const TYPES = {
     hint: 'A stretch of life, not a single day — grief, treatment, a new baby, job hunting. It stays on their page until you mark it ended.',
     placeholder: 'Chemotherapy',
   },
+  /* The one type that is not a thing happening to somebody — it is a thing
+     you mean to do. Which is why it is the only one that can belong to
+     nobody: a to-do about a person hangs off that person, and one that is
+     only yours hangs off your own profile (see taskHolders, in js/model.js).
+     Either way it is an ordinary record, so it rides the same storage, the
+     same sync and the same backup as everything else without any of them
+     learning a new shape.
+     endDate is the day it was ticked off — the same field a season already
+     uses to say it has finished, meaning exactly the same thing here. */
+  task: {
+    label: 'To do', glyph: '☐',
+    titleLabel: 'What needs doing',
+    dateLabel: 'When',
+    hint: 'Something you mean to do. It sits on the day you give it and comes up in Today when it lands — tick it off and it is done.',
+    placeholder: 'Drop off the casserole',
+  },
 };
 
 /* ─────────────────────────── tiny helpers ──────────────────── */

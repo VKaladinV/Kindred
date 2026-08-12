@@ -85,6 +85,18 @@ function sinceShort(dateStr) {
 function aheadWords(days) {
   if (days === 0) return 'today';
   if (days === 1) return 'tomorrow';
+  /* Only reachable since to-dos: everything else on these lists refuses a
+     date that has already gone, but a thing you meant to do keeps its place
+     after its day has passed — and "in -4 days" is not a sentence. Late
+     rather than ago, because this is still a thing waiting to be done and
+     not a thing that happened. */
+  if (days < 0) {
+    const d = -days;
+    if (d === 1) return 'yesterday';
+    if (d < 31) return `${d} days late`;
+    if (d < 365) return `${plural(Math.round(d / 30), 'month', 'months')} late`;
+    return `${plural(Math.max(1, Math.round(d / 365)), 'year', 'years')} late`;
+  }
   if (days < 31) return `in ${days} days`;
   if (days < 365) return `in ${plural(Math.round(days / 30), 'month', 'months')}`;
   return `in ${plural(Math.max(1, Math.round(days / 365)), 'year', 'years')}`;

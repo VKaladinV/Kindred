@@ -1,5 +1,5 @@
 /* uses: $ aheadWords el today · people · babiesDue datesAhead · avatar
-   · completeUpcoming · quiet
+   · rowDone · quiet
 */
 
 /* onDone is only ever handed in for a completable record (dateEntry, in
@@ -8,8 +8,8 @@
    having to be disabled. The button itself is .tick verbatim, the same one
    js/prayers.js already built for "prayed today" — one component, wherever a
    list needs a plain "I did this" rather than a page of its own. */
-function todayRow(p, { when = '', calm = false, sub = '', onDone = null } = {}) {
-  const row = el('div', 'today-row');
+function todayRow(p, { when = '', calm = false, sub = '', onDone = null, done = false } = {}) {
+  const row = el('div', 'today-row' + (done ? ' is-done' : ''));
   if (onDone) {
     const tick = el('button', 'tick');
     tick.type = 'button';
@@ -50,7 +50,10 @@ function block(title, count) {
    A pregnancy inside its last fortnight counts too — it is the one date worth
    a pip before the day itself arrives. */
 function paintTodayCount(ahead = datesAhead(45)) {
-  const count = ahead.filter(x => x.inDays === 0).length + babiesDue(14).length;
+  /* Overdue counts as well as today's. The pip is asking "is there anything
+     wanting me", and a to-do you have walked past for three days is the
+     truest yes on the page. */
+  const count = ahead.filter(x => x.inDays <= 0).length + babiesDue(14).length;
   const badgeEl = $('#tab-count');
   badgeEl.hidden = count === 0;
   badgeEl.textContent = count;
@@ -68,7 +71,13 @@ function renderToday() {
      twice, in two places, only ever made both easier to stop reading. */
   const ahead = datesAhead(45);
 
+  /* Overdue leads, and it is new here: everything else on this page refuses
+     a date that has already gone, so nothing could ever land in it before
+     to-dos arrived. A thing you meant to do and have not done is more worth
+     seeing for being late, not less — and a due date that has come and gone
+     was quietly falling off this page entirely, between "Today" and nothing. */
   const groups = [
+    ['Overdue',   x => x.inDays < 0],
     ['Today',     x => x.inDays === 0],
     ['This week', x => x.inDays > 0 && x.inDays <= 7],
     ['Later',     x => x.inDays > 7],
@@ -77,12 +86,12 @@ function renderToday() {
   groups.forEach(([title, pick]) => {
     const rows = ahead.filter(pick);
     if (!rows.length) return;
-    const b = block(title, title === 'Today' ? String(rows.length) : '');
+    const b = block(title, title === 'Today' || title === 'Overdue' ? String(rows.length) : '');
     rows.forEach(x => b._list.append(todayRow(x.p, {
       when: x.inDays === 0 ? `${x.glyph} today` : aheadWords(x.inDays),
       calm: x.inDays > 7,
       sub: x.sub,
-      onDone: x.completable ? () => completeUpcoming(x.p.id, x.id) : null,
+      onDone: rowDone(x),
     })));
     body.append(b);
   });

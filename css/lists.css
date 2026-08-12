@@ -145,6 +145,42 @@ button.thumb:focus-visible { outline: 2px solid var(--green); outline-offset: 2p
 .today-row > .tick { opacity: .55; }
 .today-row:hover > .tick { opacity: 1; }
 
+/* A to-do already ticked off, still sitting on its own day in the calendar
+   because having done it is part of what that day held. Quietened rather
+   than struck through: it is a record now, not a correction. */
+.today-row.is-done .who strong { color: var(--ink-faint); font-weight: 500; }
+.today-row.is-done .when { color: var(--sage); }
+
+/* ── a to-do on somebody's page ──────────────────────────────────
+   The prayer line's shape — a tick you can press on the left, the thing
+   itself beside it — rather than the timeline's, because a to-do is
+   something you act on and a history entry is something you read. */
+.todo-item {
+  display: flex; align-items: flex-start; gap: .75rem;
+  padding: .55rem .2rem;
+  border-bottom: 1px dotted var(--rule-soft);
+}
+.todo-item:last-child { border-bottom: 0; }
+.todo-item > .tick { flex: 0 0 auto; margin-top: .1rem; opacity: .6; }
+.todo-item:hover > .tick { opacity: 1; }
+.todo-text { flex: 1; min-width: 0; }
+.todo-title {
+  display: block; width: 100%; text-align: left;
+  border: 0; background: none; padding: 0; cursor: pointer;
+  font-family: var(--body); font-size: .92rem; font-weight: 600;
+  color: var(--ink);
+}
+.todo-title:hover { color: var(--green); }
+.todo-title:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; border-radius: 4px; }
+.todo-text small { display: block; color: var(--ink-faint); font-size: .74rem; margin-top: .1rem; }
+
+.todo-item.is-done .todo-title { color: var(--ink-faint); font-weight: 500; text-decoration: line-through; }
+.todo-item.is-done > .tick {
+  border-color: var(--sage); color: var(--sage);
+  background: color-mix(in oklab, var(--sage) 18%, transparent);
+  opacity: 1;
+}
+
 .all-clear {
   text-align: center; padding: 2.5rem 1rem;
   font-family: var(--display); font-style: italic; font-size: 1.2rem; color: var(--ink-soft);
