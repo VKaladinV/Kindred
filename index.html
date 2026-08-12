@@ -70,28 +70,27 @@
     <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="9" r="3.6" stroke-dasharray="2.6 2.6"/><path d="M5.5 19.5a6.8 6.8 0 0 1 13 0" stroke-dasharray="2.6 2.6"/></svg>
     <span>Future</span>
   </button>
-  <!-- The Circle person, with a small three-brick pyramid built in front of
-       him — two side by side, one centred above. -->
+  <!-- Somebody with an open book in front of them: the Circle person, drawn
+       smaller to leave the lower half of the square to the book. -->
   <button class="nav-item" data-view="discipleship">
-    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8.6" r="3.3"/><path d="M5.8 18.6a6.2 6.2 0 0 1 12.4 0"/><rect x="10.4" y="14.6" width="3.2" height="2.4" rx=".5"/><rect x="7.6" y="17.4" width="3.2" height="2.4" rx=".5"/><rect x="13.2" y="17.4" width="3.2" height="2.4" rx=".5"/></svg>
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="4.8" r="2.5"/><path d="M7.8 11.6a4.4 4.4 0 0 1 8.4 0"/><path d="M12 14.8c-1.3-.9-3-1.4-4.9-1.4H3.8v6.1h3.3c1.9 0 3.6.5 4.9 1.4"/><path d="M12 14.8c1.3-.9 3-1.4 4.9-1.4h3.3v6.1h-3.3c-1.9 0-3.6.5-4.9 1.4"/><path d="M12 14.8v6.1"/></svg>
     <span>Discipleship</span>
   </button>
-  <!-- Several faces held as one, which is what the icon says: a ring of small
-       circles rather than the single person the Circle icon draws. -->
+  <!-- Three people rather than the ring of dots this used to draw: the same
+       head-and-shoulders the Circle icon uses, three times, the middle one
+       nearer and so a little larger. -->
   <button class="nav-item" data-view="groups">
-    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="7.6" r="2.6"/><circle cx="8.2" cy="14.2" r="2.6"/><circle cx="15.8" cy="14.2" r="2.6"/></svg>
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5.6" cy="9.2" r="2.1"/><path d="M2 15.8a3.6 3.6 0 0 1 7.2 0"/><circle cx="18.4" cy="9.2" r="2.1"/><path d="M14.8 15.8a3.6 3.6 0 0 1 7.2 0"/><circle cx="12" cy="7.4" r="2.7"/><path d="M7.4 16.4a4.6 4.6 0 0 1 9.2 0"/></svg>
     <span>Groups</span>
   </button>
-  <!-- Two hands, palms together — the 🙏 gesture drawn in the same thin line
-       every other icon here is, in place of the heart the list used to carry.
-       One hand and its mirror (every x is 24 minus the other's), each a closed
-       lobe rather than a silhouette with a line down it: drawn as one outline
-       this reads as a leaf, and it is the pair of separate shapes meeting at
-       the fingertips and parting at the wrists that says hands instead. They
-       are kept wide on purpose — a narrower lobe is thinner than the 1.6
-       stroke that draws it, and fills in to a solid blade at tab size. -->
+  <!-- Somebody kneeling, head bowed, hands reaching forward — the posture
+       rather than the hands. Pressed palms were tried at length and the
+       shape defeats the size: two hands meeting at the fingertips is a
+       narrow symmetrical form, and at 19px of thin line every version of it
+       reads as a leaf. A kneeling figure is legible at a glance and is what
+       icon sets reach for here for the same reason. -->
   <button class="nav-item" data-view="prayers">
-    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11.8 3.6C10.1 5.2 8.1 8.1 7 10.9 6.2 12.9 5.8 14.9 5.8 16.5 5.8 18 6.7 19.1 8 19.1 9.5 19.1 10.7 17.9 11.3 16 11.7 14.5 11.8 11.6 11.8 3.6Z"/><path d="M12.2 3.6C13.9 5.2 15.9 8.1 17 10.9 17.8 12.9 18.2 14.9 18.2 16.5 18.2 18 17.3 19.1 16 19.1 14.5 19.1 13.3 17.9 12.7 16 12.3 14.5 12.2 11.6 12.2 3.6Z"/></svg>
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12.9" cy="4.7" r="2.2"/><path d="M12.7 7C11 8.4 10.1 10.4 10.1 12.8"/><path d="M11.4 9.5C13.1 10.4 14.7 11.7 15.9 13.3"/><path d="M10.1 12.8C10.1 15.2 9 17.1 6.9 18.5"/><path d="M5.6 19.7H18.4"/></svg>
     <span>Prayers</span>
   </button>
   <button class="nav-item" data-view="today">
@@ -316,6 +315,13 @@
   <button class="sheet-edit" id="sheet-edit" aria-label="Edit">
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.5 4.5l4 4L7 21H3v-4L15.5 4.5z"/><path d="M13.5 6.5l4 4"/></svg>
   </button>
+  <!-- Third in the corner stack, under the pencil. A word rather than the
+       icon it used to be, down among the facts: linking is rare enough that
+       a symbol had nothing to remind you what it meant. Declared here rather
+       than built per person so it keeps its place in the stack whatever the
+       page below it is doing; renderSheet decides what it says and whether
+       it is shown at all. -->
+  <button class="sheet-link" id="sheet-link" type="button" hidden></button>
   <div class="sheet-scroll" id="sheet-scroll"></div>
 </section>
 
