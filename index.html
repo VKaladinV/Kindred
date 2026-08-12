@@ -65,19 +65,33 @@
     <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="9" r="3.6"/><path d="M5.5 19.5a6.8 6.8 0 0 1 13 0"/></svg>
     <span>Circle</span>
   </button>
+  <!-- Echoes the Circle icon, but dashed — not yet solid. -->
+  <button class="nav-item" data-view="future">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="9" r="3.6" stroke-dasharray="2.6 2.6"/><path d="M5.5 19.5a6.8 6.8 0 0 1 13 0" stroke-dasharray="2.6 2.6"/></svg>
+    <span>Future</span>
+  </button>
+  <!-- The Circle person, with a small three-brick pyramid built in front of
+       him — two side by side, one centred above. -->
+  <button class="nav-item" data-view="discipleship">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8.6" r="3.3"/><path d="M5.8 18.6a6.2 6.2 0 0 1 12.4 0"/><rect x="10.4" y="14.6" width="3.2" height="2.4" rx=".5"/><rect x="7.6" y="17.4" width="3.2" height="2.4" rx=".5"/><rect x="13.2" y="17.4" width="3.2" height="2.4" rx=".5"/></svg>
+    <span>Discipleship</span>
+  </button>
   <!-- Several faces held as one, which is what the icon says: a ring of small
        circles rather than the single person the Circle icon draws. -->
   <button class="nav-item" data-view="groups">
     <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="7.6" r="2.6"/><circle cx="8.2" cy="14.2" r="2.6"/><circle cx="15.8" cy="14.2" r="2.6"/></svg>
     <span>Groups</span>
   </button>
-  <!-- Echoes the Circle icon, but dashed — not yet solid. -->
-  <button class="nav-item" data-view="future">
-    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="9" r="3.6" stroke-dasharray="2.6 2.6"/><path d="M5.5 19.5a6.8 6.8 0 0 1 13 0" stroke-dasharray="2.6 2.6"/></svg>
-    <span>Future</span>
-  </button>
+  <!-- Two hands, palms together — the 🙏 gesture drawn in the same thin line
+       every other icon here is, in place of the heart the list used to carry.
+       One hand and its mirror (every x is 24 minus the other's), each a closed
+       lobe rather than a silhouette with a line down it: drawn as one outline
+       this reads as a leaf, and it is the pair of separate shapes meeting at
+       the fingertips and parting at the wrists that says hands instead. They
+       are kept wide on purpose — a narrower lobe is thinner than the 1.6
+       stroke that draws it, and fills in to a solid blade at tab size. -->
   <button class="nav-item" data-view="prayers">
-    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.5s-7.2-4.4-7.2-9.6a4 4 0 0 1 7.2-2.4 4 4 0 0 1 7.2 2.4c0 5.2-7.2 9.6-7.2 9.6z"/></svg>
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11.8 3.6C10.1 5.2 8.1 8.1 7 10.9 6.2 12.9 5.8 14.9 5.8 16.5 5.8 18 6.7 19.1 8 19.1 9.5 19.1 10.7 17.9 11.3 16 11.7 14.5 11.8 11.6 11.8 3.6Z"/><path d="M12.2 3.6C13.9 5.2 15.9 8.1 17 10.9 17.8 12.9 18.2 14.9 18.2 16.5 18.2 18 17.3 19.1 16 19.1 14.5 19.1 13.3 17.9 12.7 16 12.3 14.5 12.2 11.6 12.2 3.6Z"/></svg>
     <span>Prayers</span>
   </button>
   <button class="nav-item" data-view="today">
@@ -88,12 +102,6 @@
   <button class="nav-item" data-view="calendar">
     <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5.5" width="17" height="15" rx="2.5"/><path d="M3.5 10.5h17M8 3.5v4M16 3.5v4M7.5 14h2M14.5 14h2M7.5 17.5h2M14.5 17.5h2"/></svg>
     <span>Calendar</span>
-  </button>
-  <!-- The Circle person, with a small three-brick pyramid built in front of
-       him — two side by side, one centred above. -->
-  <button class="nav-item" data-view="discipleship">
-    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8.6" r="3.3"/><path d="M5.8 18.6a6.2 6.2 0 0 1 12.4 0"/><rect x="10.4" y="14.6" width="3.2" height="2.4" rx=".5"/><rect x="7.6" y="17.4" width="3.2" height="2.4" rx=".5"/><rect x="13.2" y="17.4" width="3.2" height="2.4" rx=".5"/></svg>
-    <span>Discipleship</span>
   </button>
 
   <span class="nav-gap"></span>
