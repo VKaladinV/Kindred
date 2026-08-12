@@ -492,6 +492,60 @@
   </form>
 </dialog>
 
+<!-- ─────────── STARTING TO WALK WITH SOMEONE ───────────
+     What Disciple actually opens — three questions, each answerable or not,
+     asked at the one moment they're usually already known. Leaving all three
+     blank still starts the road; nothing here gates that. -->
+<dialog class="dlg" id="dlg-disciple-intro">
+  <form id="form-disciple-intro" method="dialog">
+    <h2 class="dlg-title" id="disciple-intro-title">Walking a road with them</h2>
+    <p class="dlg-lede">A few quick answers, if you already know them. Nothing here is required, and anything left blank can be filled in later.</p>
+
+    <div class="field">
+      <span>Have they accepted Jesus as their Lord and Saviour?</span>
+      <div class="chip-pick yesno" id="di-jesus">
+        <button type="button" class="chip" data-value="yes" aria-pressed="false">Yes</button>
+        <button type="button" class="chip" data-value="no" aria-pressed="false">No</button>
+      </div>
+    </div>
+    <label class="field" id="wrap-di-jesus-years" hidden>
+      <span>How many years ago <em>optional</em></span>
+      <input type="text" id="di-jesus-years" inputmode="numeric" maxlength="2" autocomplete="off" placeholder="6">
+    </label>
+
+    <div class="field">
+      <span>Are they married?</span>
+      <div class="chip-pick yesno" id="di-married">
+        <button type="button" class="chip" data-value="yes" aria-pressed="false">Yes</button>
+        <button type="button" class="chip" data-value="no" aria-pressed="false">No</button>
+      </div>
+    </div>
+    <label class="field" id="wrap-di-years" hidden>
+      <span>For how many years <em>optional</em></span>
+      <input type="text" id="di-years" inputmode="numeric" maxlength="2" autocomplete="off" placeholder="12">
+    </label>
+
+    <div class="field">
+      <span>Do they have children?</span>
+      <div class="chip-pick yesno" id="di-kids">
+        <button type="button" class="chip" data-value="yes" aria-pressed="false">Yes</button>
+        <button type="button" class="chip" data-value="no" aria-pressed="false">No</button>
+      </div>
+    </div>
+    <div class="field" id="wrap-di-kids-rows" hidden>
+      <span>Their children</span>
+      <div id="di-kids-rows"></div>
+      <button type="button" class="link-btn" id="di-kid-add">add another child</button>
+    </div>
+
+    <div class="dlg-actions">
+      <span class="spacer"></span>
+      <button type="button" class="btn btn-quiet" id="btn-disciple-intro-cancel">Cancel</button>
+      <button type="submit" class="btn btn-primary">Start walking together</button>
+    </div>
+  </form>
+</dialog>
+
 <!-- ─────────── THEIR HOUSEHOLD ───────────
      Read as a line under their photo once it says anything, and changed from
      here. "When it ended" only appears against a status that has an ending —
@@ -505,21 +559,31 @@
       <select id="h-marital"></select>
     </label>
 
-    <div class="field-row">
-      <label class="field" id="wrap-h-married">
+    <div class="field-row" id="wrap-h-married">
+      <label class="field">
         <span>Married since <em>optional</em></span>
         <input type="date" id="h-married">
       </label>
-      <label class="field" id="wrap-h-ended" hidden>
-        <span>When it ended <em>optional</em></span>
-        <input type="date" id="h-ended">
+      <label class="field">
+        <span>Or how many years <em>optional</em></span>
+        <input type="text" id="h-married-years" inputmode="numeric" maxlength="2" autocomplete="off" placeholder="12">
       </label>
     </div>
+    <label class="field" id="wrap-h-ended" hidden>
+      <span>When it ended <em>optional</em></span>
+      <input type="date" id="h-ended">
+    </label>
 
     <label class="field">
       <span>Joined our church <em>optional</em></span>
       <input type="date" id="h-church">
     </label>
+
+    <div class="field">
+      <span>Children</span>
+      <div id="h-kids-list"></div>
+      <button type="button" class="link-btn" id="h-kid-add">add a child</button>
+    </div>
 
     <div class="dlg-actions">
       <span class="spacer"></span>

@@ -1,4 +1,4 @@
-/* uses: MARITAL_ENDED MARITAL_MARRIED ROAD_ID ROAD_NAME · today
+/* uses: MARITAL_ENDED MARITAL_MARRIED ROAD_ID ROAD_NAME · today ymd
    · byId groups queueSave
    · normaliseDiscipleship normaliseKid normaliseTopic
    · toast · renderAll
@@ -42,25 +42,73 @@ const stopWalking = id => {
   if (g) g.members = g.members.filter(x => x !== id);
 };
 
-/* The Disciple button. Turning it on is an ordinary thing to do and says so
-   plainly; turning it off takes a page off their profile, which looks like
-   losing something even though it is not — so that one is the direction that
-   gets an Undo, the same shape releasePrayer uses. */
-function toggleDisciple(id) {
+/* Stopping stays a plain one-click toggle with an Undo — that part never asked
+   for confirmation and starting shouldn't make it start now. Undo goes
+   straight back to startWalking rather than through the intro pop-up below:
+   taking back a mistake should not mean answering three questions again. */
+function stopDiscipling(id) {
   const p = byId(id);
   if (!p) return;
-  const was = isWalking(p);
-  if (was) stopWalking(id); else startWalking(id);
+  stopWalking(id);
   queueSave();
   renderAll();
 
   const first = p.name.split(' ')[0];
-  if (was) {
-    toast(`No longer walking a road with ${first} — nothing written is lost`,
-      { label: 'Undo', run: () => toggleDisciple(id) });
-  } else {
-    toast(`Walking a road with ${first}`);
+  toast(`No longer walking a road with ${first} — nothing written is lost`, {
+    label: 'Undo',
+    run: () => { startWalking(id); queueSave(); renderAll(); toast(`Walking a road with ${first}`); },
+  });
+}
+
+/* "How many years ago" is never a day nobody was asked for — it walks back
+   from today by whole years, the same way marriage's own optional count does
+   (see saveHouseholdForm, in walk-sheet.js). Nothing here ever reads it back
+   as a count; it becomes a date once, on the way in, because the mark it
+   lands on (abide.saved) only has a date to hold. */
+function yearsAgoDate(years) {
+  const n = Number(years);
+  if (!n) return '';
+  const d = new Date();
+  d.setFullYear(d.getFullYear() - n);
+  return ymd(d);
+}
+
+/* Starting is the pop-up's save, not the button's click — see
+   discipleIntroDialog in walk-sheet.js, which is what the Disciple pill
+   actually opens. What comes back from it seeds the page in one write: the
+   group membership, an accepted-Jesus tick if that was answered, a marital
+   fact if they're married, and however many children were named. Any of the
+   three can be left blank — a blank answer seeds nothing and still starts the
+   road, exactly as it did before this pop-up asked anything at all. */
+function startDiscipleship(personId, { acceptedJesus, acceptedJesusYears, married, marriedYears, kids } = {}) {
+  const p = byId(personId);
+  if (!p) return;
+  startWalking(personId);
+
+  if (acceptedJesus) {
+    p.discipleship.marks['abide.saved'] = { done: true, date: yearsAgoDate(acceptedJesusYears), note: '' };
   }
+  if (married) {
+    p.maritalStatus = 'married';
+    p.marriedYears = marriedYears || '';
+  }
+  (kids || []).forEach(k => { if (k.name) p.kids.push(normaliseKid(k)); });
+
+  settleWalk(p);
+  queueSave();
+  renderAll();
+  toast(`Walking a road with ${p.name.split(' ')[0]}`);
+}
+
+/* Abide, Belong, Contribute, This is Church — set by hand, one click each,
+   independent of the checklist and of each other. */
+function toggleStage(personId, key) {
+  const p = byId(personId);
+  if (!p) return;
+  p.discipleship.stages[key] = !p.discipleship.stages[key];
+  settleWalk(p);
+  queueSave();
+  renderAll();
 }
 
 /* ── what is written on that road ───────────────────────────────

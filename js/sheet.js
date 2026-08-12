@@ -6,7 +6,7 @@
    · blockHead fromThemBlock · howDialog undoConnected
    · inviteDialog linkApi unlinkPerson · endSeason moveToHistory
    · dialNumber personDialog telLink · promoteToCircle · eventDialog · prayerDialog
-   · isWalking toggleDisciple · householdSummary walkBlocks
+   · isWalking stopDiscipling · discipleIntroDialog householdSummary walkBlocks
    · quiet renderAll
 */
 
@@ -26,10 +26,14 @@ function showSheetTab(key) {
   $('#sheet-scroll').scrollTop = 0;
 }
 
+/* Two folder tabs rather than a segmented picker — see .sheet-tabs in
+   css/walk.css for how the layered-paper look is built. The markup itself
+   barely differs from a plain toggle; it's the styling that makes it read as
+   two sheets rather than two buttons. */
 function tabStrip() {
   const strip = el('div', 'sheet-tabs');
   strip.setAttribute('role', 'tablist');
-  [['life', 'Their life'], ['walk', 'Discipleship']].forEach(([key, label]) => {
+  [['life', 'Life'], ['walk', 'Walk with God']].forEach(([key, label]) => {
     const on = sheetTab === key;
     const b = el('button', 'sheet-tab' + (on ? ' is-on' : ''), label);
     b.type = 'button';
@@ -120,7 +124,10 @@ function renderSheet() {
     pill.title = walking
       ? `Stop walking a road with ${p.name.split(' ')[0]}`
       : `Start walking a road with ${p.name.split(' ')[0]}`;
-    pill.onclick = () => toggleDisciple(p.id);
+    /* Starting is the intro pop-up's job, not the click's — see
+       discipleIntroDialog in walk-sheet.js. Stopping never asked for
+       confirmation and doesn't start now. */
+    pill.onclick = () => walking ? stopDiscipling(p.id) : discipleIntroDialog(p.id);
     row.append(pill);
     idBox.append(row);
 
@@ -129,10 +136,7 @@ function renderSheet() {
        children's names and ages. It sits with the birthday and the phone
        number because it is the same kind of thing: what you would want to know
        before knocking on the door. Above the tabs, so it is there on both. */
-    if (walking) {
-      const household = householdSummary(p);
-      if (household) idBox.append(household);
-    }
+    if (walking) idBox.append(householdSummary(p));
   }
 
   const seasons = activeSeasons(p);
@@ -182,6 +186,15 @@ function renderSheet() {
   if (walking) root.append(tabStrip());
   const onWalk = walking && sheetTab === 'walk';
 
+  /* The folder's page — everything below the tabs sits inside this one
+     bordered box instead of loose on the sheet, so the tab reads as attached
+     to something rather than floating above a blank continuation of it.
+     Nobody without a second tab gets one: there is nothing here for it to be
+     attached to, so `body` is just `root` and every append below lands where
+     it always did. */
+  const body = walking ? el('div', 'sheet-folder-body') : root;
+  if (walking) root.append(body);
+
   /* ── from them ──
      Above your own material, because it is the newer thing and often the
      reason you opened the page. No edit affordance anywhere in it — read-only
@@ -189,7 +202,7 @@ function renderSheet() {
      exception: a shared prayer can be copied onto your own list, because
      praying for someone is the point and copying it makes it an ordinary row
      of yours from then on, which is the one bridge between the two worlds. */
-  if (!onWalk && p.linkedUid && shared[p.linkedUid]) fromThemBlock(root, p, shared[p.linkedUid]);
+  if (!onWalk && p.linkedUid && shared[p.linkedUid]) fromThemBlock(body, p, shared[p.linkedUid]);
 
   /* ── check-in bar ──
      Not for yourself: there is no rhythm to be behind on with the person
@@ -206,7 +219,7 @@ function renderSheet() {
     promote.type = 'button';
     promote.onclick = () => promoteToCircle(p.id);
     box.append(promote);
-    root.append(box);
+    body.append(box);
   } else if (!p.isSelf && !onWalk) {
 
   const bar = el('div', 'touch-bar');
@@ -249,7 +262,7 @@ function renderSheet() {
     undo.onclick = () => undoConnected(p.id);
     bar.append(undo);
   }
-  root.append(bar);
+  body.append(bar);
 
   }   /* end of the not-yourself branch */
 
@@ -403,7 +416,7 @@ function renderSheet() {
   }
 
   const order = [evBlock, snBlock, upBlock, prBlock];
-  root.append(...(onWalk ? walkBlocks(p) : order.filter(Boolean)));
+  body.append(...(onWalk ? walkBlocks(p) : order.filter(Boolean)));
   restore();
 }
 

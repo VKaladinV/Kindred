@@ -96,6 +96,11 @@ alter table public.people add column if not exists joined_church_on date;
 alter table public.people add column if not exists kids             text not null default '';
 alter table public.people add column if not exists discipleship     text not null default '';
 
+-- How long a marriage has lasted, as a plain count rather than a date — for
+-- the moment you know roughly but not the day itself. married_on wins once
+-- there is one; this is only what's left to say before there is.
+alter table public.people add column if not exists married_years integer;
+
 -- ── records: history · upcoming · season ─────────────────────────────
 create table if not exists public.records (
   id             text primary key,

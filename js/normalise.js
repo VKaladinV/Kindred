@@ -1,4 +1,4 @@
-/* uses: GROUPS KINDS LEGACY_GROUPS MARITAL MAX_TOUCHES TOUCH_KINDS TYPES WALK_KEYS
+/* uses: GROUPS KINDS LEGACY_GROUPS MARITAL MAX_TOUCHES STAGES TOUCH_KINDS TYPES WALK_KEYS
    · daysBetween today uid · shared
 */
 
@@ -165,7 +165,16 @@ function normaliseDiscipleship(d) {
   WALK_KEYS.forEach(put);
   Object.keys(raw).filter(k => !known.has(k)).sort().forEach(put);
 
-  return { marks, topics: Array.isArray(d?.topics) ? d.topics.map(normaliseTopic) : [] };
+  /* The four hand-set words above the checklist. Rebuilt in STAGES order for
+     the same reason marks are: two devices have to write the same person down
+     character for character, or the sync's stringified comparison reads one
+     as changed against the other forever. Always all four keys — a stage
+     nobody has touched is simply false, not absent, so there is no unknown-key
+     case to carry forward the way there is for a mark somebody actually set. */
+  const rawStages = (d?.stages && typeof d.stages === 'object') ? d.stages : {};
+  const stages = Object.fromEntries(STAGES.map(([k]) => [k, !!rawStages[k]]));
+
+  return { marks, topics: Array.isArray(d?.topics) ? d.topics.map(normaliseTopic) : [], stages };
 }
 
 function normalise(p) {
@@ -203,6 +212,13 @@ function normalise(p) {
        of it, so putting them back finds it where they left it. */
     maritalStatus: MARITAL.some(([v]) => v === p.maritalStatus) ? p.maritalStatus : '',
     marriedOn: p.marriedOn || '',
+    /* The other way of saying how long somebody has been married — a typed
+       count rather than a date, for the moment you know roughly but not
+       exactly. The same either/or a child's age gets against their birthday,
+       just above: a date, once there is one, wins and is what marriageYears
+       (model.js) works the count out from, so a fixed number is never left
+       going stale next to a date that has since moved past it. */
+    marriedYears: p.marriedOn ? '' : String(p.marriedYears ?? '').replace(/\D/g, '').slice(0, 2),
     divorcedOn: p.divorcedOn || '',
     joinedChurchOn: p.joinedChurchOn || '',
     kids: Array.isArray(p.kids) ? p.kids.map(normaliseKid) : [],

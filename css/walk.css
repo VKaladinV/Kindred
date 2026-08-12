@@ -1,37 +1,75 @@
 /* ══════════════════════════════════════════════════════════════
    Walking a road with someone — the second half of a person's page.
 
-   Nothing here invents a look. The tab strip is the segmented picker the
-   event dialog already uses (.type-pick in controls.css), the Disciple
-   button is the .share-pill from sheet.css, and every section is an
-   ordinary .sheet-block. What this file dresses is only what those had
-   no shape for: the pathway, a child's row, and a tickable line.
+   Most of what's here still borrows rather than invents: the Disciple button
+   is the .share-pill from sheet.css, every section is an ordinary
+   .sheet-block, and the Yes/No questions in the intro pop-up are the .chip
+   from css/masthead.css. What this file dresses on its own is the folder
+   tabs, the four hollow-to-lit words above the checklist, a tickable line,
+   and the two small kid-list treatments (one inside the intro pop-up, one
+   inside the household dialog).
    ══════════════════════════════════════════════════════════════ */
 
-/* ── the two tabs ───────────────────────────────────────────────
-   Wider and quieter than the three-up picker it borrows from: there are two
-   of them, they are sentences rather than words, and they name a half of a
-   page rather than a kind of record. */
+/* ── the two tabs, as a folder ─────────────────────────────────
+   The front sheet stands taller and lifts off the page; the one behind sits
+   lower, flatter and a shade duller — read together as one tab in front of
+   another rather than two buttons side by side. Elevation and tone carry the
+   whole illusion, so it holds up at any zoom without a border line that has
+   to land on an exact pixel to read correctly. */
 .sheet-tabs {
-  display: grid; grid-template-columns: 1fr 1fr;
-  gap: .3rem; margin: 0 0 1.6rem;
-  padding: .28rem;
-  background: var(--paper-sunk);
-  border: 1px solid var(--rule); border-radius: 12px;
+  display: flex; align-items: flex-end;
+  gap: .3rem;
+  margin: 0;
 }
 .sheet-tab {
-  border: 0; border-radius: 9px; background: none; cursor: pointer;
-  padding: .55rem .4rem;
-  font-family: var(--body); font-size: .76rem; font-weight: 700;
-  letter-spacing: .06em; color: var(--ink-soft);
-  transition: background .2s, color .2s;
+  flex: 1 1 auto;
+  padding: .6rem 1rem .55rem;
+  border: 1px solid var(--rule);
+  border-radius: 12px 12px 0 0;
+  background: var(--paper-sunk); color: var(--ink-faint);
+  font-family: var(--display); font-size: .92rem; font-weight: 600;
+  font-variation-settings: "SOFT" 30, "WONK" 1, "opsz" 20;
+  cursor: pointer;
+  transition: all .22s var(--ease);
   -webkit-tap-highlight-color: transparent;
 }
 .sheet-tab:hover { color: var(--ink); }
-.sheet-tab.is-on { background: var(--green); color: #fff; box-shadow: var(--shadow-lift); }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .sheet-tab.is-on { color: #10180f; } }
-:root[data-theme="dark"] .sheet-tab.is-on { color: #10180f; }
+.sheet-tab.is-on {
+  position: relative; z-index: 1;
+  background: var(--paper-raise); color: var(--ink);
+  padding-top: .75rem; padding-bottom: .7rem;
+  /* Not a line to draw and then hide — simply never drawn. The tab's own
+     background already matches the folder body's, so the moment this edge
+     stops being a border it stops being an edge at all, and the two read as
+     one continuous surface rather than a seam pulled shut. */
+  border-bottom-color: transparent;
+}
 .sheet-tab:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+
+/* The folder itself — everything under the tabs sits inside this one bordered
+   page, continuing straight down from whichever tab is raised rather than
+   floating free beneath it. Its own top corners are square on purpose: a
+   rounded corner here would show daylight between the body and the tab
+   sitting right above it, breaking the one edge that has to read as
+   continuous for the attached-tab illusion to hold.
+
+   Pulled up the one pixel the active tab's now-invisible border used to
+   occupy, so there is truly no gap left for a seam to live in under it — the
+   tab, a stacking level above (.sheet-tab.is-on's z-index), simply covers the
+   sliver of the body's own top border that would otherwise show through
+   there, while the rest of that border still marks the folder's edge beside
+   whichever tab is not attached to it. The lift this used to sit on the tab
+   for moves here too: it is the whole folder — flap and page together — that
+   stands off the surface beneath it, not the flap alone. */
+.sheet-folder-body {
+  margin-top: -1px;
+  border: 1px solid var(--rule);
+  border-radius: 0 0 12px 12px;
+  background: var(--paper-raise);
+  box-shadow: var(--shadow-lift);
+  padding: 1.3rem 1.2rem 1.5rem;
+  margin-bottom: 1.6rem;
+}
 
 /* The Disciple pill, on the .share-pill this borrows wholesale. Only the
    on-state differs: sharing is a thing you switch, and this is a road you
@@ -43,53 +81,60 @@
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .walk-pill.is-on { color: #10180f; } }
 :root[data-theme="dark"] .walk-pill.is-on { color: #10180f; }
 
-/* ── the pathway ────────────────────────────────────────────────
-   Three steps read left to right. The chevrons are what make it a road
-   rather than three counters, so they hold their place at every width —
-   the steps shrink around them instead. */
-.walk-path-block { margin-bottom: 2rem; }
-.walk-path {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr auto 1fr;
-  align-items: start; gap: .5rem;
+/* ── the four words above the checklist ──────────────────────────
+   Abide, Belong, Contribute, This is Church — grey until you say otherwise,
+   coloured with a slight glow the moment you do, and nothing computed about
+   either state. "This is Church" carries a small kicker of its own: the
+   other three are places on the road, this one is the word for having
+   arrived, so it says so above itself rather than only in its own label. */
+.walk-stages-block { margin-bottom: 1.8rem; }
+.walk-stages {
+  display: flex; flex-wrap: wrap; align-items: flex-end;
+  gap: .35rem 1.3rem;
 }
-.walk-step { display: flex; flex-direction: column; gap: .22rem; min-width: 0; }
-.walk-step-name {
-  font-family: var(--display); font-size: 1rem; font-weight: 600;
-  font-variation-settings: "SOFT" 34, "WONK" 1, "opsz" 20;
-  line-height: 1.1;
-}
-.walk-step-lede { font-size: .66rem; color: var(--ink-faint); line-height: 1.25; }
-.walk-step-count {
-  font-size: .62rem; letter-spacing: .12em; text-transform: uppercase;
+.walk-stage-item { display: flex; flex-direction: column; align-items: center; }
+.walk-stage-kicker {
+  font-size: .58rem; letter-spacing: .16em; text-transform: uppercase;
   font-weight: 700; color: var(--ink-faint);
+  margin-bottom: .2rem;
 }
-.walk-step.is-full .walk-step-name,
-.walk-step.is-full .walk-step-count { color: var(--sage-ink); }
+.walk-stage {
+  border: 0; background: none; padding: .15rem 0; cursor: pointer;
+  font-family: var(--display); font-size: 1.2rem; font-weight: 600;
+  font-variation-settings: "SOFT" 20, "WONK" 1, "opsz" 32;
+  color: var(--ink-faint);
+  text-shadow: none;
+  transition: color .3s, text-shadow .3s;
+  -webkit-tap-highlight-color: transparent;
+}
+.walk-stage:hover { color: var(--ink-soft); }
+.walk-stage.is-on {
+  color: var(--green);
+  text-shadow: 0 0 12px color-mix(in oklab, var(--green) 60%, transparent);
+}
+.walk-stage:focus-visible { outline: 2px solid var(--green); outline-offset: 4px; border-radius: 3px; }
 
-.walk-bar {
-  height: .28rem; border-radius: 999px; margin: .18rem 0 .1rem;
-  background: var(--rule-soft);
-  overflow: hidden;
-}
-.walk-bar i {
-  display: block; height: 100%; border-radius: 999px;
-  width: calc(var(--fill) * 100%);
-  background: var(--green);
-  transition: width .45s var(--ease);
-}
-.walk-step.is-full .walk-bar i { background: var(--sage); }
-
-.walk-arrow {
-  color: var(--ash); font-size: 1.1rem; line-height: 1;
-  padding-top: .1rem;
+/* The moment all four are lit — a note, not a question with an answer, which
+   is why nothing here is a button. Borrows the gold-accent language the
+   season card already uses for "something worth noticing" that isn't a
+   warning. */
+.walk-invite-note {
+  margin: .9rem 0 0;
+  padding: .55rem .9rem;
+  border: 1px solid color-mix(in oklab, var(--gold) 40%, transparent);
+  border-left: 3px solid var(--gold);
+  border-radius: 3px 10px 10px 3px;
+  background: color-mix(in oklab, var(--gold) 8%, transparent);
+  font-size: .85rem; font-weight: 600; color: var(--ink);
 }
 
 /* ── their household, under their photo ─────────────────────────
    The same .fact the birthday and the phone number are already set in, so it
    reads as one more thing known about them rather than as a panel bolted on.
    The pencil sits at the end of the row and stays out of the text's way: it
-   is the quiet way to change this, not a second thing to read.
+   is the quiet way to change this, not a second thing to read. It is always
+   there once somebody is discipled — before anything has been said, the row
+   is a muted prompt rather than nothing, since the pencil is the only way in.
 
    align-items:start rather than center — the facts wrap to two or three lines
    on a phone, and a pencil floating in the middle of them would have nothing
@@ -105,35 +150,12 @@
   display: flex; flex-wrap: wrap; gap: .25rem .8rem;
 }
 .household-facts .fact { line-height: 1.35; }
+.household-facts .fact.is-blank { color: var(--ink-faint); font-style: italic; }
 .household-facts .glyph { color: var(--green); margin-right: .3rem; }
 /* Smaller again than a block heading's, because this one is beside running
    text rather than above a section. */
 .person-household .icon-btn { width: 1.6rem; height: 1.6rem; }
 .person-household .icon-btn svg { width: .75rem; height: .75rem; }
-
-/* ── their children ─────────────────────────────────────────────
-   .up-item's shape: the number on the left, because that is what the eye
-   runs down, and the name and the rest beside it. */
-.kid-row { display: flex; align-items: flex-start; gap: .9rem; padding: .6rem 0; }
-.kid-row + .kid-row { border-top: 1px dotted var(--rule-soft); }
-.kid-age {
-  flex: 0 0 3.4rem; text-align: center;
-  border: 1px solid var(--rule); border-radius: 9px;
-  background: var(--paper-raise);
-  padding: .3rem .2rem; line-height: 1.15;
-}
-.kid-age .n { display: block; font-family: var(--display); font-size: 1.15rem; font-weight: 600; font-variation-settings: "opsz" 20; }
-.kid-age .m { display: block; font-size: .55rem; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-faint); font-weight: 700; }
-.kid-age.is-blank { opacity: .5; }
-.kid-age.is-blank .n { color: var(--ink-faint); }
-.kid-body { flex: 1; min-width: 0; padding-top: .1rem; }
-.kid-body h4 {
-  margin: 0; font-family: var(--display); font-size: 1.05rem; font-weight: 500;
-  font-variation-settings: "SOFT" 34, "WONK" 1, "opsz" 24;
-  cursor: pointer;
-}
-.kid-body h4:hover { color: var(--green); }
-.kid-sub { font-size: .74rem; color: var(--ink-faint); letter-spacing: .02em; }
 
 /* ── a line to tick ─────────────────────────────────────────────
    The count sits at the right of the section heading where the + button
@@ -142,16 +164,6 @@
   font-size: .64rem; letter-spacing: .14em; text-transform: uppercase;
   font-weight: 700; color: var(--ink-faint); white-space: nowrap;
 }
-.walk-lede-line {
-  margin: -.6rem 0 .9rem;
-  font-size: .78rem; color: var(--ink-faint); font-style: italic;
-}
-.walk-part {
-  margin: 1.1rem 0 .5rem;
-  font-size: .64rem; letter-spacing: .2em; text-transform: uppercase;
-  color: var(--ink-soft); font-weight: 700;
-}
-.walk-part:first-of-type { margin-top: 0; }
 
 .walk-item { display: flex; align-items: flex-start; gap: .7rem; padding: .32rem 0; }
 
@@ -199,3 +211,44 @@
   font-weight: 700; color: var(--sage-ink);
 }
 .walk-item .tl-note { font-size: .82rem; }
+
+/* ── starting to walk with somebody ──────────────────────────────
+   Yes/No as a pair of .chip, wider than the word needs so the two sit as
+   deliberate, equally-weighted choices rather than a tight little toggle. */
+.chip-pick.yesno .chip { min-width: 4.4rem; text-align: center; }
+
+/* One row per child, built and torn down by hand rather than through a field
+   — see discipleKidRow in js/walk-sheet.js. Name takes the room there is;
+   birthday and age stay narrow, since a date and two digits never need more. */
+.di-kid-row {
+  display: flex; align-items: center; flex-wrap: wrap;
+  gap: .45rem;
+  margin-bottom: .55rem;
+}
+.di-kid-row input {
+  font-family: var(--body); font-size: .88rem; color: var(--ink);
+  background: var(--paper-raise);
+  border: 1px solid var(--rule); border-radius: 8px;
+  padding: .48rem .6rem; outline: none;
+  transition: border-color .2s, box-shadow .2s;
+}
+.di-kid-row input:focus {
+  border-color: var(--green);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--green) 16%, transparent);
+}
+.di-kid-name { flex: 1 1 8rem; min-width: 6rem; }
+.di-kid-birthday { flex: 0 0 auto; width: 9rem; }
+.di-kid-age { flex: 0 0 auto; width: 3.6rem; }
+.di-kid-remove {
+  flex: 0 0 auto;
+  font-size: .72rem; color: var(--ink-faint); border-color: transparent;
+}
+.di-kid-remove:hover { color: var(--alert); border-color: color-mix(in oklab, var(--alert) 40%, transparent); }
+@media (max-width: 460px) { .di-kid-name { flex-basis: 100%; } }
+
+/* ── the children list inside the household dialog ──────────────
+   A name and an age, nothing else — the fuller picture (school, a birthday
+   spelled out) is a tap away in kidDialog, which this list's own name opens. */
+.h-kids-list { display: flex; flex-direction: column; gap: .4rem; margin-bottom: .6rem; }
+.h-kid-row { font-size: .88rem; }
+.h-kid-age { color: var(--ink-faint); font-size: .82rem; }

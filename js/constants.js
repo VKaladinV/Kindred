@@ -81,53 +81,69 @@ const MAX_TOUCHES = 60;
 const ROAD_ID = 'road-walking';
 const ROAD_NAME = 'People I am walking a road with';
 
-/* The pathway: abide in Christ, belong to his body, contribute to his kingdom.
-   Every key here is a persisted value rather than a label — the same warning
-   KINDS carries above, and for the same reason: renaming one orphans whatever
-   was ticked under it. A mark is stored as `${section}.${item}`. */
+/* The checklist, grouped into four sections read top to bottom. `ns` is the
+   namespace a section's items are stored under — abide/belong/contribute —
+   and is a persisted value, not a label: a mark is stored as `${ns}.${item}`,
+   the same warning KINDS carries above, and for the same reason renaming one
+   here orphans whatever was ticked under it.
+
+   Two of these sections share the `abide` namespace (Born again with the
+   Saviour, Following Christ) because both grew out of what used to be one
+   Abide section with two sub-headings — the display split in two, the
+   underlying keys did not, so an already-ticked abide.baptised keeps meaning
+   exactly what it always meant. */
 const WALK = [
-  { key: 'abide', title: 'Abide', lede: 'Know & follow Christ', parts: [
-    { title: 'Know Christ', items: [
-      ['saved',     'Accepted Jesus Christ as Lord and Saviour'],
-      ['baptised',  'Baptised in water'],
-      ['spirit',    'Baptised/filled with the Holy Spirit'],
-    ] },
-    { title: 'Follow Christ', items: [
-      ['bible',     'Regular Bible reading'],
-      ['quiet',     'Quiet time with God'],
-      ['prayer',    'Regular prayer'],
-      ['tongues',   'Prays in tongues'],
-      ['obedience', 'Growing in obedience to Christ'],
-    ] },
+  { ns: 'abide', title: 'Born again', items: [
+    ['saved',     'Accepted Jesus Christ as Lord and Saviour'],
+    ['baptised',  'Baptised in water'],
+    ['spirit',    'Baptised/filled with the Holy Spirit'],
   ] },
-  { key: 'belong', title: 'Belong', lede: 'Be part of the body', parts: [
-    { title: '', items: [
-      ['values',      'Understands the importance of the local church'],
-      ['attends',     'Regularly attends church'],
-      ['community',   'Attends a community/small group'],
-      ['leadership',  'Has a clear relationship with church leadership'],
-      ['accountable', 'Has accountability with other believers'],
-    ] },
+  { ns: 'abide', title: 'Following Christ', items: [
+    ['bible',     'Regular Bible reading'],
+    ['quiet',     'Quiet time with God'],
+    ['prayer',    'Regular prayer'],
+    ['tongues',   'Prays in tongues'],
+    ['obedience', 'Growing in obedience to Christ'],
   ] },
-  { key: 'contribute', title: 'Contribute', lede: 'Serve & build others', parts: [
-    { title: '', items: [
-      ['ministry',  'Involved in a ministry'],
-      ['prays',     'Regularly prays for others'],
-      ['prophetic', 'Encourages others through prophetic words'],
-      ['serves',    'Practically serves others'],
-      ['outreach',  'Participates in outreach'],
-      ['shares',    'Shares a testimony, Scripture or word during a gathering'],
-    ] },
+  { ns: 'belong', title: 'Part of the body', items: [
+    ['values',      'Understands the importance of the local church'],
+    ['attends',     'Regularly attends church'],
+    ['community',   'Attends a community/small group'],
+    ['leadership',  'Has a clear relationship with church leadership'],
+    ['accountable', 'Has accountability with other believers'],
+  ] },
+  { ns: 'contribute', title: 'Serving', items: [
+    ['ministry',  'Involved in a ministry'],
+    ['prays',     'Regularly prays for others'],
+    ['prophetic', 'Encourages others through prophetic words'],
+    ['serves',    'Practically serves others'],
+    ['outreach',  'Participates in outreach'],
+    ['shares',    'Shares a testimony, Scripture or word during a gathering'],
   ] },
 ];
 
 /* Every mark key the app knows about, in the order they are shown — which is
    the order normaliseDiscipleship rebuilds them in, so that two devices write
-   the same person down identically and the sync has nothing to argue about. */
-const WALK_KEYS = WALK.flatMap(s => s.parts.flatMap(part => part.items.map(([k]) => `${s.key}.${k}`)));
+   the same person down identically and the sync has nothing to argue about.
+   This order has to stay exactly as it was before the section above split in
+   two: it is what an already-agreed record on the server is compared against,
+   and reordering it would read every discipled person as changed on the next
+   sync for no reason worth paying. */
+const WALK_KEYS = WALK.flatMap(s => s.items.map(([k]) => `${s.ns}.${k}`));
 
 const WALK_LABELS = Object.fromEntries(
-  WALK.flatMap(s => s.parts.flatMap(part => part.items.map(([k, label]) => [`${s.key}.${k}`, label]))));
+  WALK.flatMap(s => s.items.map(([k, label]) => [`${s.ns}.${k}`, label])));
+
+/* The four words above the checklist — Abide, Belong, Contribute, and This is
+   Church. Unlike WALK, these are never computed from ticks: they are set by
+   hand, one click each, because the checklist can say what has been answered
+   but only a person can say whether somebody has actually arrived somewhere. */
+const STAGES = [
+  ['abide',      'Abide'],
+  ['belong',     'Belong'],
+  ['contribute', 'Contribute'],
+  ['church',     'This is Church'],
+];
 
 /* Stored, not shown — the labels are here and the values are what is written
    down, so a wording change never orphans anybody's answer. '' is a real

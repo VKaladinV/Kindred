@@ -1,4 +1,4 @@
-/* uses: KINDS WALK · daysBetween parseYmd prettyDate today ymd · people
+/* uses: KINDS · daysBetween parseYmd prettyDate today ymd · people
    · clamp
 */
 
@@ -259,18 +259,17 @@ const kidEntry = (p, k, date, inDays, turning) => {
   };
 };
 
-/* How far along each of the three stretches is — the count beside each heading
-   and the line at the top of the page. Topics you named yourself are counted
-   with none of them: they are things you added, not places on the pathway. */
-function walkProgress(p) {
-  const marks = p.discipleship.marks;
-  return WALK.map(s => {
-    const keys = s.parts.flatMap(part => part.items.map(([k]) => `${s.key}.${k}`));
-    return {
-      key: s.key, title: s.title, lede: s.lede,
-      done: keys.filter(k => marks[k]?.done).length, total: keys.length,
-    };
-  });
+/* How long they've been married — worked out from the date when there is one,
+   the same refusal kidAge makes above and for the same reason: a stored count
+   is wrong by next anniversary and a since-date never is. Falls back to the
+   typed count, which is all there is to say once no date has been given. */
+function marriageYears(p) {
+  if (!p.marriedOn) return p.marriedYears;
+  const b = parseYmd(p.marriedOn), now = new Date();
+  const had = now.getMonth() > b.getMonth()
+    || (now.getMonth() === b.getMonth() && now.getDate() >= b.getDate());
+  const years = now.getFullYear() - b.getFullYear() - (had ? 0 : 1);
+  return years < 0 ? '' : String(years);
 }
 
 const birthdayEntry = (p, bd) => ({

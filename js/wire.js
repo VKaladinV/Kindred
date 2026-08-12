@@ -12,7 +12,9 @@
    · editingEvent paintBabyFields paintGestationFrom saveEvent setEventType
    · savePrayer
    · removeKid removeTopic
-   · editingKid editingWalkItem paintMaritalEnd saveHouseholdForm saveKidForm saveWalkItem
+   · addDiscipleKidRow editingHousehold editingKid editingWalkItem kidDialog
+     paintMaritalEnd refreshHouseholdKids saveDiscipleIntro saveHouseholdForm
+     saveKidForm saveWalkItem yesNoGroup
    · toggleTheme
    · saveAnswered saveReleased saveRemoved
    · exportAll importAll
@@ -155,9 +157,33 @@ function wire() {
   $('#form-prayer').onsubmit = savePrayer;
   $('#btn-prayer-cancel').onclick = () => $('#dlg-prayer').close();
 
+  $('#form-disciple-intro').onsubmit = saveDiscipleIntro;
+  $('#btn-disciple-intro-cancel').onclick = () => $('#dlg-disciple-intro').close();
+  yesNoGroup($('#di-jesus'), v => { $('#wrap-di-jesus-years').hidden = v !== 'yes'; });
+  yesNoGroup($('#di-married'), v => { $('#wrap-di-years').hidden = v !== 'yes'; });
+  yesNoGroup($('#di-kids'), v => {
+    $('#wrap-di-kids-rows').hidden = v !== 'yes';
+    /* The first row appears the moment you say yes, rather than making the
+       one child everybody has cost a second click on top of the first. */
+    if (v === 'yes' && !$('#di-kids-rows').children.length) addDiscipleKidRow();
+  });
+  $('#di-kid-add').onclick = addDiscipleKidRow;
+
   $('#form-household').onsubmit = saveHouseholdForm;
   $('#btn-household-cancel').onclick = () => $('#dlg-household').close();
   $('#h-marital').onchange = paintMaritalEnd;
+  /* Alternatives, the same as a child's birthday and age below — a since-date
+     wins once there is one, so typing it clears the typed count in front of
+     you rather than leaving something that will not be kept. */
+  $('#h-married').onchange = () => { if ($('#h-married').value) $('#h-married-years').value = ''; };
+  $('#h-kid-add').onclick = () => kidDialog(editingHousehold);
+  /* The children list inside the household dialog is the one place kidDialog
+     opens on top of another dialog rather than replacing it — the crop
+     dialog already does the same over the person dialog. Nothing else here
+     repaints while it's up, so its own close is the one moment that list can
+     have gone stale. */
+  new MutationObserver(() => { if (!$('#dlg-kid').open) refreshHouseholdKids(); })
+    .observe($('#dlg-kid'), { attributes: true, attributeFilter: ['open'] });
 
   $('#form-kid').onsubmit = saveKidForm;
   $('#btn-kid-cancel').onclick = () => $('#dlg-kid').close();

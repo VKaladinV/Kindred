@@ -28,8 +28,13 @@ const photoMark = s => {
 
 /* Somebody nobody has written a word about should have an empty column rather
    than a pair of empty braces in it — so the shape is only spelled out once
-   there is something in it to spell. */
-const walkJson = w => (Object.keys(w.marks).length || w.topics.length) ? JSON.stringify(w) : '';
+   there is something in it to spell. Any one of the three counts: a mark, a
+   topic, or a stage lit with nothing else true yet. Missing the stages check
+   here would have been a real loss rather than a cosmetic one — a person with
+   all four words lit and not one item ticked would round-trip to an empty
+   column and lose every stage on the very next sync. */
+const walkJson = w => (Object.keys(w.marks).length || w.topics.length
+  || Object.values(w.stages).some(Boolean)) ? JSON.stringify(w) : '';
 
 /* A column that will not parse is one bad person, and throwing here would take
    the whole sync down with it. Read as nothing instead: normalise() fills in
@@ -69,6 +74,11 @@ function flatten(people, marks, groups = []) {
       divorced_on: d(p.divorcedOn), joined_church_on: d(p.joinedChurchOn),
       kids: p.kids.length ? JSON.stringify(p.kids) : '',
       discipleship: walkJson(p.discipleship),
+      /* Added after the six above, for the same one-off-resync reason they
+         were added after occupation and is_future. A typed count of years
+         rather than a date, so it is an integer column — married_on already
+         carries the date shape when there is one. */
+      married_years: p.marriedYears ? Number(p.marriedYears) : null,
     };
     for (const r of p.events) {
       /* due_on goes last for the same reason prayed_on/released_on did above:
@@ -142,6 +152,7 @@ function nest(rows) {
       maritalStatus: r.marital_status || '', marriedOn: r.married_on || '',
       divorcedOn: r.divorced_on || '', joinedChurchOn: r.joined_church_on || '',
       kids: readJson(r.kids, []), discipleship: readJson(r.discipleship, null),
+      marriedYears: r.married_years != null ? String(r.married_years) : '',
     };
     byId[r.id] = p;
     return p;

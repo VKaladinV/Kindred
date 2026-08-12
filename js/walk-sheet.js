@@ -1,8 +1,9 @@
-/* uses: KINDS MARITAL WALK WALK_LABELS · $ el monthYear prettyDate
-   · byId · kidAge walkProgress
+/* uses: KINDS MARITAL STAGES WALK WALK_LABELS · $ $$ el monthYear prettyDate
+   · byId · kidAge marriageYears
    · blockHead
-   · kidOf maritalEnded maritalMarried removeKid removeTopic saveHousehold
-     saveKid saveMark saveTopic toggleMark toggleTopic topicOf
+   · kidOf maritalEnded maritalMarried saveHousehold saveKid saveMark
+     saveTopic startDiscipleship toggleMark toggleStage toggleTopic topicOf
+   · sheetTab
 */
 
 /* ── the discipleship page ──────────────────────────────────────
@@ -12,97 +13,97 @@
    reads as more of their page rather than as a screen of its own.
 
    Returns the blocks rather than appending them, the way renderSheet already
-   collects its four into `order` and appends them in one line. */
+   collects its four into `order` and appends them in one line. There is no
+   household or children block here any more — that entered through the
+   intro pop-up (discipleIntroDialog, below) or is edited through the pencil
+   on householdSummary, in js/sheet.js. Asking for it twice, once in the pop-up
+   and again as a block waiting to be filled in, was the thing worth removing. */
 
 function walkBlocks(p) {
-  return [pathBlock(p), householdBlock(p), kidsBlock(p),
-    ...WALK.map(s => sectionBlock(p, s)), topicsBlock(p)].filter(Boolean);
+  return [stagesBlock(p), ...WALK.map(s => sectionBlock(p, s)), topicsBlock(p)];
 }
 
-/* ── the pathway ────────────────────────────────────────────────
-   Abide, then belong, then contribute — read left to right, with how far
-   along each one is. One line of orientation before the lists, not a
-   dashboard: no percentages, no colour beyond the app's own green. */
-function pathBlock(p) {
-  const box = el('div', 'sheet-block walk-path-block');
-  const path = el('div', 'walk-path');
-
-  walkProgress(p).forEach((s, i) => {
-    if (i) path.append(el('span', 'walk-arrow', '›'));
-    const step = el('div', 'walk-step' + (s.done === s.total ? ' is-full' : ''));
-    step.append(el('span', 'walk-step-name', s.title));
-    step.append(el('span', 'walk-step-lede', s.lede));
-    const bar = el('div', 'walk-bar');
-    const fill = el('i');
-    fill.style.setProperty('--fill', String(s.done / s.total));
-    bar.append(fill);
-    step.append(bar);
-    step.append(el('span', 'walk-step-count', `${s.done} of ${s.total}`));
-    path.append(step);
+/* ── the four words above the checklist ──────────────────────────
+   Abide, Belong, Contribute, and This is Church. Nothing here is computed
+   from the ticks below — a click colours a word, another click greys it
+   again, and that is the whole of it. This is Church carries its own small
+   kicker reading its own state back — "not completed" until you say
+   otherwise, "completed" the moment you do — since it is the one word among
+   the four that names an arrival rather than a place on the road. The moment
+   all four are lit, a line appears saying they need to be invited for
+   membership; nothing is stored for that line, so unlighting any one word
+   takes it away again. */
+function stagesBlock(p) {
+  const box = el('div', 'sheet-block walk-stages-block');
+  const row = el('div', 'walk-stages');
+  STAGES.forEach(([key, label]) => {
+    const on = !!p.discipleship.stages[key];
+    const item = el('div', 'walk-stage-item');
+    if (key === 'church') item.append(el('span', 'walk-stage-kicker', on ? 'completed' : 'not completed'));
+    const b = el('button', 'walk-stage' + (on ? ' is-on' : ''), label);
+    b.type = 'button';
+    b.setAttribute('aria-pressed', String(on));
+    b.onclick = () => toggleStage(p.id, key);
+    item.append(b);
+    row.append(item);
   });
+  box.append(row);
 
-  box.append(path);
+  if (STAGES.every(([key]) => p.discipleship.stages[key])) {
+    box.append(el('p', 'walk-invite-note', 'Needs to be invited for membership.'));
+  }
   return box;
 }
 
-/* ── their household ────────────────────────────────────────────
-   Once it says anything at all it moves out of here and up under their photo,
-   as a line to be read rather than a form to be filled — see householdSummary
-   below, which is where the pencil to change it lives too. So this block is
-   only ever the way in: it exists while there is nothing to show, and returns
-   nothing the moment there is. */
+/* Whether there is anything of theirs worth reading in the summary line
+   under their photo. */
 const householdFilled = p =>
-  !!(p.maritalStatus || p.marriedOn || p.divorcedOn || p.joinedChurchOn);
-
-function householdBlock(p) {
-  if (householdFilled(p)) return null;
-  const box = el('div', 'sheet-block');
-  box.append(blockHead('Their household', () => householdDialog(p.id), 'Add their household'));
-  box.append(el('p', 'quiet-note',
-    'Nothing noted yet — whether they are married, and when they joined the church.'));
-  return box;
-}
+  !!(p.maritalStatus || p.marriedOn || p.marriedYears || p.joinedChurchOn);
 
 /* The line under their photo. Month and year rather than the full date: which
    day a marriage began is not what a summary is for, and three exact dates in
    a row would read as a record card instead of a sentence about somebody.
 
-   Their children are in it as names and ages alone. The block further down is
-   where a child is added or changed; this is only the glance. */
+   Always renders once somebody is discipled — before this used to disappear
+   entirely while nothing had been said, but the pencil is now the only door
+   in (the intro pop-up is the other, and that only ever runs once), so it has
+   to stay reachable even when there is nothing yet to read. */
 function householdSummary(p) {
-  if (!householdFilled(p) && !p.kids.length) return null;
-
   const box = el('div', 'person-household');
   const facts = el('div', 'household-facts');
 
-  const label = (MARITAL.find(([v]) => v === p.maritalStatus) || [])[1];
-  if (p.maritalStatus || p.marriedOn) {
-    const f = el('span', 'fact');
-    if (label) f.append(el('b', null, label));
-    const when = [
-      p.marriedOn ? `married ${monthYear(p.marriedOn)}` : '',
-      p.divorcedOn ? `ended ${monthYear(p.divorcedOn)}` : '',
-    ].filter(Boolean).join(', ');
-    if (when) f.append(document.createTextNode(label ? ` · ${when}` : when));
-    facts.append(f);
-  }
+  if (!householdFilled(p) && !p.kids.length) {
+    facts.append(el('span', 'fact is-blank', 'Add their household — married, children, when they joined.'));
+  } else {
+    const label = (MARITAL.find(([v]) => v === p.maritalStatus) || [])[1];
+    if (p.maritalStatus || p.marriedOn || p.marriedYears) {
+      const f = el('span', 'fact');
+      if (label) f.append(el('b', null, label));
+      const years = marriageYears(p);
+      const married = p.marriedOn ? `married ${monthYear(p.marriedOn)}`
+        : years ? `married ${years} ${years === '1' ? 'year' : 'years'}` : '';
+      const when = [married, p.divorcedOn ? `ended ${monthYear(p.divorcedOn)}` : ''].filter(Boolean).join(', ');
+      if (when) f.append(document.createTextNode(label ? ` · ${when}` : when));
+      facts.append(f);
+    }
 
-  if (p.joinedChurchOn) {
-    const f = el('span', 'fact');
-    f.append(el('span', 'glyph', KINDS.faith.glyph), document.createTextNode('joined '));
-    f.append(el('b', null, monthYear(p.joinedChurchOn)));
-    facts.append(f);
-  }
+    if (p.joinedChurchOn) {
+      const f = el('span', 'fact');
+      f.append(el('span', 'glyph', KINDS.faith.glyph), document.createTextNode('joined '));
+      f.append(el('b', null, monthYear(p.joinedChurchOn)));
+      facts.append(f);
+    }
 
-  if (p.kids.length) {
-    const f = el('span', 'fact');
-    p.kids.forEach((k, i) => {
-      if (i) f.append(document.createTextNode(' · '));
-      f.append(el('b', null, k.name));
-      const age = kidAge(k);
-      if (age) f.append(document.createTextNode(' ' + age));
-    });
-    facts.append(f);
+    if (p.kids.length) {
+      const f = el('span', 'fact');
+      p.kids.forEach((k, i) => {
+        if (i) f.append(document.createTextNode(' · '));
+        f.append(el('b', null, k.name));
+        const age = kidAge(k);
+        if (age) f.append(document.createTextNode(' ' + age));
+      });
+      facts.append(f);
+    }
   }
   box.append(facts);
 
@@ -116,68 +117,25 @@ function householdSummary(p) {
   return box;
 }
 
-/* ── their children ─────────────────────────────────────────────
-   The age on the left the way a date sits on the left of a coming-up row, and
-   for the same reason: it is the thing being scanned down the column. It is
-   worked out from the birthday where there is one, so it is right every
-   morning without anyone touching it. */
-function kidsBlock(p) {
-  const box = el('div', 'sheet-block');
-  box.append(blockHead('Their children', () => kidDialog(p.id), 'Add a child'));
-
-  if (!p.kids.length) {
-    box.append(el('p', 'quiet-note', 'Nobody noted yet — names, ages, and where they go to school.'));
-    return box;
-  }
-
-  p.kids.forEach(k => {
-    const row = el('div', 'kid-row');
-    const age = kidAge(k);
-    const stamp = el('div', 'kid-age' + (age ? '' : ' is-blank'));
-    stamp.append(el('span', 'n', age || '—'));
-    if (age) stamp.append(el('span', 'm', age === '1' ? 'year' : 'years'));
-    row.append(stamp);
-
-    const body = el('div', 'kid-body');
-    const h = el('h4', null, k.name || 'Unnamed');
-    h.title = 'Edit this child';
-    h.onclick = () => kidDialog(p.id, k.id);
-    body.append(h);
-
-    const bits = [k.school, k.birthday ? `born ${prettyDate(k.birthday)}` : ''].filter(Boolean);
-    if (bits.length) body.append(el('div', 'kid-sub', bits.join(' · ')));
-    row.append(body);
-    box.append(row);
-  });
-  return box;
-}
-
-/* ── one stretch of the road ────────────────────────────────────
-   Abide carries two sub-headings and the other two carry none, which falls out
-   of the constant rather than being decided here — a part with no title simply
-   contributes no heading. */
+/* ── one section of the checklist ─────────────────────────────────
+   Four of these now, each flat — no more sub-headings within a section, since
+   the two that used to share one now have a heading of their own. */
 function sectionBlock(p, s) {
   const box = el('div', 'sheet-block');
-  const done = s.parts.flatMap(part => part.items)
-    .filter(([k]) => p.discipleship.marks[`${s.key}.${k}`]?.done).length;
-  const total = s.parts.reduce((n, part) => n + part.items.length, 0);
+  const done = s.items.filter(([k]) => p.discipleship.marks[`${s.ns}.${k}`]?.done).length;
 
   const head = blockHead(s.title);
-  head.append(el('span', 'walk-count', `${done} of ${total}`));
+  head.append(el('span', 'walk-count', `${done} of ${s.items.length}`));
   box.append(head);
-  box.append(el('p', 'walk-lede-line', s.lede));
 
-  s.parts.forEach(part => {
-    if (part.title) box.append(el('h4', 'walk-part', part.title));
-    part.items.forEach(([k, label]) => {
-      const key = `${s.key}.${k}`;
-      const m = p.discipleship.marks[key];
-      box.append(walkRow({
-        done: !!m?.done, label, date: m?.date, note: m?.note,
-        onTick: () => toggleMark(p.id, key),
-        onOpen: () => walkItemDialog(p.id, { key }),
-      }));
-    });
+  s.items.forEach(([k, label]) => {
+    const key = `${s.ns}.${k}`;
+    const m = p.discipleship.marks[key];
+    box.append(walkRow({
+      done: !!m?.done, label, date: m?.date, note: m?.note,
+      onTick: () => toggleMark(p.id, key),
+      onOpen: () => walkItemDialog(p.id, { key }),
+    }));
   });
   return box;
 }
@@ -230,14 +188,116 @@ function walkRow({ done, label, date, note, onTick, onOpen }) {
   return row;
 }
 
-/* ─────────────────────────── the three dialogs ───────────────── */
+/* ─────────────────────────── the dialogs ──────────────────────── */
 
-let editingHousehold = null;
+/* ── starting to walk with somebody ──────────────────────────────
+   What Disciple actually opens, before anything else happens. Three
+   questions, each answerable or not — the moment usually is when you already
+   know the answers, so asking here saves finding this same ground again a
+   week later through the pencil. Leaving all three blank still starts the
+   road; nothing here is a gate on that. */
+let editingDiscipleIntro = null;
 
-/* The status list is filled here rather than in fillSelects, which builds the
+function discipleIntroDialog(personId) {
+  const p = byId(personId);
+  if (!p) return;
+  editingDiscipleIntro = personId;
+
+  $('#disciple-intro-title').textContent = `Walking a road with ${p.name.split(' ')[0]}`;
+  paintYesNo($('#di-jesus'), '');
+  paintYesNo($('#di-married'), '');
+  paintYesNo($('#di-kids'), '');
+  $('#wrap-di-jesus-years').hidden = true;
+  $('#di-jesus-years').value = '';
+  $('#wrap-di-years').hidden = true;
+  $('#di-years').value = '';
+  $('#wrap-di-kids-rows').hidden = true;
+  $('#di-kids-rows').textContent = '';
+
+  $('#dlg-disciple-intro').showModal();
+}
+
+/* A plain two-way toggle, built on the same aria-pressed/.is-on pattern the
+   group chips in js/person-dialog.js already use — clicking the one already
+   on takes it back to unanswered rather than refusing to move, since every
+   question here is allowed to stay open. */
+function yesNoGroup(container, onChange) {
+  $$('button', container).forEach(b => {
+    b.onclick = () => {
+      const already = b.classList.contains('is-on');
+      $$('button', container).forEach(x => { x.classList.remove('is-on'); x.setAttribute('aria-pressed', 'false'); });
+      if (!already) { b.classList.add('is-on'); b.setAttribute('aria-pressed', 'true'); }
+      if (onChange) onChange(yesNoValue(container));
+    };
+  });
+}
+
+const yesNoValue = container => container.querySelector('.is-on')?.dataset.value || '';
+
+const paintYesNo = (container, value) => {
+  $$('button', container).forEach(b => {
+    const on = b.dataset.value === value;
+    b.classList.toggle('is-on', on);
+    b.setAttribute('aria-pressed', String(on));
+  });
+};
+
+/* One row of the repeatable children list inside the intro pop-up. Built and
+   read back with plain DOM calls rather than reaching for kidDialog — that
+   dialog stacking three deep over the sheet, one child at a time, would have
+   made naming a second child cost more taps than it was worth in the one
+   moment this app already knows to keep light: adding somebody new. */
+function discipleKidRow() {
+  const row = el('div', 'di-kid-row');
+  const name = el('input', 'di-kid-name');
+  name.type = 'text'; name.placeholder = 'Name'; name.maxLength = 60; name.autocomplete = 'off';
+  const bday = el('input', 'di-kid-birthday');
+  bday.type = 'date'; bday.setAttribute('aria-label', 'Birthday');
+  const age = el('input', 'di-kid-age');
+  age.type = 'text'; age.inputMode = 'numeric'; age.maxLength = 2; age.placeholder = 'age';
+  age.setAttribute('aria-label', 'Age');
+  bday.onchange = () => { if (bday.value) age.value = ''; };
+  const remove = el('button', 'link-btn di-kid-remove', 'remove');
+  remove.type = 'button';
+  remove.onclick = () => row.remove();
+  row.append(name, bday, age, remove);
+  return row;
+}
+
+const addDiscipleKidRow = () => $('#di-kids-rows').append(discipleKidRow());
+
+function saveDiscipleIntro(e) {
+  e.preventDefault();
+  const acceptedJesus = yesNoValue($('#di-jesus')) === 'yes';
+  const acceptedJesusYears = acceptedJesus ? $('#di-jesus-years').value.trim() : '';
+  const married = yesNoValue($('#di-married')) === 'yes';
+  const marriedYears = married ? $('#di-years').value.trim() : '';
+  const wantsKids = yesNoValue($('#di-kids')) === 'yes';
+  const kids = wantsKids ? $$('.di-kid-row', $('#di-kids-rows')).map(row => ({
+    name: $('.di-kid-name', row).value.trim(),
+    birthday: $('.di-kid-birthday', row).value,
+    age: $('.di-kid-age', row).value,
+  })).filter(k => k.name) : [];
+
+  /* Set before startDiscipleship rather than after, so the render it already
+     does lands on the Walk tab in one pass instead of two. */
+  sheetTab = 'walk';
+  startDiscipleship(editingDiscipleIntro, { acceptedJesus, acceptedJesusYears, married, marriedYears, kids });
+  $('#dlg-disciple-intro').close();
+}
+
+/* ── their household ────────────────────────────────────────────
+   The status list is filled here rather than in fillSelects, which builds the
    selects that exist for the whole life of the app. This one has to agree with
    MARITAL and nothing else ever changes it, so building it beside the code
-   that reads it back keeps the two in one place. */
+   that reads it back keeps the two in one place.
+
+   Their children live here too now — a compact list, each name opening the
+   ordinary kidDialog on top of this one. Dialog over dialog is already a
+   proven shape in this app (the crop dialog opens over the person dialog the
+   same way), so nothing new was needed to let this one do it as well. */
+let editingHousehold = null;
+
 function householdDialog(personId) {
   const p = byId(personId);
   if (!p) return;
@@ -247,12 +307,42 @@ function householdDialog(personId) {
   if (!sel.options.length) MARITAL.forEach(([v, label]) => sel.append(new Option(label, v)));
   sel.value = p.maritalStatus;
   $('#h-married').value = p.marriedOn || '';
+  $('#h-married-years').value = p.marriedOn ? '' : (p.marriedYears || '');
   $('#h-ended').value = p.divorcedOn || '';
   $('#h-church').value = p.joinedChurchOn || '';
   paintMaritalEnd();
+  renderHouseholdKids(p);
 
   $('#dlg-household').showModal();
   setTimeout(() => sel.focus(), 60);
+}
+
+function renderHouseholdKids(p) {
+  const box = $('#h-kids-list');
+  box.textContent = '';
+  if (!p.kids.length) {
+    box.append(el('p', 'quiet-note', 'Nobody noted yet.'));
+    return;
+  }
+  p.kids.forEach(k => {
+    const row = el('div', 'h-kid-row');
+    const btn = el('button', 'link-btn', k.name || 'Unnamed');
+    btn.type = 'button';
+    btn.onclick = () => kidDialog(p.id, k.id);
+    row.append(btn);
+    const age = kidAge(k);
+    if (age) row.append(el('span', 'h-kid-age', ' · ' + (age === '1' ? '1 year' : age + ' years')));
+    box.append(row);
+  });
+}
+
+/* kidDialog closing is the one moment this list can have gone stale — it
+   opens on top of this dialog rather than replacing it, so nothing else here
+   ever repaints while it's up. Called from the observer wire() sets up on
+   #dlg-kid's own open attribute. */
+function refreshHouseholdKids() {
+  const p = editingHousehold && byId(editingHousehold);
+  if (p && $('#dlg-household').open) renderHouseholdKids(p);
 }
 
 /* Which dates the chosen status leaves worth asking for. Watched rather than
@@ -268,18 +358,22 @@ const paintMaritalEnd = () => {
 function saveHouseholdForm(e) {
   e.preventDefault();
   const status = $('#h-marital').value;
+  const marriedOn = maritalMarried(status) ? $('#h-married').value : '';
   saveHousehold(editingHousehold, {
     maritalStatus: status,
+    marriedOn,
     /* A status the date makes no sense against clears it, rather than merely
-       hiding it. What is stored is then what the page says — a wedding date
-       sitting invisibly under "Single" would sync, ride every backup, and
-       surface again the day the status changed. */
-    marriedOn: maritalMarried(status) ? $('#h-married').value : '',
+       hiding it — and a since-date, once given, is what wins over a typed
+       count of years, the same precedence a child's birthday holds over a
+       typed age. What is stored is then always what the page says. */
+    marriedYears: maritalMarried(status) && !marriedOn ? $('#h-married-years').value.trim() : '',
     divorcedOn: maritalEnded(status) ? $('#h-ended').value : '',
     joinedChurchOn: $('#h-church').value,
   });
   $('#dlg-household').close();
 }
+
+/* ── a child ───────────────────────────────────────────────────── */
 
 let editingKid = null;
 
@@ -312,10 +406,11 @@ function saveKidForm(e) {
   $('#dlg-kid').close();
 }
 
+/* ── one step on the road ─────────────────────────────────────────
+   Called three ways: with a key, for one of the fixed items; with a topicId,
+   to edit one of your own; and with neither, to make a new one. */
 let editingWalkItem = null;
 
-/* Called three ways: with a key, for one of the fixed items; with a topicId,
-   to edit one of your own; and with neither, to make a new one. */
 function walkItemDialog(personId, { key = '', topicId = null } = {}) {
   const p = byId(personId);
   if (!p) return;
