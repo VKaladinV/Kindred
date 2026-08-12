@@ -1,4 +1,4 @@
-/* uses: today · byId queueSave · toast · renderAll */
+/* uses: today · byId queueSave · markConnected undoConnected · toast · renderAll */
 
 function endSeason(personId, recId) {
   const r = byId(personId)?.events.find(x => x.id === recId);
@@ -14,6 +14,51 @@ function moveToHistory(personId, recId) {
   if (!r) return;
   r.type = 'history';
   r.repeatsYearly = false;
+  queueSave();
+  renderAll();
+}
+
+/* The tick in Today and Calendar — the same move moveToHistory already makes,
+   just reached from the list a record is landing in rather than the page it
+   lives on. Recorded here rather than left to call moveToHistory itself
+   because a planned coffee or visit (connectKind) needs one thing more: the
+   same tap that resolves the reminder is also the moment it happened, so it
+   logs the touch too, in the one write.
+
+   markConnected already carries its own toast and its own default Undo — a
+   plain "Marked as done" here would be the wrong announcement for something
+   that just told the person's whole check-in history they connected, so the
+   custom undo is handed to it instead of raised separately. */
+function completeUpcoming(personId, recId) {
+  const p = byId(personId);
+  const r = p?.events.find(x => x.id === recId);
+  if (!r) return;
+  r.type = 'history';
+  r.repeatsYearly = false;
+  const kind = r.connectKind;
+  queueSave();
+  renderAll();
+
+  const undo = { label: 'Undo', run: () => undoCompleteUpcoming(personId, recId, kind) };
+  if (kind) markConnected(personId, kind, undo);
+  else toast('Marked as done', undo);
+}
+
+/* hadKind is passed rather than read back off the record, because by the time
+   Undo might be pressed the record has already been through normalise on a
+   sync or two and there is no promise the field survived unchanged — the
+   closure captured what was actually true the moment it was completed. */
+function undoCompleteUpcoming(personId, recId, hadKind) {
+  const r = byId(personId)?.events.find(x => x.id === recId);
+  if (!r) return;
+  r.type = 'upcoming';
+  /* Only ever today's touch, and only ever the one completeUpcoming just
+     added — undoConnected already refuses to touch anything but today's.
+     Its own toast is the confirmation here too, so nothing further is said
+     about the record itself; without a touch to take back, this says so on
+     its own instead. */
+  if (hadKind) undoConnected(personId);
+  else toast('Taken back');
   queueSave();
   renderAll();
 }

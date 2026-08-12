@@ -91,6 +91,11 @@ function flatten(people, marks, groups = []) {
         ends_on: d(r.endDate), kind: r.kind, title: r.title, note: r.note,
         repeats_yearly: !!r.repeatsYearly, shared: !!r.shared,
         due_on: d(r.dueDate),
+        /* Added after due_on for the same reason every field before it went
+           last: same() compares these stringified, and adding a field
+           anywhere but the end re-pushes every record already agreed with
+           the server, once. */
+        connect_kind: r.connectKind || '',
       };
     }
     for (const pr of p.prayers) {
@@ -163,6 +168,7 @@ function nest(rows) {
       id: r.id, type: r.type, date: r.starts_on, endDate: r.ends_on || '',
       kind: r.kind, title: r.title, note: r.note || '', repeatsYearly: !!r.repeats_yearly,
       shared: !!r.shared, dueDate: r.due_on || '',
+      connectKind: r.connect_kind || '',
     });
   }
   for (const r of Object.values(rows.prayers)) {

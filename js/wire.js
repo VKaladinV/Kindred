@@ -9,12 +9,13 @@
    · checkClaimedInvites clearPendingJoin copyInviteLink finishJoin joining sendInviteOnWhatsApp shareInviteLink
    · countryCode editingPersonId fillFromContact holdPhoto paintPhotoPreview personDialog showPending
    · adjustPhoto pickPhoto wireCropper · savePerson
-   · editingEvent paintBabyFields paintGestationFrom saveEvent setEventType
+   · editingEvent paintBabyFields paintConnectKind paintGestationFrom saveEvent setEventType
    · savePrayer
    · removeKid removeTopic
-   · addDiscipleKidRow editingHousehold editingKid editingWalkItem kidDialog
-     paintMaritalEnd refreshHouseholdKids saveDiscipleIntro saveHouseholdForm
-     saveKidForm saveWalkItem yesNoGroup
+   · addDiscipleKidRow discipleAddDialog editingHousehold editingKid
+     editingWalkItem kidDialog paintDisciplePick paintMaritalEnd
+     refreshHouseholdKids saveDiscipleIntro saveHouseholdForm saveKidForm
+     saveWalkItem yesNoGroup
    · toggleTheme
    · saveAnswered saveReleased saveRemoved
    · exportAll importAll
@@ -22,7 +23,7 @@
    · paintMfaState
    · LOCK_GRACE checkBio
    · hiddenAt locked paintLockState pinDialog savePin showLock toggleBio
-   · activeView flushHeldRender renderAll switchView · checkForUpdate
+   · flushHeldRender renderAll switchView · checkForUpdate
 */
 
 function fillSelects() {
@@ -79,11 +80,17 @@ function wire() {
   $('#btn-group-cancel').onclick = () => $('#dlg-group').close();
   $('#btn-group-delete').onclick = deleteGroup;
 
-  $('#btn-add').onclick = () => personDialog(null, { future: activeView === 'future' });
+  $('#btn-add-circle').onclick = () => personDialog(null);
   $('#btn-add-first').onclick = () => personDialog(null);
+  $('#btn-add-future').onclick = () => personDialog(null, { future: true });
   $('#btn-add-future-first').onclick = () => personDialog(null, { future: true });
   $('#form-person').onsubmit = savePerson;
   $('#btn-person-cancel').onclick = () => $('#dlg-person').close();
+
+  $('#btn-disciple-add').onclick = discipleAddDialog;
+  $('#btn-disciple-first').onclick = discipleAddDialog;
+  $('#btn-disciple-pick-cancel').onclick = () => $('#dlg-disciple-pick').close();
+  $('#dp-search').oninput = () => paintDisciplePick($('#dp-search').value);
 
   $('#photo-input').onchange = e => {
     const file = e.target.files?.[0];
@@ -207,6 +214,7 @@ function wire() {
      gestation fields follow the checkbox as well as the tabs. */
   $('#e-baby').onchange = paintBabyFields;
   $('#e-due').onchange = () => { if (!$('#wrap-gestation').hidden) paintGestationFrom($('#e-due').value); };
+  $('#e-connect').onchange = paintConnectKind;
 
   /* Writes the due date, not "when it began" — #e-date keeps its own meaning
      for a season regardless of whether it's a pregnancy. */

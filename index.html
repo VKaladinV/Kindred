@@ -89,13 +89,15 @@
     <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5.5" width="17" height="15" rx="2.5"/><path d="M3.5 10.5h17M8 3.5v4M16 3.5v4M7.5 14h2M14.5 14h2M7.5 17.5h2M14.5 17.5h2"/></svg>
     <span>Calendar</span>
   </button>
+  <!-- The Circle person, with a small three-brick pyramid built in front of
+       him — two side by side, one centred above. -->
+  <button class="nav-item" data-view="discipleship">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8.6" r="3.3"/><path d="M5.8 18.6a6.2 6.2 0 0 1 12.4 0"/><rect x="10.4" y="14.6" width="3.2" height="2.4" rx=".5"/><rect x="7.6" y="17.4" width="3.2" height="2.4" rx=".5"/><rect x="13.2" y="17.4" width="3.2" height="2.4" rx=".5"/></svg>
+    <span>Discipleship</span>
+  </button>
 
   <span class="nav-gap"></span>
 
-  <button class="nav-item nav-add" id="btn-add">
-    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5.5v13M5.5 12h13"/></svg>
-    <span>Add</span>
-  </button>
   <button class="nav-item" id="btn-settings">
     <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M12 3.4v2.2M12 18.4v2.2M4.9 7.9l1.9 1.1M17.2 15l1.9 1.1M4.9 16.1l1.9-1.1M17.2 9l1.9-1.1"/></svg>
     <span>Settings</span>
@@ -149,6 +151,9 @@
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>
         <input type="search" id="search" placeholder="Find someone" aria-label="Find someone">
       </label>
+      <button type="button" class="icon-btn" id="btn-add-circle" aria-label="Add someone">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5.5v13M5.5 12h13"/></svg>
+      </button>
     </div>
 
     <div class="circle-grid" id="grid"></div>
@@ -250,6 +255,7 @@
     <div class="section-head">
       <h2 class="section-title">Future connections</h2>
       <p class="section-sub">People you would like to get to know</p>
+      <button type="button" class="btn btn-quiet" id="btn-add-future">Add someone</button>
     </div>
 
     <div class="circle-grid" id="grid-future"></div>
@@ -259,6 +265,27 @@
       <h2>No one here yet</h2>
       <p>Add someone you would like to get to know. A name is all you need to begin.</p>
       <button class="btn btn-primary" id="btn-add-future-first">Add someone</button>
+    </div>
+  </section>
+
+  <!-- ─────────── DISCIPLESHIP ─────────── -->
+  <!-- The road group (js/walk.js), drawn as an ordinary badge grid the same
+       way Circle and Future already are — a dedicated way in rather than a
+       new kind of state. -->
+  <section class="view" id="view-discipleship" aria-label="Discipleship" hidden>
+    <div class="section-head">
+      <h2 class="section-title">Discipleship</h2>
+      <p class="section-sub">People I am walking a road with</p>
+      <button type="button" class="btn btn-quiet" id="btn-disciple-add">Disciple someone</button>
+    </div>
+
+    <div class="circle-grid" id="grid-discipleship"></div>
+
+    <div class="blank" id="blank-discipleship" hidden>
+      <p class="blank-mark">◈</p>
+      <h2>Nobody yet</h2>
+      <p>Choose someone already in your circle to start walking a road with.</p>
+      <button class="btn btn-primary" id="btn-disciple-first">Disciple someone</button>
     </div>
   </section>
 
@@ -462,6 +489,21 @@
       <span>Happens again every year <em>birthdays of the departed, anniversaries, annual scans</em></span>
     </label>
 
+    <!-- Only while this is a Future record — the same visibility wrap-repeat
+         gets, for the same reason: a past or ongoing thing was not planned,
+         it simply happened or is happening. Ticking this off later
+         (js/mutations.js's completeUpcoming) is what turns the kind you pick
+         here into an ordinary touch, the same as tapping "Connected today"
+         on their own page. -->
+    <label class="check-field" id="wrap-connect" hidden>
+      <input type="checkbox" id="e-connect">
+      <span>This is a planned coffee, call, or visit <em>tick it off when it happens, and it counts as connecting</em></span>
+    </label>
+    <div class="field" id="wrap-connect-kind" hidden>
+      <span>How <em>optional</em></span>
+      <div class="type-pick how-pick" id="connect-kind-pick" role="group" aria-label="How you plan to connect"></div>
+    </div>
+
     <label class="field">
       <span>Anything to remember <em>optional</em></span>
       <textarea id="e-note" rows="3" maxlength="600" placeholder="Six cycles, every third Tuesday. Her sister drives her."></textarea>
@@ -490,6 +532,25 @@
       <button type="submit" class="btn btn-primary">Save</button>
     </div>
   </form>
+</dialog>
+
+<!-- ─────────── PICKING WHO TO WALK WITH ───────────
+     Discipleship's own way in, from the tab rather than from a person's own
+     page — a search over people already in your circle, narrowed to the ones
+     not already on the road. This dialog only ever answers "who"; picking a
+     row hands straight off to the intro pop-up below, the same one the
+     Disciple button on a person's own page already opens. -->
+<dialog class="dlg" id="dlg-disciple-pick">
+  <h2 class="dlg-title">Who would you like to walk with?</h2>
+  <label class="search">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>
+    <input type="search" id="dp-search" placeholder="Find someone" aria-label="Find someone">
+  </label>
+  <div class="dp-list" id="dp-list"></div>
+  <div class="dlg-actions">
+    <span class="spacer"></span>
+    <button type="button" class="btn btn-quiet" id="btn-disciple-pick-cancel">Cancel</button>
+  </div>
 </dialog>
 
 <!-- ─────────── STARTING TO WALK WITH SOMEONE ───────────

@@ -1,5 +1,6 @@
 /* uses: $ $$ el pad parseYmd plural prettyDate shortMonth today ymd
    · datesIn · clamp · block todayRow · closeLayer openLayer · quiet
+   · completeUpcoming
 */
 
 const MONTH_NAMES = 'January February March April May June July August September October November December'.split(' ');
@@ -193,6 +194,7 @@ function monthSectionFor(month, onDay) {
       when: `${x.glyph} ${open ? '' : parseYmd(x.date).getDate() + ' ' + shortMonth(x.date)}`.trim(),
       calm: x.date !== today(),
       sub: x.short,
+      onDone: x.completable ? () => completeUpcoming(x.p.id, x.id) : null,
     })));
   } else {
     details = el('p', 'quiet-note', open

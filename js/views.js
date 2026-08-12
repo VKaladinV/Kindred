@@ -2,6 +2,7 @@
    · paintCircleCount renderCircle renderFuture · renderGroups leaveGroup · renderPrayers
    · paintTodayCount renderToday
    · calPicked clearPickedDay renderCalendar · renderSheet
+   · renderDiscipleship
 */
 
 let activeView = 'circle';
@@ -39,9 +40,10 @@ function switchView(name) {
      reads the DOM always runs while that DOM can be seen. */
   /* Groups is in here for the same reason: inside a group it paints through
      paintFaces, which measures the grid to work out how many faces fit across,
-     and a hidden grid measures zero. Whichever of the two reads the DOM, it
+     and a hidden grid measures zero. Discipleship paints through the same
+     function, over a narrower list. Whichever of the three reads the DOM, it
      reads it while that DOM can be seen. */
-  if (name === 'circle' || name === 'groups') { stale.delete(name); painters[name](); }
+  if (name === 'circle' || name === 'groups' || name === 'discipleship') { stale.delete(name); painters[name](); }
   else paintIfStale(name);
 
   window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -87,6 +89,7 @@ const painters = {
   prayers: renderPrayers,
   today: renderToday,
   calendar: renderCalendar,
+  discipleship: renderDiscipleship,
 };
 
 const stale = new Set();

@@ -22,6 +22,13 @@ function normaliseRecord(r) {
     title: (r.title || '').trim() || 'Untitled',
     note: r.note || '',
     repeatsYearly: type === 'upcoming' ? !!r.repeatsYearly : false,
+    /* Which way a planned coffee, call or visit is meant to happen — the
+       same TOUCH_KINDS a touch is logged under, so completeUpcoming
+       (js/mutations.js) can hand this straight to markConnected without
+       translating between two vocabularies for the same thing. Only a Future
+       record can carry one, the same conditional-blanking repeatsYearly
+       above already gets. */
+    connectKind: type === 'upcoming' && TOUCH_KINDS[r.connectKind] ? r.connectKind : '',
     /* Whether this is one of the things you let the people you have linked
        with see. Only ever true on your own profile, and false unless you have
        said otherwise — nothing here goes anywhere by default. */

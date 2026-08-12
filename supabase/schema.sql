@@ -149,6 +149,13 @@ alter table public.records add column if not exists shared boolean not null defa
 -- distinct from ends_on, which is set later (at birth) via "this has ended".
 alter table public.records add column if not exists due_on date;
 
+-- Which way a planned coffee, call or visit is meant to happen — the same
+-- vocabulary touches.kind already uses (whatsapp/call/coffee/visit, or ''),
+-- so ticking the record off can hand this straight to a touch row without
+-- translating between two kind columns for the same idea. Only ever set on
+-- an upcoming record.
+alter table public.records add column if not exists connect_kind text not null default '';
+
 -- ── check-ins ────────────────────────────────────────────────────────
 -- id is derived from person + date on the client, so the same check-in
 -- recorded on two devices collapses to one row instead of colliding.

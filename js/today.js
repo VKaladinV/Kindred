@@ -1,9 +1,24 @@
 /* uses: $ aheadWords el today · people · babiesDue datesAhead · avatar
-   · quiet
+   · completeUpcoming · quiet
 */
 
-function todayRow(p, { when = '', calm = false, sub = '' } = {}) {
+/* onDone is only ever handed in for a completable record (dateEntry, in
+   js/model.js) — a birthday, a repeating record and a pregnancy never pass
+   one, so the tick simply never appears for those rather than appearing and
+   having to be disabled. The button itself is .tick verbatim, the same one
+   js/prayers.js already built for "prayed today" — one component, wherever a
+   list needs a plain "I did this" rather than a page of its own. */
+function todayRow(p, { when = '', calm = false, sub = '', onDone = null } = {}) {
   const row = el('div', 'today-row');
+  if (onDone) {
+    const tick = el('button', 'tick');
+    tick.type = 'button';
+    tick.title = 'Mark as done';
+    tick.setAttribute('aria-label', 'Mark as done');
+    tick.innerHTML = '<svg viewBox="0 0 24 24"><path d="M5 13l4.5 4.5L19 7"/></svg>';
+    tick.onclick = onDone;
+    row.append(tick);
+  }
   row.append(avatar(p, 'thumb', true, 'thumb'));
 
   const who = el('div', 'who');
@@ -67,6 +82,7 @@ function renderToday() {
       when: x.inDays === 0 ? `${x.glyph} today` : aheadWords(x.inDays),
       calm: x.inDays > 7,
       sub: x.sub,
+      onDone: x.completable ? () => completeUpcoming(x.p.id, x.id) : null,
     })));
     body.append(b);
   });

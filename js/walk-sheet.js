@@ -1,8 +1,9 @@
 /* uses: KINDS MARITAL STAGES WALK WALK_LABELS · $ $$ el monthYear prettyDate
-   · byId · kidAge marriageYears
-   · blockHead
-   · kidOf maritalEnded maritalMarried saveHousehold saveKid saveMark
-     saveTopic startDiscipleship toggleMark toggleStage toggleTopic topicOf
+   · byId people · avatar · kidAge marriageYears · byNeed
+   · blockHead paintFaces
+   · isWalking kidOf maritalEnded maritalMarried roadGroup saveHousehold
+     saveKid saveMark saveTopic startDiscipleship toggleMark toggleStage
+     toggleTopic topicOf
    · sheetTab
 */
 
@@ -456,4 +457,60 @@ function saveWalkItem(e) {
     saveTopic(personId, topicId, { title, date, note });
   }
   $('#dlg-walk-item').close();
+}
+
+/* ── the discipleship tab ─────────────────────────────────────────
+   The road group, drawn as an ordinary badge grid — paintFaces is the same
+   function Circle and a group you've zoomed into already share (js/circle.js),
+   asked the same question about a narrower list rather than given a layout
+   of its own. */
+function renderDiscipleship() {
+  const grid = $('#grid-discipleship');
+  grid.textContent = '';
+  const list = (roadGroup()?.members || []).map(byId).filter(Boolean).sort(byNeed);
+  paintFaces(grid, list);
+  $('#blank-discipleship').hidden = list.length > 0;
+  grid.hidden = list.length === 0;
+}
+
+/* ── picking who to start walking with ──────────────────────────
+   Everyone in the circle, minus yourself, a future connection, or anyone
+   already on the road — the same three exclusions isWalking already makes of
+   the Disciple pill on a person's own page (js/sheet.js). Typing narrows the
+   list; tapping a row is the whole of what this dialog does — it hands off to
+   discipleIntroDialog immediately rather than collecting a choice to submit,
+   because there is nothing else here to decide. */
+function discipleAddDialog() {
+  $('#dp-search').value = '';
+  paintDisciplePick('');
+  $('#dlg-disciple-pick').showModal();
+  setTimeout(() => $('#dp-search').focus(), 60);
+}
+
+function paintDisciplePick(q) {
+  const box = $('#dp-list');
+  box.textContent = '';
+  const eligible = people.filter(p => !p.isSelf && !p.isFuture && !isWalking(p));
+  const query = q.trim().toLowerCase();
+  const list = eligible
+    .filter(p => !query || p.name.toLowerCase().includes(query))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  if (!list.length) {
+    box.append(el('p', 'quiet-note', eligible.length
+      ? 'No one matches that.'
+      : 'Everyone in your circle is already being walked with.'));
+    return;
+  }
+
+  list.forEach(p => {
+    const row = el('button', 'dp-row');
+    row.type = 'button';
+    row.append(avatar(p, 'dp-photo', false, 'thumb'), el('span', null, p.name));
+    row.onclick = () => {
+      $('#dlg-disciple-pick').close();
+      discipleIntroDialog(p.id);
+    };
+    box.append(row);
+  });
 }

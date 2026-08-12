@@ -216,7 +216,14 @@ function byNeed(a, b) {
 
    Two forms of the same line. `sub` names the date, for a list that could be
    any day; `short` leaves it out, for the calendar, where the square or the
-   heading above the list has already said which day this is. */
+   heading above the list has already said which day this is.
+
+   `completable` is what lets Today and Calendar offer a tick without either
+   having to know the three things that rule one out: a birthday has no
+   record at all, so it never reaches here; a repeating record would have the
+   tick permanently retire an anniversary that is meant to come back; and a
+   pregnancy already has its own way of ending (this has ended, on the season
+   itself) rather than a tick that would read as "the baby happened." */
 function dateEntry(p, r, o) {
   const g = isPregnancy(r) ? gestationOn(o.date) : null;
   const short = g ? `${r.title} · ${gestationWords(g)}` : r.title;
@@ -224,6 +231,8 @@ function dateEntry(p, r, o) {
     p, inDays: o.inDays, date: o.date, label: r.title, kind: r.kind, short,
     sub: g ? `${short} · due ${prettyDate(o.date)}` : `${short} · ${prettyDate(o.date)}`,
     glyph: isPregnancy(r) ? KINDS.baby.glyph : (KINDS[r.kind] || KINDS.other).glyph,
+    id: r.id,
+    completable: r.type === 'upcoming' && !r.repeatsYearly && !g,
   };
 }
 

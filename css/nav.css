@@ -47,14 +47,6 @@
 :root[data-theme="dark"] .nav-item.is-active { color: #10180f; }
 .nav-item:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
 
-.nav-add {
-  color: var(--green);
-  border: 1px dashed color-mix(in oklab, var(--green) 45%, transparent);
-}
-.nav-add:hover { background: var(--green); color: #fff; border-style: solid; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .nav-add:hover { color: #10180f; } }
-:root[data-theme="dark"] .nav-add:hover { color: #10180f; }
-
 .nav-count {
   margin-left: auto;
   font-style: normal; font-size: .7rem; font-weight: 700;
@@ -98,9 +90,6 @@ body { padding-left: var(--rail); }
     width: 1.6rem; height: 2.5px; margin-left: -.8rem;
     border-radius: 0 0 3px 3px; background: var(--green);
   }
-  .nav-add { border: 0; }
-  .nav-add:hover { background: var(--green-lift); color: var(--green); }
-
   .nav-count {
     position: absolute; top: .18rem; left: 50%; margin-left: .28rem;
     min-width: 1.05rem; font-size: .58rem; line-height: 1.3;

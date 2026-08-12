@@ -252,3 +252,36 @@
 .h-kids-list { display: flex; flex-direction: column; gap: .4rem; margin-bottom: .6rem; }
 .h-kid-row { font-size: .88rem; }
 .h-kid-age { color: var(--ink-faint); font-size: .82rem; }
+
+/* ── picking who to walk with ────────────────────────────────────
+   A plain list of rows rather than a grid of faces — this is a search to
+   narrow quickly, not a circle to recognise someone in at a glance, so a
+   name reads faster set beside its photo than under it.
+
+   .search is .toolbar's own — margin-left:auto is what pushes it to the far
+   end of that row, and there is no row here for it to be pushed along, so it
+   is undone and the field given the width to fill this dialog on its own. */
+#dlg-disciple-pick .search { margin-left: 0; width: 100%; }
+#dlg-disciple-pick .search input { width: 100%; }
+.dp-list {
+  display: flex; flex-direction: column; gap: .15rem;
+  max-height: 55vh; overflow-y: auto;
+  margin: 1rem 0 .5rem;
+}
+.dp-row {
+  display: flex; align-items: center; gap: .8rem;
+  width: 100%; text-align: left;
+  border: 0; border-radius: 10px; background: none; cursor: pointer;
+  padding: .5rem .6rem;
+  font-family: var(--body); font-size: .92rem; color: var(--ink);
+  transition: background .15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.dp-row:hover { background: var(--green-lift); }
+.dp-row:focus-visible { outline: 2px solid var(--green); outline-offset: -2px; }
+.dp-photo {
+  flex: 0 0 auto; width: 2.4rem; height: 2.4rem; border-radius: 50%; overflow: hidden;
+  background: var(--paper-sunk); display: grid; place-items: center;
+  font-family: var(--display); font-size: .92rem; color: var(--ink-faint);
+}
+.dp-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }

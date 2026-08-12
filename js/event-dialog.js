@@ -1,14 +1,18 @@
-/* uses: TYPES · $ $$ today uid · byId queueSave · normaliseRecord
+/* uses: TOUCH_KINDS TYPES · $ $$ el today uid · byId queueSave · normaliseRecord
    · gestationOn gestationWords · renderAll
 */
 
-let editingEvent = { personId: null, eventId: null, type: 'history' };
+let editingEvent = { personId: null, eventId: null, type: 'history', connectKind: '' };
 
 function setEventType(type) {
   editingEvent.type = TYPES[type] ? type : 'history';
   const t = TYPES[editingEvent.type];
 
-  $$('.type-opt').forEach(b => {
+  /* Scoped to the type-picker itself — #how-pick (js/check-in.js) builds its
+     own buttons from the same .type-opt class, and an unscoped selector here
+     would walk into those too and read every one of them as "not the current
+     type," clearing whatever it had. */
+  $$('#type-pick .type-opt').forEach(b => {
     const on = b.dataset.type === editingEvent.type;
     b.classList.toggle('is-on', on);
     b.setAttribute('aria-checked', String(on));
@@ -21,9 +25,43 @@ function setEventType(type) {
   $('#wrap-end').hidden = editingEvent.type !== 'season';
   $('#wrap-repeat').hidden = editingEvent.type !== 'upcoming';
   /* Only a season can be a pregnancy — it's the one type with a beginning and
-     an end to carry it between. */
+     an end to carry it between. Only a Future record can be a planned
+     connect — a past or ongoing thing was not planned, it simply happened or
+     is happening. */
   $('#wrap-baby').hidden = editingEvent.type !== 'season';
+  $('#wrap-connect').hidden = editingEvent.type !== 'upcoming';
   paintBabyFields();
+  paintConnectKind();
+}
+
+/* The kind picker under the connect checkbox — built the same way howDialog
+   already builds #how-pick (js/check-in.js), from the exact TOUCH_KINDS a
+   touch is logged under, so a planned coffee and an ad-hoc one speak the
+   same vocabulary. Rebuilt fresh on every paint rather than merely toggled,
+   the same as #how-pick's own; what is actually picked lives on
+   editingEvent rather than being read back off whichever button happens to
+   still be on screen. */
+function paintConnectKind() {
+  const on = editingEvent.type === 'upcoming' && $('#e-connect').checked;
+  $('#wrap-connect-kind').hidden = !on;
+  if (!on) return;
+
+  const pick = $('#connect-kind-pick');
+  pick.textContent = '';
+  Object.entries(TOUCH_KINDS).forEach(([key, v]) => {
+    const isOn = key === editingEvent.connectKind;
+    const b = el('button', 'type-opt' + (isOn ? ' is-on' : ''));
+    b.type = 'button';
+    b.setAttribute('aria-pressed', String(isOn));
+    b.append(el('span', 'glyph', v.glyph), el('span', null, v.label));
+    /* Tapping the one already picked clears it — the whole thing stays
+       optional, the same as an ad-hoc touch's own kind. */
+    b.onclick = () => {
+      editingEvent.connectKind = editingEvent.connectKind === key ? '' : key;
+      paintConnectKind();
+    };
+    pick.append(b);
+  });
 }
 
 /* A due date can be arrived at from either end: you either know the date, or
@@ -53,7 +91,7 @@ function paintGestationFrom(dateStr) {
 
 function eventDialog(personId, eventId, presetType) {
   const rec = eventId ? byId(personId)?.events.find(x => x.id === eventId) : null;
-  editingEvent = { personId, eventId, type: rec?.type || presetType || 'history' };
+  editingEvent = { personId, eventId, type: rec?.type || presetType || 'history', connectKind: rec?.connectKind || '' };
 
   /* One title for every tab rather than three — the dialog is a single tool
      with a type-switch inside it, not three dialogs sharing a shell, and the
@@ -66,9 +104,10 @@ function eventDialog(personId, eventId, presetType) {
   $('#e-title').value = rec?.title || '';
   $('#e-note').value = rec?.note || '';
   $('#e-repeat').checked = !!rec?.repeatsYearly;
+  $('#e-connect').checked = !!rec?.connectKind;
   $('#btn-delete-event').hidden = !rec;
 
-  setEventType(editingEvent.type);   // paints the baby/gestation fields too
+  setEventType(editingEvent.type);   // paints the baby/gestation/connect fields too
   $('#dlg-event').showModal();
   setTimeout(() => $('#e-title').focus(), 60);
 }
@@ -83,6 +122,7 @@ function saveEvent(e) {
 
   const existing = editingEvent.eventId ? p.events.find(x => x.id === editingEvent.eventId) : null;
   const baby = editingEvent.type === 'season' && $('#e-baby').checked;
+  const connect = editingEvent.type === 'upcoming' && $('#e-connect').checked;
 
   const data = normaliseRecord({
     id: editingEvent.eventId || uid(),
@@ -97,6 +137,7 @@ function saveEvent(e) {
     title,
     note: $('#e-note').value.trim(),
     repeatsYearly: $('#e-repeat').checked,
+    connectKind: connect ? editingEvent.connectKind : '',
   });
 
   if (existing) Object.assign(existing, data);
