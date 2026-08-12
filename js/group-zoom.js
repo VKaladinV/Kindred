@@ -9,34 +9,26 @@
    else — that you went somewhere — and the whole point of drawing a group as
    its people is that you did not.
 
-   The two directions no longer read the same, on purpose. Going in, the field
-   — everything that is not a flying face: the other groups, and the tapped
-   circle's own ring and name — simply fades, so the circle gives way rather
-   than launches. Coming out, the field still scales in about the tapped disc's
-   centre exactly as it always did, but the disc itself is carried by a second,
-   separate clone (liftDiscWipe) that reveals it with a clockwise sweep instead
-   of a fade — the one part of the field a plain fade was not asked for.
+   The same two things move both directions: the faces, each flying from
+   where it sat to where it belongs; and the field — everything that is not a
+   flying face, the other groups and the tapped circle's own ring and name —
+   riding along underneath. Going in, the field simply fades, so the circle
+   gives way rather than launches. Coming out, it still scales in about the
+   tapped disc's centre, so the rest of the grid reads as converging on the
+   one circle you are returning to rather than the page simply changing.
 
-   So up to three things move at once on the way out: the faces, each flying
-   from where it sat in the packing to where its badge was; the field, scaling
-   the rest of the grid in about the tap point; and the disc wipe, sweeping the
-   tapped circle open on top of a field that has had that one circle cut out of
-   it (liftField's hideDisc) so the two are never both drawing it at once.
+   The field is always a copy, never the live grid, and the live grid is
+   always the thing that is hidden while the copy moves. Going in, the copy is
+   of a grid that no longer exists; coming out, it is of one not yet worth
+   showing. One rule both ways, and no frame where two grids are on screen at
+   once.
 
-   The field — and, coming out, the disc wipe — is always a copy, never the
-   live grid, and the live grid is always the thing that is hidden while the
-   copy moves. Going in, the copy is of a grid that no longer exists; coming
-   out, it is of one not yet worth showing. One rule both ways, and no frame
-   where two grids are on screen at once.
-
-   Built the way flyHeroPhoto is built, and for the same reason: rects recorded
-   before the render, the inverse applied with transitions off, one forced
-   reflow, then everything cleared so the stylesheet's own transition runs. CSS
-   rather than element.animate, so the single prefers-reduced-motion rule at the
-   foot of lock.css covers this too, without a second mechanism to keep in step
-   with the first. The disc wipe rides the same rule on a registered custom
-   property (--wipe in groups.css) rather than transform, and is transitioned
-   the same park-invert-reflow-clear way for exactly that reason. */
+   Built the way flyHeroPhoto is built, and for the same reason: rects
+   recorded before the render, the inverse applied with transitions off, one
+   forced reflow, then everything cleared so the stylesheet's own transition
+   runs. CSS rather than element.animate, so the single prefers-reduced-motion
+   rule at the foot of lock.css covers this too, without a second mechanism to
+   keep in step with the first. */
 
 /* How far the field opens out on the way out — the only direction it still
    scales. Enough that its edges arrive from past the screen's own, so nothing
@@ -55,26 +47,8 @@ const ZOOM_SWEEP = 900;
    .zoom-field's own .45s opacity transition. */
 const ZOOM_SETTLE = 500;
 
-/* A `transitionend` for a registered custom property (--wipe is one,
-   `@property` in groups.css) turns out not to fire reliably once it's driven
-   the same park-reflow-clear way transform and opacity already are here,
-   even though it visibly runs and lands right on schedule — so its landing
-   is called by a plain timer instead of trusting an event that may not come.
-   Read off the element rather than written as a second constant to keep in
-   step with .zoom-disc's own .5s: the reduced-motion rule at the foot of
-   lock.css collapses that .5s to near-nothing the same as every other
-   transition in this file, and a hard-coded number here would not hear it. */
-function wipeLandMs(discWipe) {
-  const first = getComputedStyle(discWipe).transitionDuration.split(',')[0].trim();
-  return first.endsWith('ms') ? parseFloat(first) : parseFloat(first) * 1000;
-}
-
 let zoomParts = [];      // the clones in flight, if any
 let zoomTimer = null;
-let wipeTimer = null;    // WIPE_LAND's own timer — a face's transitionend
-                          // can't outlive clearZoom removing it, but a plain
-                          // setTimeout can, so this one is tracked and
-                          // cancelled the same way zoomTimer already is.
 let groupLayer = null;
 
 /* The badges have been standing still, held back, for the whole flight. Let
@@ -100,8 +74,6 @@ function revealGrid() {
 function clearZoom() {
   clearTimeout(zoomTimer);
   zoomTimer = null;
-  clearTimeout(wipeTimer);
-  wipeTimer = null;
   for (const n of zoomParts) n.remove();
   zoomParts = [];
   revealGrid();
@@ -185,12 +157,10 @@ function groupDiscIn(grid, id) {
    rather than reading it off the live grid each time.
 
    The tapped group's own faces are taken out of the copy: they are the ones
-   flying, and a face cannot be in two places. Coming out, `hideDisc` takes
-   the circle itself out too — liftDiscWipe is carrying that one separately,
-   as a clockwise reveal rather than a fade, and the field's own copy of it
-   would otherwise sit there fully opaque underneath, unrevealed by anything,
-   from the very first frame. */
-function liftField(grid, rect, origin, flyingFrom, hideDisc = false) {
+   flying, and a face cannot be in two places. Its own ring and name stay in —
+   they are not flying anywhere, and simply ride the field's fade and scale
+   like the rest of what is not the tapped group's people. */
+function liftField(grid, rect, origin, flyingFrom) {
   const field = el('div', 'zoom-field circle-grid');
   field.style.left = rect.left + 'px';
   field.style.top = rect.top + 'px';
@@ -200,38 +170,15 @@ function liftField(grid, rect, origin, flyingFrom, hideDisc = false) {
   field.append(...grid.cloneNode(true).childNodes);
 
   const disc = groupDiscIn(field, flyingFrom);
-  if (disc) {
-    for (const f of disc.querySelectorAll('.group-face')) f.style.visibility = 'hidden';
-    if (hideDisc) disc.style.visibility = 'hidden';
-  }
+  if (disc) for (const f of disc.querySelectorAll('.group-face')) f.style.visibility = 'hidden';
   return field;
-}
-
-/* The tapped disc's own circle, coming out — built fresh rather than cloned,
-   the same way .group-disc itself is nothing but el('div', 'group-disc')
-   (group-pack.js) with no attributes of its own worth copying. A shell only:
-   no faces (those are still DISC_FACE clones, flying independently) and
-   nothing of .badge-frame's other child, the "+N more" mark, which is a
-   sibling of .group-disc rather than something inside it. Parked at the
-   disc's own real rect from the start — unlike the field it never moves or
-   resizes, only reveals, so there is nothing here for a transform to invert. */
-function liftDiscWipe(rect) {
-  const wipe = el('div', 'zoom-disc');
-  wipe.style.left = rect.left + 'px';
-  wipe.style.top = rect.top + 'px';
-  wipe.style.width = rect.width + 'px';
-  wipe.style.height = rect.height + 'px';
-  return wipe;
 }
 
 /* Park each clone at its destination, transform it back to where it started,
    force one reflow, then clear — the stylesheet carries it the rest of the way.
    `dir` still tells the field which way it is going — in, it only fades; out,
-   it also scales in from past the edges of the screen, same as it always has.
-   `discWipe`, only ever handed in coming out, is parked shut (--wipe: 0deg)
-   and cleared open (--wipe: 360deg) the same park-invert-reflow-clear way,
-   just on a custom property instead of transform. */
-function runZoom(pairs, field, dir, discWipe) {
+   it also scales in from past the edges of the screen, same as it always has. */
+function runZoom(pairs, field, dir) {
   const grid = $('#grid-groups');
   const clones = [];
 
@@ -265,13 +212,7 @@ function runZoom(pairs, field, dir, discWipe) {
     field.style.opacity = dir === 'in' ? '1' : '0';
   }
 
-  if (discWipe) {
-    document.body.append(discWipe);
-    discWipe.style.transition = 'none';
-    discWipe.style.setProperty('--wipe', '0deg');
-  }
-
-  zoomParts = [...clones, ...(field ? [field] : []), ...(discWipe ? [discWipe] : [])];
+  zoomParts = [...clones, ...(field ? [field] : [])];
   if (!zoomParts.length) { clearZoom(); return; }
 
   void grid.offsetWidth;   // the same forced reflow flipCircle and flyHeroPhoto use
@@ -282,23 +223,15 @@ function runZoom(pairs, field, dir, discWipe) {
     field.style.transform = 'none';
     field.style.opacity = dir === 'in' ? '0' : '1';
   }
-  if (discWipe) {
-    discWipe.style.transition = '';
-    discWipe.style.setProperty('--wipe', '360deg');
-  }
 
   /* The faces are what the eye is following, so the landing is theirs to call —
      and only the last of them, since they do not all have the same distance to
      travel. Filtered to transform the way flyHeroPhoto filters, because the
-     field's opacity finishes first and would end the flight early. The disc
-     wipe, coming out, is given the same say, on wipeLandMs rather than its
-     own transitionend (see that function's comment) — read off its own .5s,
-     so the two are not just both waited on but land together.
+     field's opacity finishes first and would end the flight early.
 
-     A group with nobody in it has no face to wait on. Going in, that leaves
-     only the fallback below; coming out, the wipe is still there to land it
-     for real rather than leave it to an arbitrary wait. */
-  let left = clones.length + (discWipe ? 1 : 0);
+     A group with nobody in it has no face to wait on either side, which is
+     what the fallback timer below is for. */
+  let left = clones.length;
   for (const c of clones) {
     c.addEventListener('transitionend', function land(e) {
       if (e.target !== c || e.propertyName !== 'transform') return;
@@ -306,7 +239,6 @@ function runZoom(pairs, field, dir, discWipe) {
       if (--left === 0) settleZoom();
     });
   }
-  if (discWipe) wipeTimer = setTimeout(() => { wipeTimer = null; if (--left === 0) settleZoom(); }, wipeLandMs(discWipe));
   zoomTimer = setTimeout(settleZoom, ZOOM_SWEEP);
 }
 
@@ -380,9 +312,8 @@ function leaveGroup({ animate = true, fromBack = false } = {}) {
   const discRect = disc && disc.getBoundingClientRect();
   if (!discRect || !discRect.width) { clearZoom(); return; }
 
-  const field = liftField(grid, grid.getBoundingClientRect(), centreOf(discRect), id, true);
-  const discWipe = liftDiscWipe(discRect);
-  runZoom(pairsBetween(was, faceRects(disc, DISC_FACE)), field, 'out', discWipe);
+  const field = liftField(grid, grid.getBoundingClientRect(), centreOf(discRect), id);
+  runZoom(pairsBetween(was, faceRects(disc, DISC_FACE)), field, 'out');
 }
 
 /* Standing in a group that has stopped existing — removed on another device
