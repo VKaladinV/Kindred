@@ -57,8 +57,35 @@ function renderSheet() {
   const last = lastTouchDate(p);
 
   /* ── identity ── */
+  /* Read before the head is built, because the pill it decides on now sits
+     under the photo rather than down among the facts. */
+  const walking = isWalking(p);
+
   const head = el('div', 'person-head');
-  head.append(avatar(p, 'person-photo'));
+
+  /* The photo and the one thing you do to the whole person, stacked. Under
+     the picture rather than in the column of facts beside it: starting to
+     walk a road with somebody is about them, not another detail of them,
+     and among the birthday and the phone number it read as one more field. */
+  const photoCol = el('div', 'person-photo-col');
+  photoCol.append(avatar(p, 'person-photo'));
+
+  if (!p.isSelf && !p.isFuture) {
+    const pill = el('button', 'share-pill walk-pill' + (walking ? ' is-on' : ''));
+    pill.type = 'button';
+    pill.append(el('span', 'glyph', walking ? '◈' : '◇'),
+      document.createTextNode(walking ? 'Walking together' : 'Disciple'));
+    pill.title = walking
+      ? `Stop walking a road with ${p.name.split(' ')[0]}`
+      : `Start walking a road with ${p.name.split(' ')[0]}`;
+    /* Starting is the intro pop-up's job, not the click's — see
+       discipleIntroDialog in walk-sheet.js. Stopping never asked for
+       confirmation and doesn't start now. */
+    pill.onclick = () => walking ? stopDiscipling(p.id) : discipleIntroDialog(p.id);
+    photoCol.append(pill);
+  }
+  head.append(photoCol);
+
   const idBox = el('div', 'person-id');
 
   /* The way into editing lives outside this row now, stacked below
@@ -110,34 +137,12 @@ function renderSheet() {
     idBox.append(tags);
   }
 
-  /* Walking a road with someone, offered on their page rather than from a
-     list somewhere — the same reasoning the link row below it follows. Not
-     for yourself, and not for somebody you have only flagged to meet: there
-     is no road with either of them yet, which isWalking says for itself. */
-  const walking = isWalking(p);
-  if (!p.isSelf && !p.isFuture) {
-    const row = el('div', 'walk-row');
-    const pill = el('button', 'share-pill walk-pill' + (walking ? ' is-on' : ''));
-    pill.type = 'button';
-    pill.append(el('span', 'glyph', walking ? '◈' : '◇'),
-      document.createTextNode(walking ? 'Walking a road together' : 'Disciple'));
-    pill.title = walking
-      ? `Stop walking a road with ${p.name.split(' ')[0]}`
-      : `Start walking a road with ${p.name.split(' ')[0]}`;
-    /* Starting is the intro pop-up's job, not the click's — see
-       discipleIntroDialog in walk-sheet.js. Stopping never asked for
-       confirmation and doesn't start now. */
-    pill.onclick = () => walking ? stopDiscipling(p.id) : discipleIntroDialog(p.id);
-    row.append(pill);
-    idBox.append(row);
-
-    /* Their household read as a line rather than filled in as a form — who
-       they are married to and since when, when they joined the church, their
-       children's names and ages. It sits with the birthday and the phone
-       number because it is the same kind of thing: what you would want to know
-       before knocking on the door. Above the tabs, so it is there on both. */
-    if (walking) idBox.append(householdSummary(p));
-  }
+  /* Their household read as a line rather than filled in as a form — who
+     they are married to and since when, when they joined the church, their
+     children's names and ages. It sits with the birthday and the phone
+     number because it is the same kind of thing: what you would want to know
+     before knocking on the door. Above the tabs, so it is there on both. */
+  if (walking && !p.isSelf && !p.isFuture) idBox.append(householdSummary(p));
 
   const seasons = activeSeasons(p);
   if (seasons.length) {
@@ -150,30 +155,26 @@ function renderSheet() {
     idBox.append(pills);
   }
 
-  /* Linking, on the page of the person it would be with. Only for somebody
-     else, only once there is a sync layer to do it through, and only while
-     they are not already linked — after that it says so instead. Condensed
-     to a single icon either way, the same circular language the pencil
-     speaks, rather than a line of text under an already-tall header. */
-  if (!p.isSelf && linkApi()) {
-    const row = el('div', 'link-row');
-    if (p.linkedUid) {
-      row.append(el('span', 'pill pill-linked', '⇄ linked'));
-      const cut = el('button', 'icon-btn icon-btn-sm');
-      cut.type = 'button';
-      cut.setAttribute('aria-label', `Unlink from ${p.name}`);
-      cut.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 15l6-6"/><path d="M8 8l1.5-1.5a3.5 3.5 0 0 1 5 5L13 13"/><path d="M16 16l-1.5 1.5a3.5 3.5 0 0 1-5-5L11 11"/></svg>';
-      cut.onclick = () => unlinkPerson(p.id);
-      row.append(cut);
-    } else {
-      const inv = el('button', 'icon-btn icon-btn-sm');
-      inv.type = 'button';
-      inv.setAttribute('aria-label', `Invite ${p.name.split(' ')[0]} to share with you`);
-      inv.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9.5" cy="8.5" r="3"/><path d="M4 19a5.8 5.8 0 0 1 11 0"/><path d="M18 8v6M15 11h6"/></svg>';
-      inv.onclick = () => inviteDialog(p.id);
-      row.append(inv);
-    }
-    idBox.append(row);
+  /* Linking, in the corner stack under the pencil rather than down among the
+     facts. Only for somebody else, and only once there is a sync layer to do
+     it through — otherwise it is not a thing this device can offer at all,
+     and the button stays hidden rather than appearing and failing.
+
+     One button, two states, the way the Disciple pill is one button for
+     starting and stopping: already linked, it says so and pressing it cuts
+     the link; not linked yet, it says Link and pressing it opens the invite. */
+  const linkBtn = $('#sheet-link');
+  const canLink = !p.isSelf && !!linkApi();
+  linkBtn.hidden = !canLink;
+  if (canLink) {
+    const linked = !!p.linkedUid;
+    linkBtn.textContent = linked ? 'Linked' : 'Link';
+    linkBtn.classList.toggle('is-on', linked);
+    linkBtn.setAttribute('aria-label', linked
+      ? `Unlink from ${p.name}`
+      : `Invite ${p.name.split(' ')[0]} to share with you`);
+    linkBtn.title = linkBtn.getAttribute('aria-label');
+    linkBtn.onclick = () => (linked ? unlinkPerson(p.id) : inviteDialog(p.id));
   }
 
   head.append(idBox);

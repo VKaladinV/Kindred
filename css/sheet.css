@@ -40,6 +40,28 @@
 .sheet-close:hover, .sheet-edit:hover { color: var(--green); border-color: var(--green); }
 .sheet-close:hover { transform: rotate(90deg); }
 
+/* Third in the same stack, a line's height below the pencil. A word rather
+   than a glyph, so it is wider than the two circles above it and hangs off
+   the same right edge instead of sharing their square. */
+.sheet-link {
+  position: absolute; right: 1rem; z-index: 3;
+  top: calc(1rem + 2 * (2.4rem + .6rem));
+  height: 2rem; padding: 0 .6rem;
+  border: 1px solid var(--rule); border-radius: 999px;
+  background: var(--paper-raise);
+  color: var(--ink-soft); cursor: pointer;
+  display: grid; place-items: center;
+  font-family: var(--body); font-size: .58rem; font-weight: 700;
+  letter-spacing: .08em; text-transform: uppercase;
+  transition: all .2s;
+}
+.sheet-link:hover { color: var(--green); border-color: var(--green); }
+.sheet-link:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+.sheet-link.is-on {
+  border-color: color-mix(in oklab, var(--green) 45%, transparent);
+  background: var(--green-lift); color: var(--green);
+}
+
 @media (max-width: 640px) {
   .sheet { width: 100vw; top: calc(2.2rem + env(safe-area-inset-top, 0px)); border-radius: 18px 18px 0 0; border-left: 0; border-top: 1px solid var(--rule); }
   /* Every other fixed, edge-touching surface in the app threads the inset
@@ -52,6 +74,7 @@
      is last in the file is the one a matching media query would win with. */
   .sheet-close { top: calc(1rem + env(safe-area-inset-top, 0px)); right: calc(1rem + env(safe-area-inset-right, 0px)); }
   .sheet-edit { top: calc(1rem + env(safe-area-inset-top, 0px) + 2.4rem + .6rem); right: calc(1rem + env(safe-area-inset-right, 0px)); }
+  .sheet-link { top: calc(1rem + env(safe-area-inset-top, 0px) + 2 * (2.4rem + .6rem)); right: calc(1rem + env(safe-area-inset-right, 0px)); }
   @keyframes slide-in { from { transform: translateY(6%); opacity: 0; } }
 }
 
@@ -126,7 +149,17 @@
   transition: transform .45s var(--ease);
 }
 
-.person-head { display: flex; gap: 1.3rem; align-items: flex-start; margin-bottom: 1.3rem; }
+/* The right padding is the corner stack's column — close, pencil and Link,
+   all fixed to that edge. Only the head needs it: the stack ends above the
+   first block below, so nothing further down has to make room. The gap
+   narrows with it on a phone, where the head is the tightest thing on the
+   screen and every millimetre of it is being asked for by something. */
+.person-head { display: flex; gap: 1.3rem; align-items: flex-start; margin-bottom: 1.3rem; padding-right: 4rem; }
+@media (max-width: 640px) { .person-head { gap: .9rem; padding-right: 3.7rem; } }
+
+/* The photo, and the one thing you do to the whole person, stacked under it. */
+.person-photo-col { display: flex; flex-direction: column; align-items: center; gap: .55rem; flex: 0 0 auto; min-width: 0; }
+.person-photo-col .walk-pill { margin-top: 0; max-width: 100%; }
 /* .person-head is .sheet-scroll's first child and would otherwise inherit
    the generic rise entrance below — a translateY on the head that carries
    .person-photo along with it. Harmless on an ordinary open; wrong the
@@ -405,9 +438,8 @@
 .touch-bar.is-mine { background: var(--green-lift); }
 
 /* ── linking ────────────────────────────────────────────────────
-   Sits below the pills, above the check-in bar, so the offer to link is on
-   the page of the person it would be with rather than in a list somewhere. */
-.link-row { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; margin-top: .5rem; }
+   The offer itself is .sheet-link, up in the corner stack under the pencil.
+   This is what is left: the pill the invite dialog still draws. */
 .pill-linked {
   border-color: color-mix(in oklab, var(--green) 45%, transparent);
   background: var(--green-lift); color: var(--green);
