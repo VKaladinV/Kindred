@@ -1,7 +1,8 @@
-/* uses: MAX_TOUCHES · el today
+/* uses: MAX_TOUCHES ROAD_ID · el today
    · addToRoster futures groups me notifyMutate people roster saveRoster
    · hasPhoto photosForBackup putPhotoDataUrl
    · normalise normaliseDiscipleship normaliseGroup normaliseGroups · toast · renderAll
+   · foldRoadMembers
 */
 
 async function exportAll() {
@@ -85,6 +86,10 @@ async function importAll(file) {
       incoming.kids.forEach(k => { if (!kidIds.has(k.id)) existing.kids.push(k); });
       const topicIds = new Set(existing.discipleship.topics.map(t => t.id));
       existing.discipleship = normaliseDiscipleship({
+        /* Being on the road at all is unioned rather than "here wins": it is
+           a flag, not an answer that can go stale, and a file saying they are
+           being walked with is never a reason to take that back off them. */
+        active: existing.discipleship.active || incoming.discipleship.active,
         marks: { ...incoming.discipleship.marks, ...existing.discipleship.marks },
         topics: [...existing.discipleship.topics,
           ...incoming.discipleship.topics.filter(t => !topicIds.has(t.id))],
@@ -115,11 +120,15 @@ async function importAll(file) {
        did not carry a person for; it is kept rather than dropped, on the same
        grounds normaliseGroup keeps unresolved members — absent is not gone. */
     const members = g.members.map(id => landedAs.get(id) || id);
-    /* By id before name. Name alone was enough while every group's id came out
-       of uid(), but the road group's id is a fixed literal — so a group renamed
-       on this device and then restored from a file that still calls it the old
-       thing would be pushed on as a second group wearing the same id, and
-       groupById would only ever find one of them. */
+    /* A file exported before discipleship became a flag on the person still
+       carries it as the fixed-id group ROAD_ID once was — folded into that
+       flag here, the same move migrateRoadGroup makes for a device that still
+       has one on disk, rather than restored as a group a file this old would
+       otherwise bring back under Groups. */
+    if (g.id === ROAD_ID) { foldRoadMembers(members); continue; }
+    /* By id before name, for every group that is not that one: an ordinary
+       group's id has always come from uid(), so two different groups sharing
+       a name only ever collide here on purpose. */
     const existing = groups.find(x => x.id === g.id)
       || groups.find(x => x.name.toLowerCase() === g.name.toLowerCase());
     if (existing) existing.members = [...new Set([...existing.members, ...members])];

@@ -74,12 +74,15 @@ const TOUCH_KINDS = {
 const MAX_TOUCHES = 60;
 
 /* ── walking a road with someone ─────────────────────────────────
-   The people you are discipling are an ordinary group — the kind you make
-   yourself, holding ids and hanging off nobody (see js/groups.js). It is given
-   a fixed id rather than a fresh one so both devices agree there is only one
-   of it, and so renaming it can never bring a second into being. */
+   Who is on the road is a flag on the person (discipleship.active in
+   js/walk.js), not a group — discipling somebody used to enrol them in an
+   ordinary group behind the scenes, which is what made them show up as a
+   circle under Groups alongside the ones you actually made. ROAD_ID is kept
+   only as the fixed id that group used to carry, so a device that still has
+   one on disk — or an old backup file — can be folded into the flag once and
+   the group dropped for good; see migrateRoadGroup and foldRoadMembers in
+   js/walk.js. */
 const ROAD_ID = 'road-walking';
-const ROAD_NAME = 'People I am walking a road with';
 
 /* The checklist, grouped into four sections read top to bottom. `ns` is the
    namespace a section's items are stored under — abide/belong/contribute —

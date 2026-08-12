@@ -1,15 +1,15 @@
 /* uses: KINDS MARITAL STAGES WALK WALK_LABELS · $ $$ el monthYear prettyDate
    · byId people · avatar · kidAge marriageYears · byNeed
    · blockHead paintFaces
-   · isWalking kidOf maritalEnded maritalMarried roadGroup saveHousehold
+   · isWalking kidOf maritalEnded maritalMarried saveHousehold
      saveKid saveMark saveTopic startDiscipleship toggleMark toggleStage
      toggleTopic topicOf
    · sheetTab
 */
 
 /* ── the discipleship page ──────────────────────────────────────
-   The second half of somebody's page, drawn only for the people in the road
-   group. Everything here is built out of the pieces the rest of the sheet
+   The second half of somebody's page, drawn only for the people on the road.
+   Everything here is built out of the pieces the rest of the sheet
    already speaks in — .sheet-block, blockHead, .quiet-note, .tl-note — so it
    reads as more of their page rather than as a screen of its own.
 
@@ -460,14 +460,14 @@ function saveWalkItem(e) {
 }
 
 /* ── the discipleship tab ─────────────────────────────────────────
-   The road group, drawn as an ordinary badge grid — paintFaces is the same
-   function Circle and a group you've zoomed into already share (js/circle.js),
-   asked the same question about a narrower list rather than given a layout
-   of its own. */
+   Everyone on the road, drawn as an ordinary badge grid — paintFaces is the
+   same function Circle and a group you've zoomed into already share
+   (js/circle.js), asked the same question about a narrower list rather than
+   given a layout of its own. */
 function renderDiscipleship() {
   const grid = $('#grid-discipleship');
   grid.textContent = '';
-  const list = (roadGroup()?.members || []).map(byId).filter(Boolean).sort(byNeed);
+  const list = people.filter(isWalking).sort(byNeed);
   paintFaces(grid, list);
   $('#blank-discipleship').hidden = list.length > 0;
   grid.hidden = list.length === 0;

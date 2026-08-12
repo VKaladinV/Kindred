@@ -181,7 +181,10 @@ function normaliseDiscipleship(d) {
   const rawStages = (d?.stages && typeof d.stages === 'object') ? d.stages : {};
   const stages = Object.fromEntries(STAGES.map(([k]) => [k, !!rawStages[k]]));
 
-  return { marks, topics: Array.isArray(d?.topics) ? d.topics.map(normaliseTopic) : [], stages };
+  /* Whether they are on the road at all — see isWalking in js/walk.js. First,
+     because it is the gate everything else here is behind, unlike marks,
+     topics and stages, which can go on existing quietly once it is false. */
+  return { active: !!d?.active, marks, topics: Array.isArray(d?.topics) ? d.topics.map(normaliseTopic) : [], stages };
 }
 
 function normalise(p) {
@@ -215,8 +218,8 @@ function normalise(p) {
     /* ── what you know about the road they are on ──
        Asked of anyone, kept for everyone, but only ever shown on the page of
        someone you are walking a road with — see isWalking, in js/walk.js.
-       Taking them out of that group hides all of this again and destroys none
-       of it, so putting them back finds it where they left it. */
+       Taking them off the road hides all of this again and destroys none of
+       it, so putting them back finds it where they left it. */
     maritalStatus: MARITAL.some(([v]) => v === p.maritalStatus) ? p.maritalStatus : '',
     marriedOn: p.marriedOn || '',
     /* The other way of saying how long somebody has been married — a typed

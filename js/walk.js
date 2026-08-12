@@ -1,46 +1,68 @@
-/* uses: MARITAL_ENDED MARITAL_MARRIED ROAD_ID ROAD_NAME · today ymd
-   · byId groups queueSave
+/* uses: MARITAL_ENDED MARITAL_MARRIED ROAD_ID · byId groups queueSave
    · normaliseDiscipleship normaliseKid normaliseTopic
    · toast · renderAll
 */
 
 /* ── the people you are walking a road with ─────────────────────
    Discipling somebody is not a fifth shelf of a life, so it is not one of the
-   four names in GROUPS. It is a group in the other sense — people you have
-   deliberately put together, the kind the Groups view draws as one circle of
-   faces — and that is the whole of what makes somebody discipled here. There
-   is no flag on the person to fall out of step with it.
+   four names in GROUPS, and it is not a group either — a group you have to
+   go out of your way to make, and the road is not something you deliberately
+   put a handful of people together into. It is a flag on the person instead
+   (discipleship.active), set the moment you start walking with them and
+   cleared the moment you stop. Nothing else about them moves: everything
+   written on their discipleship page stays on the record, hidden, and is
+   there again the moment the flag is set again.
 
-   Which means taking them out of the group in the ordinary group dialog is a
-   way out of this too, and it destroys nothing: everything written on their
-   discipleship page stays on the record, hidden, and is there again the moment
-   they are put back.
-
-   The group carries a fixed id rather than one from uid(), which is why
-   newGroup() in groups.js cannot be reused to make it. Two devices that have
-   never met must agree there is exactly one of these, and an id decided here
-   is the only way to promise that — a name could be, but then renaming it
-   would quietly bring a second one into being on the next tap. */
-const roadGroup = () => groups.find(g => g.id === ROAD_ID) || null;
+   This used to be exactly the kind of group the paragraph above says it is
+   not — a fixed-id entry in GROUPS, reused for its membership list and its
+   badge grid rather than building both twice. That was cheap to build but
+   never actually true: it meant every disciple stood in the Groups view too,
+   as a circle nobody had made on purpose, alongside the ones you had.
+   migrateRoadGroup and foldRoadMembers below are what carry anyone still on
+   that group, on this device or in an old backup file, into the flag and
+   drop the group for good. */
 
 /* Not yourself and not somebody you have only flagged to meet. You are not on
    a road of your own here, and a future connection has no relationship to walk
    yet — the same two exclusions the check-in bar already makes. */
-const isWalking = p => !!p && !p.isSelf && !p.isFuture && !!roadGroup()?.members.includes(p.id);
+const isWalking = p => !!p && !p.isSelf && !p.isFuture && !!p.discipleship?.active;
 
 function startWalking(id) {
-  let g = roadGroup();
-  if (!g) {
-    g = { id: ROAD_ID, name: ROAD_NAME, members: [], createdAt: today() };
-    groups.push(g);
-  }
-  if (!g.members.includes(id)) g.members.push(id);
+  const p = byId(id);
+  if (!p) return;
+  p.discipleship.active = true;
+  settleWalk(p);
 }
 
 const stopWalking = id => {
-  const g = roadGroup();
-  if (g) g.members = g.members.filter(x => x !== id);
+  const p = byId(id);
+  if (!p) return;
+  p.discipleship.active = false;
+  settleWalk(p);
 };
+
+/* Anyone still listed under the old fixed-id group, folded into the flag
+   instead — the one-time move from a group to discipleship.active. Shared by
+   migrateRoadGroup below and by importAll (js/backup.js), which meets the
+   same group inside an old backup file rather than in `groups` itself. */
+function foldRoadMembers(ids) {
+  for (const id of ids) {
+    const p = byId(id);
+    if (p) { p.discipleship.active = true; settleWalk(p); }
+  }
+}
+
+/* Run once at boot, after both people and groups are loaded. A no-op on
+   every device that has already been through this — groups.js never creates
+   another one under ROAD_ID once this has run — so the lookup is the whole
+   cost of calling it on the devices that do not need it. */
+function migrateRoadGroup() {
+  const g = groups.find(x => x.id === ROAD_ID);
+  if (!g) return;
+  foldRoadMembers(g.members);
+  groups = groups.filter(x => x.id !== ROAD_ID);
+  queueSave();
+}
 
 /* Stopping stays a plain one-click toggle with an Undo — that part never asked
    for confirmation and starting shouldn't make it start now. Undo goes

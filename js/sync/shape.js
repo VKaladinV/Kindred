@@ -28,12 +28,12 @@ const photoMark = s => {
 
 /* Somebody nobody has written a word about should have an empty column rather
    than a pair of empty braces in it — so the shape is only spelled out once
-   there is something in it to spell. Any one of the three counts: a mark, a
-   topic, or a stage lit with nothing else true yet. Missing the stages check
-   here would have been a real loss rather than a cosmetic one — a person with
-   all four words lit and not one item ticked would round-trip to an empty
-   column and lose every stage on the very next sync. */
-const walkJson = w => (Object.keys(w.marks).length || w.topics.length
+   there is something in it to spell. Any one of the four counts: being on the
+   road itself, a mark, a topic, or a stage lit with nothing else true yet.
+   Missing the active check here would have been a real loss rather than a
+   cosmetic one — somebody just put on the road, with nothing ticked yet,
+   would round-trip to an empty column and read as never having been asked. */
+const walkJson = w => (w.active || Object.keys(w.marks).length || w.topics.length
   || Object.values(w.stages).some(Boolean)) ? JSON.stringify(w) : '';
 
 /* A column that will not parse is one bad person, and throwing here would take

@@ -2,6 +2,7 @@
    · byId groups me mutateHooks people readyPromise resolveReady roster setRoster shared
    · dropPhoto hasPhoto landPhoto loadPhotoRecords photoBytes photoMarks photoThumbDataUrl repairPhotos
    · normalise normaliseGroup · toast
+   · migrateRoadGroup
    · applyBadgeSize badgeSizePref · openSheet
    · checkClaimedInvites offerPendingJoin takeLaunchFragment
    · nudgeIfDue paintNotifState · checkBio
@@ -74,6 +75,11 @@ async function boot() {
   await Store.init();
   setRoster(await Store.loadPeople());   // splits you back out of the roster
   groups = (await Store.loadGroups()).map(normaliseGroup);
+  /* Both people and groups are in memory now, which is what a device still
+     carrying discipleship as the old fixed-id group needs to fold it into
+     discipleship.active and drop the group — before the first render, so it
+     is never seen sitting under Groups even for a frame. */
+  migrateRoadGroup();
   /* Handles, not pictures. What comes back here is a Blob per face and a mark
      of its bytes; the base64 that used to be read into memory in full before
      anybody could see their circle is gone, and with it the tens of megabytes
