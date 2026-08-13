@@ -41,6 +41,10 @@
   fill: none; stroke: currentColor; stroke-width: 1.6;
   stroke-linecap: round; stroke-linejoin: round;
 }
+/* The one solid-silhouette icon among these outlined ones (see the comment
+   above the Prayers button in index.html) — a heavier stroke is what turns
+   its round-capped, round-jointed paths into filled-looking shapes. */
+.nav-item[data-view="prayers"] svg { stroke-width: 2.4; }
 .nav-item:hover { background: var(--green-lift); color: var(--ink); }
 .nav-item.is-active { background: var(--green); color: #fff; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .nav-item.is-active { color: #10180f; } }
