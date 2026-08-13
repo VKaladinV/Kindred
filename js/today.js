@@ -1,5 +1,5 @@
 /* uses: $ aheadWords el today · people · babiesDue datesAhead · avatar
-   · rowDone · quiet
+   · rowDone · quiet · taskQuickAdd
 */
 
 /* onDone is only ever handed in for a completable record (dateEntry, in
@@ -82,6 +82,12 @@ function renderToday() {
     ['This week', x => x.inDays > 0 && x.inDays <= 7],
     ['Later',     x => x.inDays > 7],
   ];
+
+  /* Today had no way to add a to-do at all — everything else on this page is
+     read/tick-only, gathered from dates already set elsewhere. This is the
+     one write it makes, and it lands the to-do on today's date since that is
+     the day this whole page is about. */
+  body.append(taskQuickAdd({ date: today() }));
 
   groups.forEach(([title, pick]) => {
     const rows = ahead.filter(pick);

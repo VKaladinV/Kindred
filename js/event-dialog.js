@@ -35,6 +35,7 @@ function paintEventWho(holderId) {
 function setEventType(type) {
   editingEvent.type = TYPES[type] ? type : 'history';
   const t = TYPES[editingEvent.type];
+  const isTask = editingEvent.type === 'task';
 
   /* Scoped to the type-picker itself — #how-pick (js/check-in.js) builds its
      own buttons from the same .type-opt class, and an unscoped selector here
@@ -46,6 +47,11 @@ function setEventType(type) {
     b.setAttribute('aria-checked', String(on));
   });
 
+  /* A to-do has no tab in the strip above to land on — fillSelects (js/wire.js)
+     builds it from Past/Future/Present only — so showing the strip while
+     editing one would read as a live control pointing at nothing. */
+  $('#type-pick').hidden = isTask;
+  $('#type-hint').hidden = isTask;
   $('#type-hint').textContent = t.hint;
   $('#e-title-label').textContent = t.titleLabel;
   $('#e-title').placeholder = t.placeholder;

@@ -7,7 +7,7 @@
    · inviteDialog linkApi unlinkPerson · endSeason moveToHistory · completeTask uncompleteTask
    · dialNumber personDialog telLink · promoteToCircle · eventDialog · prayerDialog
    · isWalking stopDiscipling · discipleIntroDialog householdSummary walkBlocks
-   · quiet renderAll
+   · quiet renderAll · taskQuickAdd
 */
 
 /* Which half of the page is being read. Only ever anything but 'life' for
@@ -428,7 +428,8 @@ function renderSheet() {
      file it into their history the way a planned coffee is filed. */
   if (!p.isFuture) {
   tdBlock = el('div', 'sheet-block');
-  tdBlock.append(blockHead('To do', () => eventDialog(p.id, null, 'task'), 'Add a to-do'));
+  tdBlock.append(blockHead('To do'));
+  tdBlock.append(taskQuickAdd({ personId: p.id }));
 
   const tasks = tasksOf(p);
   if (tasks.length) {

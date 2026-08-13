@@ -1,6 +1,6 @@
 /* uses: $ $$ el pad parseYmd plural prettyDate shortMonth today ymd
    · datesIn · clamp · block todayRow · closeLayer openLayer · quiet
-   · completeTask completeUpcoming · eventDialog
+   · completeTask completeUpcoming · taskQuickAdd
 */
 
 const MONTH_NAMES = 'January February March April May June July August September October November December'.split(' ');
@@ -211,11 +211,7 @@ function monthSectionFor(month, onDay) {
      empty day as well as a full one: a day with nothing on it is exactly
      when this is worth reaching for. */
   if (open) {
-    const add = el('button', 'btn btn-quiet btn-tiny cal-add');
-    add.type = 'button';
-    add.append(el('span', 'glyph', '+'), document.createTextNode('Add to this day'));
-    add.onclick = () => eventDialog(null, null, 'task', calPicked);
-    section.append(add);
+    section.append(taskQuickAdd({ date: calPicked }));
   }
 
   return section;
