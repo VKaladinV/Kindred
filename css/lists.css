@@ -184,24 +184,25 @@ button.thumb:focus-visible { outline: 2px solid var(--green); outline-offset: 2p
 /* ── typing a to-do straight onto the list ─────────────────────────
    taskQuickAdd (js/task-quickadd.js) builds one of these wherever a to-do
    can be added — a profile, Today, an open calendar day — in place of a
-   button that used to open a dialog. The field takes the row and Add sits
-   at its right, so typing and reaching for Add is one small motion rather
-   than a tap that goes somewhere else first. */
+   button that used to open a dialog. The field takes the row; where the
+   date isn't already known from context, "Add for today" sits beside it for
+   the common case, plus a small calendar button that opens dlg-quickdate for
+   anything else — where it's already known (an open calendar day) that
+   single button is Add and nothing more is offered. */
 .todo-add { display: flex; align-items: center; gap: .5rem; margin-bottom: 1.1rem; }
-.todo-add-input, .todo-add-who {
-  font-family: var(--body); color: var(--ink);
+.todo-add-input {
+  flex: 1 1 auto; min-width: 0;
+  font-family: var(--body); font-size: .88rem; color: var(--ink);
   background: var(--paper-raise);
   border: 1px solid var(--rule); border-radius: 8px;
   padding: .5rem .65rem; outline: none;
   transition: border-color .2s, box-shadow .2s;
 }
-.todo-add-input { flex: 1 1 auto; min-width: 0; font-size: .88rem; }
-.todo-add-who { flex: 0 1 8rem; font-size: .8rem; }
-.todo-add-input:focus, .todo-add-who:focus {
+.todo-add-input:focus {
   border-color: var(--green);
   box-shadow: 0 0 0 3px color-mix(in oklab, var(--green) 16%, transparent);
 }
-.todo-add-btn { flex: 0 0 auto; }
+.todo-add-btn, .todo-add-date-btn { flex: 0 0 auto; }
 
 .all-clear {
   text-align: center; padding: 2.5rem 1rem;

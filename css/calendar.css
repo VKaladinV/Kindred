@@ -81,6 +81,14 @@ body.on-calendar .topbar { display: none; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .cal-day.is-picked { color: #10180f; } }
 :root[data-theme="dark"] .cal-day.is-picked { color: #10180f; }
 
+/* ── the quick-add date popover ─────────────────────────────────
+   task-quickadd.js's own small calendar, reusing .cal-grid/.cal-day exactly
+   as the real calendar page does, so it reads as the same calendar rather
+   than a second one. Not .cal-head — that class carries the sticky/backdrop
+   behaviour a whole scrolling page of months needs, which a dialog does not. */
+.dlg-quickdate { width: min(22rem, calc(100vw - 2rem)); }
+.quickdate-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+
 .cal-n { font-size: .82rem; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1; }
 .cal-dots { display: flex; gap: .16rem; min-height: .34rem; }
 .cal-dot {

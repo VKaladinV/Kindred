@@ -10,6 +10,7 @@
    · countryCode editingPersonId fillFromContact holdPhoto paintPhotoPreview personDialog showPending
    · adjustPhoto pickPhoto wireCropper · savePerson
    · editingEvent paintBabyFields paintConnectKind paintGestationFrom saveEvent setEventType
+   · shiftQuickDate
    · savePrayer
    · removeKid removeTopic
    · addDiscipleKidRow discipleAddDialog editingHousehold editingKid
@@ -163,6 +164,10 @@ function wire() {
 
   $('#form-event').onsubmit = saveEvent;
   $('#btn-event-cancel').onclick = () => $('#dlg-event').close();
+
+  $('#quickdate-prev').onclick = () => shiftQuickDate(-1);
+  $('#quickdate-next').onclick = () => shiftQuickDate(1);
+  $('#btn-quickdate-cancel').onclick = () => $('#dlg-quickdate').close();
 
   $('#form-prayer').onsubmit = savePrayer;
   $('#btn-prayer-cancel').onclick = () => $('#dlg-prayer').close();

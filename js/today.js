@@ -1,4 +1,4 @@
-/* uses: $ aheadWords el today · people · babiesDue datesAhead · avatar
+/* uses: $ aheadWords el · people · babiesDue datesAhead · avatar
    · rowDone · quiet · taskQuickAdd
 */
 
@@ -85,9 +85,10 @@ function renderToday() {
 
   /* Today had no way to add a to-do at all — everything else on this page is
      read/tick-only, gathered from dates already set elsewhere. This is the
-     one write it makes, and it lands the to-do on today's date since that is
-     the day this whole page is about. */
-  body.append(taskQuickAdd({ date: today() }));
+     one write it makes. No date handed in: today is the common case and
+     taskQuickAdd's own "Add for today" button covers it, but a to-do meant
+     for later in the week is just as often what brings you to this page. */
+  body.append(taskQuickAdd({}));
 
   groups.forEach(([title, pick]) => {
     const rows = ahead.filter(pick);

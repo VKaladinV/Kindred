@@ -93,12 +93,24 @@
        The leg is one path with a corner in it rather than a curve, and that
        corner is the whole point: drawn as a smooth arc from hip to floor
        there is no knee anywhere in the figure and it reads as someone
-       stooping. Thigh down and forward, a hard bend, then the shin back
-       along the floor. No separate ground line — the shin is lying on the
-       floor and is its own baseline, and a rule drawn under it only thickens
-       into a dark bar at tab size. -->
+       stooping. Thigh down and forward to a knee, then a hard bend of about
+       thirty degrees — thigh and shin folded close rather than the near
+       right angle a kneel-with-shin-flat-on-the-floor reads as — which is
+       what sitting back on your heels actually looks like: the shin draws
+       back up toward the hip instead of trailing out along the floor, heel
+       tucked in rather than left out in front. No separate ground line —
+       the shin no longer rests on anything for a rule to double up with.
+
+       The arm gets the same fix the leg already had, for the same reason:
+       it was one smooth curve from shoulder to hand with no joint anywhere
+       in it, and read as a straight reach rather than a bent arm. It is a
+       hard corner now too — shoulder down to an elbow tucked in near the
+       body, then the forearm on and out to the hand — which is what turns
+       that reach into an arm bent at the elbow, bringing the hands in
+       toward the bowed head rather than pointing at them from a straight
+       line. -->
   <button class="nav-item" data-view="prayers">
-    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12.5" cy="4.7" r="2.2"/><path d="M12.4 7C11.8 9.2 11.5 11.2 11.5 13.1"/><path d="M12.2 9.1C13.7 9.9 14.9 11.1 15.7 12.7"/><path d="M11.5 13.1 13.6 18.6 6.4 19.5"/></svg>
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12.5" cy="4.7" r="2.2"/><path d="M12.4 7C11.8 9.2 11.5 11.2 11.5 13.1"/><path d="M12.2 9.1 12.6 11.3 15.7 12.7"/><path d="M11.5 13.1 13.6 18.6 8.0 14.0"/></svg>
     <span>Prayers</span>
   </button>
   <button class="nav-item" data-view="today">
@@ -548,6 +560,26 @@
       <button type="submit" class="btn btn-primary">Save</button>
     </div>
   </form>
+</dialog>
+
+<!-- ─────────── A DATE FOR A QUICK-ADDED TO-DO ─────────── -->
+<!-- Only ever opened from taskQuickAdd (js/task-quickadd.js) when a to-do
+     needs a day other than today. A plain single month, styled with the same
+     classes the Calendar tab's own grid uses so this reads as that same
+     calendar rather than a second one — forward-only, like the tab itself. -->
+<dialog class="dlg dlg-quickdate" id="dlg-quickdate">
+  <div class="quickdate-head">
+    <h2 class="cal-month-name" id="quickdate-label"></h2>
+    <div class="cal-nav">
+      <button type="button" class="btn btn-quiet btn-tiny" id="quickdate-prev" aria-label="The month before">‹</button>
+      <button type="button" class="btn btn-quiet btn-tiny" id="quickdate-next" aria-label="The month after">›</button>
+    </div>
+  </div>
+  <div class="cal-grid" id="quickdate-grid"></div>
+  <div class="dlg-actions">
+    <span class="spacer"></span>
+    <button type="button" class="btn btn-quiet" id="btn-quickdate-cancel">Cancel</button>
+  </div>
 </dialog>
 
 <!-- ─────────── ADD A PRAYER ─────────── -->
