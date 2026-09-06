@@ -576,7 +576,7 @@ you open the `.apk` with.
 | `css/` | the visual design, split by what it dresses |
 | `js/` | the behaviour and storage, one concern per file |
 | `js/sync/` | signing in, syncing, and who is allowed in |
-| `supabase/` | the SQL to paste into Supabase: `schema` first, then `share`, then `members` |
+| `supabase/` | the SQL to paste into Supabase: `schema` first, then `share`, then `members`. `check-gate` is a test — it proves the gate is shut and rolls itself back |
 | `config.js` | which Supabase project this copy syncs to |
 | `serve.js` | the small local server for working on it (no dependencies) |
 | `sw.js` | service worker — makes it work offline |
