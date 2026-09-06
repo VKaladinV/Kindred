@@ -156,6 +156,34 @@ button.thumb:focus-visible { outline: 2px solid var(--green); outline-offset: 2p
 .today-row.is-done .who strong { color: var(--ink-faint); font-weight: 500; }
 .today-row.is-done .when { color: var(--sage); }
 
+/* ── typing a to-do straight onto the list ─────────────────────────
+   taskQuickAdd (js/task-quickadd.js) builds one of these wherever a to-do
+   can be added — Today, and an open calendar day — in place of a button that
+   used to open a dialog. The field takes the row; where the date isn't
+   already known from context, "Add for today" sits beside it for the common
+   case, plus a small calendar button that opens dlg-quickdate for anything
+   else — where it's already known (an open calendar day) that single button
+   is Add and nothing more is offered.
+
+   A person's page was the third of those and is not any more: to-dos left
+   the profile, and the row that used to draw them there (.todo-item, which
+   lived here) went with it. What is left is where a to-do is still made and
+   still ticked — Today and the calendar. */
+.todo-add { display: flex; align-items: center; gap: .5rem; margin-bottom: 1.1rem; }
+.todo-add-input {
+  flex: 1 1 auto; min-width: 0;
+  font-family: var(--body); font-size: .88rem; color: var(--ink);
+  background: var(--paper-raise);
+  border: 1px solid var(--rule); border-radius: 8px;
+  padding: .5rem .65rem; outline: none;
+  transition: border-color .2s, box-shadow .2s;
+}
+.todo-add-input:focus {
+  border-color: var(--green);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--green) 16%, transparent);
+}
+.todo-add-btn, .todo-add-date-btn { flex: 0 0 auto; }
+
 .all-clear {
   text-align: center; padding: 2.5rem 1rem;
   font-family: var(--display); font-style: italic; font-size: 1.2rem; color: var(--ink-soft);

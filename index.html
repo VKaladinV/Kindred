@@ -83,22 +83,42 @@
     <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5.6" cy="9.2" r="2.1"/><path d="M2 15.8a3.6 3.6 0 0 1 7.2 0"/><circle cx="18.4" cy="9.2" r="2.1"/><path d="M14.8 15.8a3.6 3.6 0 0 1 7.2 0"/><circle cx="12" cy="7.4" r="2.7"/><path d="M7.4 16.4a4.6 4.6 0 0 1 9.2 0"/></svg>
     <span>Groups</span>
   </button>
-  <!-- Somebody kneeling, head bowed, hands reaching forward — the posture
-       rather than the hands. Pressed palms were tried at length and the
+  <!-- Somebody kneeling, head bowed, hand reaching toward the face — the
+       posture rather than pressed palms, which were tried at length and the
        shape defeats the size: two hands meeting at the fingertips is a
        narrow symmetrical form, and at 19px of thin line every version of it
        reads as a leaf. A kneeling figure is legible at a glance and is what
        icon sets reach for here for the same reason.
 
-       The leg is one path with a corner in it rather than a curve, and that
-       corner is the whole point: drawn as a smooth arc from hip to floor
-       there is no knee anywhere in the figure and it reads as someone
-       stooping. Thigh down and forward, a hard bend, then the shin back
-       along the floor. No separate ground line — the shin is lying on the
-       floor and is its own baseline, and a rule drawn under it only thickens
-       into a dark bar at tab size. -->
+       Solid rather than outlined, unlike every icon around it — a deliberate
+       one-off, drawn to a supplied reference of a bold silhouette pictogram
+       rather than this file's usual thin line. The head is a filled circle
+       (fill set on the circle itself, since the shared .nav-item svg rule
+       above still says fill: none for the outlined icons); everything else
+       is still the same stroked-skeleton technique as those, just heavier —
+       stroke-width overridden below for this icon alone, thick enough with
+       round caps and joins that each stroke reads as its own solid rounded
+       shape rather than a thin line.
+
+       The torso leans forward from the hip rather than standing over it,
+       with the head carried on at the same lean, bowed down and out ahead
+       of the body instead of sitting upright on top of it.
+
+       The leg is one path with a corner in it rather than a curve — a knee,
+       not a stoop. Thigh down and forward to a knee, then the shin back and
+       down to a foot, thick enough at this stroke-width to read as the
+       wide, planted foot the reference shows rather than a thin trailing
+       line. No separate ground line — nothing here rests flat enough along
+       one to make a rule under it read as a floor rather than a smudge.
+
+       The arm gets the same kind of corner: shoulder down to an elbow held
+       out and away from the body — far enough that the gap between arm and
+       torso survives this stroke-width instead of the two swallowing each
+       other — then the forearm back up to a hand at the chin. That gap is
+       what makes it read as a bent arm reaching in rather than a shoulder
+       with a lump on it. -->
   <button class="nav-item" data-view="prayers">
-    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12.5" cy="4.7" r="2.2"/><path d="M12.4 7C11.8 9.2 11.5 11.2 11.5 13.1"/><path d="M12.2 9.1C13.7 9.9 14.9 11.1 15.7 12.7"/><path d="M11.5 13.1 13.6 18.6 6.4 19.5"/></svg>
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="17.2" cy="6.6" r="2.3" fill="currentColor"/><path d="M11.5 13.1C12.7 11.1 14.1 9.7 15.5 8.5"/><path d="M13.9 10.6 18.5 11.5 15 8.6"/><path d="M11.5 13.1 13.6 18.6 7 18.6"/></svg>
     <span>Prayers</span>
   </button>
   <button class="nav-item" data-view="today">
@@ -568,6 +588,26 @@
       <button type="submit" class="btn btn-primary">Save</button>
     </div>
   </form>
+</dialog>
+
+<!-- ─────────── A DATE FOR A QUICK-ADDED TO-DO ─────────── -->
+<!-- Only ever opened from taskQuickAdd (js/task-quickadd.js) when a to-do
+     needs a day other than today. A plain single month, styled with the same
+     classes the Calendar tab's own grid uses so this reads as that same
+     calendar rather than a second one — forward-only, like the tab itself. -->
+<dialog class="dlg dlg-quickdate" id="dlg-quickdate">
+  <div class="quickdate-head">
+    <h2 class="cal-month-name" id="quickdate-label"></h2>
+    <div class="cal-nav">
+      <button type="button" class="btn btn-quiet btn-tiny" id="quickdate-prev" aria-label="The month before">‹</button>
+      <button type="button" class="btn btn-quiet btn-tiny" id="quickdate-next" aria-label="The month after">›</button>
+    </div>
+  </div>
+  <div class="cal-grid" id="quickdate-grid"></div>
+  <div class="dlg-actions">
+    <span class="spacer"></span>
+    <button type="button" class="btn btn-quiet" id="btn-quickdate-cancel">Cancel</button>
+  </div>
 </dialog>
 
 <!-- ─────────── ADD A PRAYER ─────────── -->
@@ -1311,6 +1351,7 @@
 
 <!-- the other three views -->
 <script src="js/prayers.js"></script>
+<script src="js/task-quickadd.js"></script>
 <script src="js/today.js"></script>
 <script src="js/calendar.js"></script>
 

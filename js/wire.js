@@ -10,6 +10,7 @@
    · countryCode editingPersonId fillFromContact holdPhoto paintPhotoPreview personDialog showPending
    · adjustPhoto pickPhoto wireCropper · savePerson
    · editingEvent paintBabyFields paintConnectKind paintGestationFrom saveEvent setEventType
+   · shiftQuickDate
    · savePrayer
    · removeKid removeTopic
    · addDiscipleKidRow discipleAddDialog editingHousehold editingKid
@@ -45,8 +46,11 @@ function fillSelects() {
   const c = $('#f-cadence');
   CADENCES.forEach(([days, label]) => c.append(new Option(label, String(days))));
 
+  /* Not task: a to-do no longer has a tab in this strip to switch into — see
+     js/task-quickadd.js for where it is made instead. Excluding it here is
+     what puts the remaining three back into their clean 3-column grid. */
   const pick = $('#type-pick');
-  Object.entries(TYPES).forEach(([key, v]) => {
+  Object.entries(TYPES).filter(([key]) => key !== 'task').forEach(([key, v]) => {
     const b = el('button', 'type-opt');
     b.type = 'button';
     b.dataset.type = key;
@@ -160,6 +164,10 @@ function wire() {
 
   $('#form-event').onsubmit = saveEvent;
   $('#btn-event-cancel').onclick = () => $('#dlg-event').close();
+
+  $('#quickdate-prev').onclick = () => shiftQuickDate(-1);
+  $('#quickdate-next').onclick = () => shiftQuickDate(1);
+  $('#btn-quickdate-cancel').onclick = () => $('#dlg-quickdate').close();
 
   $('#form-prayer').onsubmit = savePrayer;
   $('#btn-prayer-cancel').onclick = () => $('#dlg-prayer').close();

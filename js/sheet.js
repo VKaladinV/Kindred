@@ -474,12 +474,12 @@ function renderSheet() {
   }
 
   /* ── to do ──
-     Gone from every page, and not lost with it. A to-do is made from the
-     calendar's own add button, it stands in Today and on its day in the
-     calendar, and it is ticked off — or put back — from either of those
-     rows. What it is not any more is a fifth heading on a page about a
-     person, which is what it had become: the one block there that was about
-     your afternoon rather than about them. */
+     Gone from every page, and not lost with it. A to-do is typed straight
+     onto the list in Today or on an open calendar day (taskQuickAdd,
+     js/task-quickadd.js), it stands in both, and it is ticked off — or put
+     back — from either of those rows. What it is not any more is a fifth
+     heading on a page about a person, which is what it had become: the one
+     block there that was about your afternoon rather than about them. */
 
   root.append(...[addRow, evBlock, snBlock, upBlock, prBlock].filter(Boolean));
   restore();
