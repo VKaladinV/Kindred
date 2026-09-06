@@ -364,3 +364,9 @@ create policy invite_photos_delete on storage.objects
 
 -- ── done ─────────────────────────────────────────────────────────────
 select 'Fellowship linking ready' as status;
+
+-- ── one more thing, added later ──────────────────────────────────────
+-- Who is allowed to use Fellowship at all is a separate file, and it
+-- restates several of the policies above with one more condition. Run
+-- supabase/members.sql after this one, and note that its copy of
+-- claim_invite() is the one that stands.

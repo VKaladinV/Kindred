@@ -3,7 +3,11 @@
    · clamp · avatar · openSheet
 */
 
-function badge(p, i, scale = badgeScale(p)) {
+/* `open` is what tapping the face does. Defaulted rather than passed at every
+   call site, because for three of the four grids it is the same thing it has
+   always been — open their page. Discipleship hands in its own, so a face in
+   that grid opens the road's page instead of the ordinary one. */
+function badge(p, i, scale = badgeScale(p), open = openSheet) {
   const s = statusOf(p);
   const b = el('div', 'badge');
   b.dataset.state = s.state;
@@ -29,7 +33,7 @@ function badge(p, i, scale = badgeScale(p)) {
   frame.type = 'button';
   frame.setAttribute('aria-label', `Open ${p.name}`);
   frame.style.setProperty('--tilt', ((hashCode(p.id) % 7) - 3) + 'deg');
-  frame.onclick = () => openSheet(p.id);
+  frame.onclick = () => open(p.id);
   frame.append(avatar(p, 'badge-photo'));
 
   const nOpen = openPrayers(p).length;

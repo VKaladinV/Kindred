@@ -1,6 +1,6 @@
 /* uses: $ $$ el pad parseYmd plural prettyDate shortMonth today ymd
    · datesIn · clamp · block todayRow · closeLayer openLayer · quiet
-   · completeTask completeUpcoming · eventDialog
+   · completeTask completeUpcoming uncompleteTask · eventDialog
 */
 
 const MONTH_NAMES = 'January February March April May June July August September October November December'.split(' ');
@@ -224,9 +224,16 @@ function monthSectionFor(month, onDay) {
 /* Which tick a row gets, if any. A to-do is ticked off where it stands and
    keeps its date; a planned coffee becomes history and a check-in. Both are
    "I did this", and they are two different writes — see completeTask and
-   completeUpcoming, in js/mutations.js. */
+   completeUpcoming, in js/mutations.js.
+
+   A to-do's tick goes both ways. It used to be one-way here, and that was
+   survivable only while a person's page carried the same list with a tick of
+   its own; with that gone, a to-do ticked by mistake could be put back for
+   as long as the undo toast lasted and not a moment longer. A finished thing
+   that had happened yesterday is the other way in — the row is still here,
+   greyed, and the tick on it is what says so. */
 const rowDone = x =>
-  x.isTask ? (x.done ? null : () => completeTask(x.p.id, x.id))
+  x.isTask ? () => (x.done ? uncompleteTask(x.p.id, x.id) : completeTask(x.p.id, x.id))
     : x.completable ? () => completeUpcoming(x.p.id, x.id)
       : null;
 

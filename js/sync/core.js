@@ -1,4 +1,4 @@
-/* uses: Session · selectSince upsert
+/* uses: Session approved · selectSince upsert
    · carryEdits flatten mergeTable nest nestGroups planPush sameMap
    · deletePhoto downloadPhoto listRemotePhotos uploadPhoto
    · publishMine pullShared
@@ -32,6 +32,13 @@ async function sync({ manual = false } = {}) {
      circle, or a photo, that never actually went anywhere. */
   if (Kindred.ready) await Kindred.ready;
   if (!Session.signedIn) return;
+  /* An account nobody has let in is refused every row by row-level security
+     (supabase/members.sql). Trying anyway would spend a request per table to
+     be told nothing, and then report it as a sync problem — which is the one
+     thing it is not. approved() answers true whenever it does not know,
+     including on a copy where that SQL has never been run, so this can only
+     ever stop a sync the database was going to refuse. */
+  if (!approved()) { setStatus({ state: 'waiting' }); return; }
   if (!navigator.onLine) { setStatus({ state: 'offline' }); return; }
   if (syncing) { queued = true; return; }
 

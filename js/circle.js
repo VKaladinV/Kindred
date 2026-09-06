@@ -1,6 +1,6 @@
 /* uses: $ el plural · filterFocus filterGroups futures people query
    · FOCUS byNeed scalesFor · badge futureBadge phone
-   · layoutHex · flipCircle ghostAway takeCircleFlip
+   · layoutHex · flipCircle ghostAway takeCircleFlip · openSheet
    · fillFilterChips paintFilterCount · quiet
 */
 
@@ -22,13 +22,13 @@ function paintCircleCount() {
    real rings and the real sizes and the phone's own packing, asked a narrower
    question. Two copies of these four lines would have drifted the first time
    one of them was touched. */
-function paintFaces(grid, list) {
+function paintFaces(grid, list, open = openSheet) {
   /* Worked out once here rather than twice inside the renderers, because how
      big a face is drawn depends on the whole of what is on screen with it. */
   const scales = scalesFor(list);
   grid.classList.toggle('is-hex', phone.matches);
-  if (phone.matches) hexCols = layoutHex(grid, list, scales);
-  else list.forEach((p, i) => grid.append(badge(p, i, scales.get(p.id))));
+  if (phone.matches) hexCols = layoutHex(grid, list, scales, open);
+  else list.forEach((p, i) => grid.append(badge(p, i, scales.get(p.id), open)));
 }
 
 function renderCircle() {

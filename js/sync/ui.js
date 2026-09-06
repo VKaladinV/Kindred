@@ -1,6 +1,8 @@
 /* uses: $ · Session authWords recover signIn signOut signUp · api
    · onStatus setStatus status sync syncing
    · challengeFactor enrollTotp myFactors setSession unenrollFactor verifiedFactor verifyFactor
+   · approved checkCode forgetMembership membership redeemCode
+   · dropCode holdCode paintAdminSetting paintGate pendingCode refreshMembership
 */
 
 let debounce = null;
@@ -49,9 +51,22 @@ function paintStatus() {
   if (line) line.textContent = s.user.email;
   if (foot) foot.textContent = 'synced to your account';
 
+  /* Not being let in yet is not a sync problem, and must never be painted as
+     one: nothing is wrong with the device, the network or the data. */
+  if (!approved()) {
+    const m = membership();
+    box.textContent = m?.status === 'blocked'
+      ? 'This account can no longer sync'
+      : 'Waiting to be let in — nothing is syncing yet';
+    box.dataset.state = 'off';
+    if (foot) foot.textContent = 'kept on this device';
+    return;
+  }
+
   const map = {
     idle:    'Waiting to sync',
     syncing: 'Syncing…',
+    waiting: 'Waiting to be let in',
     offline: 'Offline — will sync when you reconnect',
     error:   'Sync problem: ' + (status.error || ''),
     ok:      status.at ? 'Synced ' + timeAgo(status.at) : 'Synced',
@@ -79,6 +94,11 @@ function paintAuthMode() {
   $('#auth-submit').textContent = making ? 'Create account' : 'Sign in';
   $('#auth-swap-text').textContent = making ? 'Already have one?' : 'New here?';
   $('#auth-swap').textContent = making ? 'Sign in instead' : 'Create an account';
+  /* Fellowship is not open to sign up for — somebody has to have sent you a
+     way in. Only asked for while making an account: signing back in on a new
+     phone is not a second invitation. */
+  $('#wrap-auth-code').hidden = !making;
+  if (making && !$('#auth-code').value) $('#auth-code').value = pendingCode();
   /* Nothing to have forgotten yet. */
   $('#auth-forgot').hidden = making;
   /* A new password is not the one the browser has saved for this site. */
@@ -139,6 +159,27 @@ function wireSync() {
       const password = $('#auth-password').value;
 
       if (making) {
+        /* Asked before anything else, including before the question below
+           about this device — an account that cannot be made is not worth
+           asking anybody anything about first. code_is_good() is a public
+           function that answers true or false and nothing else, so this
+           costs one request and tells a stranger nothing.
+
+           It is a courtesy, not the gate. The gate is that the account can
+           read and write nothing until redeem_code() has run — see
+           supabase/members.sql. */
+        const code = $('#auth-code').value.trim();
+        if (!code) {
+          err.textContent = 'Fellowship is not open to sign up for — you need a code from whoever invited you.';
+          $('#auth-code').focus();
+          return;
+        }
+        if (!await checkCode(code)) {
+          err.textContent = 'That code has been used already, or it has expired. Ask for a new one.';
+          $('#auth-code').select();
+          return;
+        }
+
         /* Signing out leaves everyone on the device, which is right — they are
            yours and the app works signed out. But it means a second person
            making an account on a borrowed phone would push the first person's
@@ -150,6 +191,10 @@ function wireSync() {
           + `They will move into the new account.\n\nIf this is not your device, cancel and clear them first.`)) {
           return;
         }
+
+        /* Kept before the account is made, so a confirmation email that takes
+           the person out of the app and back tomorrow still finds it. */
+        holdCode(code);
 
         const { state } = await signUp(email, password);
         $('#auth-password').value = '';
@@ -172,6 +217,13 @@ function wireSync() {
           return;
         }
         $('#dlg-auth').close();
+        /* There is a session now, which is the first moment the code can be
+           spent. Anything going wrong here leaves it in storage and the gate
+           screen asking for it — never a dead end. */
+        try { await redeemCode(code); dropCode(); $('#auth-code').value = ''; }
+        catch { await refreshMembership(); }
+        paintGate();
+        paintAdminSetting();
         paintStatus();
         Kindred.toast('Account made — your circle will sync from here');
         await sync({ manual: true });
@@ -195,7 +247,7 @@ function wireSync() {
       if (factor) {
         openMfaChallenge(factor.id);
       } else {
-        paintStatus();
+        await refreshMembership();
         Kindred.toast('Signed in — syncing your circle');
         await sync({ manual: true });
         Kindred.afterAuth?.();
@@ -233,7 +285,7 @@ function wireSync() {
       if (!r.ok) throw new Error(authWords(body, 'Could not set that password'));
       $('#recover-password').value = '';
       $('#dlg-recover').close();
-      paintStatus();
+      await refreshMembership();
       Kindred.toast('Password set — syncing your circle');
       await sync({ manual: true });
       Kindred.afterAuth?.();
@@ -260,7 +312,7 @@ function wireSync() {
     try {
       setSession(await verifyFactor(mfaChallenge.factorId, mfaChallenge.challengeId, $('#mfa-verify-code').value.trim()));
       $('#dlg-mfa-verify').close();
-      paintStatus();
+      await refreshMembership();
       Kindred.toast('Signed in — syncing your circle');
       await sync({ manual: true });
       Kindred.afterAuth?.();
@@ -327,6 +379,11 @@ function wireSync() {
     if (Session.signedIn) {
       if (!confirm('Sign out? Everything stays on this device, it just stops syncing.')) return;
       signOut();
+      /* Or the next account signed in on this device inherits the last one's
+         answer for as long as it takes to ask again. */
+      forgetMembership();
+      paintGate();
+      paintAdminSetting();
       paintStatus();
       Kindred.toast('Signed out');
     } else openSignIn();

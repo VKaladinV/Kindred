@@ -267,6 +267,18 @@
 .bead.on { opacity: .9; }
 
 .sheet-block { margin-bottom: 2.4rem; }
+
+/* The one way to add something to somebody else's page. It stands on its own
+   above the blocks rather than sitting in a heading, because on a page with
+   nothing recorded yet there are no headings for it to sit in — that is the
+   whole point of it. Full width so it reads as an invitation rather than as a
+   control tucked into a corner. */
+.sheet-add {
+  display: flex; align-items: center; justify-content: center; gap: .45rem;
+  width: 100%; margin-bottom: 2rem;
+}
+.sheet-add .glyph { font-size: .95em; opacity: .8; }
+
 .block-head {
   display: flex; align-items: center; justify-content: space-between; gap: 1rem;
   border-bottom: 1px solid var(--rule);

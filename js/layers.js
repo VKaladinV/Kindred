@@ -1,4 +1,4 @@
-/* uses: $ $$ · openId · renderSheet sheetTab · flushHeldRender */
+/* uses: $ $$ · openId · renderSheet sheetMode · flushHeldRender */
 
 /* guard()'s pushState carries no URL because a layer is never meant to move
    the page — but the browser's own scroll restoration is a second, older
@@ -166,11 +166,15 @@ function flyHeroPhoto(clone, srcRect) {
   });
 }
 
-function openSheet(id) {
+/* `mode` is which of somebody's two pages to open — their ordinary one, or,
+   only from the Discipleship tab and the pill on their own page, the road's.
+   Defaulted rather than passed at most call sites: a badge in the circle, a
+   row in Today, a person restored from history after a reload all mean the
+   ordinary page, and whichever page the last person was left on is not a
+   question about this one. Set before renderSheet below, which reads it. */
+function openSheet(id, mode = 'life') {
   openId = id;
-  /* Whichever half of the last person's page you were reading is not a
-     question about this one. Set before renderSheet below, which reads it. */
-  sheetTab = 'life';
+  sheetMode = mode;
   /* A second tap — another badge, or this one again — should not leave an
      earlier flight stuck mid-air. */
   clearHeroGhost();

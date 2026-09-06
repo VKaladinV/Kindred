@@ -13,8 +13,11 @@ function todayRow(p, { when = '', calm = false, sub = '', onDone = null, done = 
   if (onDone) {
     const tick = el('button', 'tick');
     tick.type = 'button';
-    tick.title = 'Mark as done';
-    tick.setAttribute('aria-label', 'Mark as done');
+    /* A row that is already done still gets a tick, because for a to-do the
+       same button is what takes it back — the only place that undo lives now
+       that a person's page has no to-do list on it. */
+    tick.title = done ? 'Put it back on the list' : 'Mark as done';
+    tick.setAttribute('aria-label', tick.title);
     tick.innerHTML = '<svg viewBox="0 0 24 24"><path d="M5 13l4.5 4.5L19 7"/></svg>';
     tick.onclick = onDone;
     row.append(tick);

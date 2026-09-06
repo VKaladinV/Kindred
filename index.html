@@ -182,22 +182,42 @@
   </section>
 
   <!-- ─────────── PRAYERS ─────────── -->
+  <!-- Two folder tabs (.sheet-tabs, css/controls.css): what you are carrying
+       now, and everything that has stopped being carried. The two archives
+       used to sit under the open list as collapsed summaries — reachable, but
+       under whatever length today's list happened to be, and answered prayers
+       are the half of this worth going back to read. -->
   <section class="view" id="view-prayers" aria-label="Prayers" hidden>
     <div class="section-head">
       <h2 class="section-title">The prayer list</h2>
       <p class="section-sub" id="prayer-sub"></p>
     </div>
-    <div id="prayer-open"></div>
-    <details class="answered" id="answered-wrap" hidden>
-      <summary><span id="answered-count"></span> answered</summary>
-      <div id="prayer-answered"></div>
-    </details>
-    <!-- Not everything on a prayer list ends by being answered. Letting one go
-         is its own thing, and worth keeping as its own list. -->
-    <details class="answered" id="released-wrap" hidden>
-      <summary><span id="released-count"></span> let go</summary>
-      <div id="prayer-released"></div>
-    </details>
+
+    <div class="sheet-tabs" id="prayer-tabs" role="tablist">
+      <button type="button" class="sheet-tab is-on" id="prayer-tab-open" role="tab" aria-selected="true">Carrying now</button>
+      <button type="button" class="sheet-tab" id="prayer-tab-done" role="tab" aria-selected="false">History</button>
+    </div>
+
+    <div class="sheet-folder-body" id="prayer-folder">
+      <div id="prayer-page-open">
+        <div id="prayer-open"></div>
+      </div>
+
+      <div id="prayer-page-done" hidden>
+        <div class="prayer-archive" id="answered-wrap" hidden>
+          <h3 class="archive-head"><span id="answered-count"></span> answered</h3>
+          <div id="prayer-answered"></div>
+        </div>
+        <!-- Not everything on a prayer list ends by being answered. Letting one
+             go is its own thing, and worth keeping as its own list. -->
+        <div class="prayer-archive" id="released-wrap" hidden>
+          <h3 class="archive-head"><span id="released-count"></span> let go</h3>
+          <div id="prayer-released"></div>
+        </div>
+        <p class="quiet-note" id="prayer-done-blank" hidden>Nothing has been answered or let go yet.</p>
+      </div>
+    </div>
+
     <div class="blank" id="prayer-blank" hidden>
       <p class="blank-mark">✜</p>
       <h2>The list is empty</h2>
@@ -870,6 +890,17 @@
     </div>
   </div>
 
+  <!-- Only for the account that runs this copy of Fellowship. Nobody else's
+       settings has this row at all — and if one somehow did, every button in
+       it would be refused by the database (members.sql). -->
+  <div class="setting" id="setting-admin" hidden>
+    <div>
+      <h3>Who can use Fellowship</h3>
+      <p class="hint" id="admin-hint">Hand out a code, and see who is in.</p>
+    </div>
+    <button class="btn btn-quiet" id="btn-admin">Manage</button>
+  </div>
+
   <!-- Only once there is an account for it to belong to. -->
   <div class="setting" id="setting-mfa" hidden>
     <div>
@@ -1044,6 +1075,81 @@
   </div>
 </dialog>
 
+<!-- ─────────── WAITING TO BE LET IN ───────────
+     The same full-bleed dialog the PIN lock is, wearing the same .lock
+     styling, and carrying no .dlg class for the same reason: back must never
+     be a way through it.
+
+     It stands over the app only for an account that has signed in and has
+     not been let in — never for somebody who has not signed in at all, who
+     is simply using Fellowship on their own device, which it has always been
+     for. What the account cannot do is reach the server, and that is decided
+     in supabase/members.sql rather than here. -->
+<dialog class="lock" id="gate" aria-label="Waiting to be let in">
+  <div class="lock-card">
+    <img class="lock-mark" src="logo-mark.png" alt="" width="256" height="256">
+    <h2>Fellowship</h2>
+    <p class="lock-sub" id="gate-sub">This account is waiting to be let in.</p>
+
+    <form id="form-gate">
+      <p class="hint" id="gate-hint">If you were sent a code, put it in here.</p>
+      <input class="lock-pin gate-code" id="gate-code" type="text" autocomplete="off"
+             spellcheck="false" aria-label="Your code" placeholder="your code">
+      <p class="lock-error" id="gate-error" role="alert"></p>
+      <div class="lock-actions">
+        <button type="submit" class="btn btn-primary" id="gate-submit">Let me in</button>
+      </div>
+    </form>
+
+    <p class="hint gate-who" id="gate-who"></p>
+    <button type="button" class="link-btn lock-forgot" id="gate-out">sign out of this account</button>
+  </div>
+</dialog>
+
+<!-- ─────────── WHO CAN USE FELLOWSHIP ───────────
+     Only ever opened from the settings row that only an admin has. Two
+     lists: the codes you have handed out, and the people who used one. -->
+<dialog class="dlg" id="dlg-admin">
+  <h2 class="dlg-title">Who can use Fellowship</h2>
+  <p class="dlg-lede">Nobody reaches your Supabase without a code from you. Somebody can always keep a circle of their own on their own device — this is about the account, and about linking.</p>
+
+  <div class="field">
+    <span>Invite someone</span>
+    <div class="admin-make">
+      <input type="text" id="admin-label" maxlength="40" autocomplete="off" placeholder="Who is it for">
+      <button type="button" class="btn btn-quiet" id="admin-make">Make a code</button>
+    </div>
+    <p class="hint" id="admin-make-error" role="alert"></p>
+  </div>
+
+  <!-- Shown once, because there is only ever one copy — the server keeps a
+       hash and nothing else. -->
+  <div id="admin-new" hidden>
+    <p class="hint">Send this to them. It will not be shown again.</p>
+    <div class="invite-link" id="admin-link" title="Tap to copy"></div>
+    <div class="dlg-actions">
+      <span class="spacer"></span>
+      <button type="button" class="btn btn-quiet btn-tiny" id="admin-copy">Copy link</button>
+      <button type="button" class="btn btn-quiet btn-tiny" id="admin-share">Send</button>
+    </div>
+  </div>
+
+  <div class="field">
+    <span>Codes not used yet</span>
+    <div class="admin-list" id="admin-codes"></div>
+  </div>
+
+  <div class="field">
+    <span>People</span>
+    <div class="admin-list" id="admin-people"></div>
+  </div>
+
+  <div class="dlg-actions">
+    <span class="spacer"></span>
+    <button type="button" class="btn btn-primary" id="admin-close">Done</button>
+  </div>
+</dialog>
+
 <!-- ─────────── SIGN IN ─────────── -->
 <dialog class="dlg" id="dlg-auth">
   <form id="form-auth" method="dialog">
@@ -1057,6 +1163,14 @@
     <label class="field">
       <span>Password</span>
       <input type="password" id="auth-password" autocomplete="current-password" required minlength="6">
+    </label>
+
+    <!-- Only when making an account. Fellowship is not open to sign up for:
+         somebody has to have sent you a link or a code. Filled in for you
+         when the link you followed carried one. -->
+    <label class="field" id="wrap-auth-code" hidden>
+      <span>Your code <em>from whoever invited you</em></span>
+      <input type="text" id="auth-code" autocomplete="off" spellcheck="false" placeholder="Paste the code or open the link you were sent">
     </label>
 
     <p class="auth-error" id="auth-error" role="alert"></p>
@@ -1236,12 +1350,14 @@
 <script src="js/sync/session.js"></script>
 <script src="js/sync/rest.js"></script>
 <script src="js/sync/invites.js"></script>
+<script src="js/sync/members.js"></script>
 <script src="js/sync/shape.js"></script>
 <script src="js/sync/photos.js"></script>
 <script src="js/sync/publish.js"></script>
 <script src="js/sync/core.js"></script>
 <script src="js/sync/mfa.js"></script>
 <script src="js/sync/ui.js"></script>
+<script src="js/sync/gate.js"></script>
 <script src="js/sync/boot.js"></script>
 <script src="js/sync/install.js"></script>
 </body>

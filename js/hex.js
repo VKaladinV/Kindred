@@ -38,7 +38,7 @@ let hexCols = 0;
    Each row also carries its own tallest face. That is what lets a row of
    small faces be a short row, instead of every row standing to the height of
    the biggest face anywhere in the circle. */
-function layoutHex(grid, list, scales) {
+function layoutHex(grid, list, scales, open) {
   const { per, cell, gap, width } = hexMetrics(grid);
   grid.style.setProperty('--hex-cell', cell + 'px');
 
@@ -67,7 +67,7 @@ function layoutHex(grid, list, scales) {
     const row = el('div', 'hex-row');
     row.style.setProperty('--row-face', Math.max(...chunk.map(c => c.face)) + 'px');
     chunk.forEach(({ p, scale, face }, k) => {
-      const b = badge(p, i + k, scale);
+      const b = badge(p, i + k, scale, open);
       b.style.setProperty('--frame-px', face + 'px');
       /* Only the packer knows how wide a face is actually drawn, so the
          decision about what fits underneath it is made here. */

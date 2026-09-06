@@ -17,10 +17,10 @@
      refreshHouseholdKids saveDiscipleIntro saveHouseholdForm saveKidForm
      saveWalkItem yesNoGroup
    · toggleTheme
-   · saveAnswered saveReleased saveRemoved
+   · saveAnswered saveReleased saveRemoved showPrayerTab
    · exportAll importAll
    · enableNotifications nudgeIfDue paintNotifState
-   · paintMfaState
+   · paintAdminSetting paintMfaState
    · LOCK_GRACE checkBio
    · hiddenAt locked paintLockState pinDialog savePin showLock toggleBio
    · flushHeldRender renderAll switchView · checkForUpdate
@@ -235,6 +235,9 @@ function wire() {
     renderAll();
   };
 
+  $('#prayer-tab-open').onclick = () => showPrayerTab('open');
+  $('#prayer-tab-done').onclick = () => showPrayerTab('done');
+
   $('#form-release').onsubmit = saveAnswered;
   $('#btn-release-go').onclick = saveReleased;
   $('#btn-release-remove').onclick = saveRemoved;
@@ -257,6 +260,7 @@ function wire() {
     checkBio().then(paintLockState);
     paintLockState();
     paintMfaState();
+    paintAdminSetting();
     $('#dlg-settings').showModal();
   };
   $('#btn-settings-close').onclick = () => $('#dlg-settings').close();

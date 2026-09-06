@@ -1,75 +1,18 @@
 /* ══════════════════════════════════════════════════════════════
-   Walking a road with someone — the second half of a person's page.
+   Walking a road with someone — their second page, behind the
+   Discipleship tab.
 
    Most of what's here still borrows rather than invents: the Disciple button
    is the .share-pill from sheet.css, every section is an ordinary
    .sheet-block, and the Yes/No questions in the intro pop-up are the .chip
-   from css/masthead.css. What this file dresses on its own is the folder
-   tabs, the four hollow-to-lit words above the checklist, a tickable line,
-   and the two small kid-list treatments (one inside the intro pop-up, one
-   inside the household dialog).
+   from css/masthead.css. What this file dresses on its own is the four
+   hollow-to-lit words above the checklist, a tickable line, and the two
+   small kid-list treatments (one inside the intro pop-up, one inside the
+   household dialog).
+
+   The folder tabs this page used to carry have moved to css/controls.css,
+   where the prayer list now wears them — see .sheet-tabs there.
    ══════════════════════════════════════════════════════════════ */
-
-/* ── the two tabs, as a folder ─────────────────────────────────
-   The front sheet stands taller and lifts off the page; the one behind sits
-   lower, flatter and a shade duller — read together as one tab in front of
-   another rather than two buttons side by side. Elevation and tone carry the
-   whole illusion, so it holds up at any zoom without a border line that has
-   to land on an exact pixel to read correctly. */
-.sheet-tabs {
-  display: flex; align-items: flex-end;
-  gap: .3rem;
-  margin: 0;
-}
-.sheet-tab {
-  flex: 1 1 auto;
-  padding: .6rem 1rem .55rem;
-  border: 1px solid var(--rule);
-  border-radius: 12px 12px 0 0;
-  background: var(--paper-sunk); color: var(--ink-faint);
-  font-family: var(--display); font-size: .92rem; font-weight: 600;
-  font-variation-settings: "SOFT" 30, "WONK" 1, "opsz" 20;
-  cursor: pointer;
-  transition: all .22s var(--ease);
-  -webkit-tap-highlight-color: transparent;
-}
-.sheet-tab:hover { color: var(--ink); }
-.sheet-tab.is-on {
-  position: relative; z-index: 1;
-  background: var(--paper-raise); color: var(--ink);
-  padding-top: .75rem; padding-bottom: .7rem;
-  /* Not a line to draw and then hide — simply never drawn. The tab's own
-     background already matches the folder body's, so the moment this edge
-     stops being a border it stops being an edge at all, and the two read as
-     one continuous surface rather than a seam pulled shut. */
-  border-bottom-color: transparent;
-}
-.sheet-tab:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
-
-/* The folder itself — everything under the tabs sits inside this one bordered
-   page, continuing straight down from whichever tab is raised rather than
-   floating free beneath it. Its own top corners are square on purpose: a
-   rounded corner here would show daylight between the body and the tab
-   sitting right above it, breaking the one edge that has to read as
-   continuous for the attached-tab illusion to hold.
-
-   Pulled up the one pixel the active tab's now-invisible border used to
-   occupy, so there is truly no gap left for a seam to live in under it — the
-   tab, a stacking level above (.sheet-tab.is-on's z-index), simply covers the
-   sliver of the body's own top border that would otherwise show through
-   there, while the rest of that border still marks the folder's edge beside
-   whichever tab is not attached to it. The lift this used to sit on the tab
-   for moves here too: it is the whole folder — flap and page together — that
-   stands off the surface beneath it, not the flap alone. */
-.sheet-folder-body {
-  margin-top: -1px;
-  border: 1px solid var(--rule);
-  border-radius: 0 0 12px 12px;
-  background: var(--paper-raise);
-  box-shadow: var(--shadow-lift);
-  padding: 1.3rem 1.2rem 1.5rem;
-  margin-bottom: 1.6rem;
-}
 
 /* The Disciple pill, on the .share-pill this borrows wholesale. Only the
    on-state differs: sharing is a thing you switch, and this is a road you

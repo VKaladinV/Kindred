@@ -128,6 +128,37 @@ function archiveCards(box, pick, sortKey, state, list = people) {
   return count;
 }
 
+/* ── the two folders ────────────────────────────────────────────
+   What you are carrying now, and what has stopped being carried. Both were
+   on one page before — the archives as collapsed summaries under the open
+   list, which put the answered ones under however long today's list happened
+   to be. Answered prayers are the half of this you go back to read, so they
+   are a page rather than a footnote to one.
+
+   Not remembered between visits, deliberately: this tab is opened to pray,
+   and it should always open on the list you pray from. */
+let prayerTab = 'open';
+
+function showPrayerTab(key) {
+  if (prayerTab === key) return;
+  prayerTab = key;
+  paintPrayerTabs();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+/* Both pages are built by the render below and only their visibility moves
+   here — the counts on the tabs are worked out from the same walk of
+   everybody either way, so there is nothing saved by building one. */
+function paintPrayerTabs() {
+  const on = prayerTab === 'open';
+  $('#prayer-tab-open').classList.toggle('is-on', on);
+  $('#prayer-tab-open').setAttribute('aria-selected', String(on));
+  $('#prayer-tab-done').classList.toggle('is-on', !on);
+  $('#prayer-tab-done').setAttribute('aria-selected', String(!on));
+  $('#prayer-page-open').hidden = !on;
+  $('#prayer-page-done').hidden = on;
+}
+
 function renderPrayers() {
   const openWrap = $('#prayer-open');
   const ansWrap = $('#prayer-answered');
@@ -171,6 +202,8 @@ function renderPrayers() {
   $('#answered-count').textContent = answeredCount;
   $('#released-wrap').hidden = releasedCount === 0;
   $('#released-count').textContent = releasedCount;
+  const closed = answeredCount + releasedCount;
+  $('#prayer-done-blank').hidden = closed > 0;
 
   const total = withOpen.reduce((n, p) => n + openPrayers(p).length, 0);
   const prayed = withOpen.reduce((n, p) => n + prayedToday(p).length, 0);
@@ -178,7 +211,23 @@ function renderPrayers() {
     ? `${plural(total, 'thing', 'things')} for ${plural(withOpen.length, 'person', 'people')}`
       + (prayed ? ` · ${prayed} prayed for today` : '')
     : '';
-  $('#prayer-blank').hidden = total > 0 || answeredCount > 0 || releasedCount > 0;
+
+  /* The count rides on the tab rather than on a summary line inside it, so
+     you can see there is something back there without going to look. */
+  $('#prayer-tab-open').textContent = total ? `Carrying now · ${total}` : 'Carrying now';
+  $('#prayer-tab-done').textContent = closed ? `History · ${closed}` : 'History';
+
+  /* Nothing anywhere: the folder and its tabs go too. Two tabs over an empty
+     page is a filing cabinet for nothing. */
+  const empty = total === 0 && closed === 0;
+  $('#prayer-blank').hidden = !empty;
+  $('#prayer-tabs').hidden = empty;
+  $('#prayer-folder').hidden = empty;
+  /* An answered prayer put back on the list can empty the page you are
+     standing on, and a tab showing nothing with a full list behind it reads
+     as the app having lost something. */
+  if (prayerTab === 'done' && !closed && total) prayerTab = 'open';
+  paintPrayerTabs();
 }
 
 /* ═══════════════════════════ RENDER: TODAY ════════════════ */

@@ -1,24 +1,35 @@
 /* uses: CADENCES KINDS TOUCH_KINDS TYPES
    · $ agoWords aheadWords daysBetween el monthYear parseYmd prettyDate shortMonth today
    · byId me openId shared
-   · activeSeasons answeredPrayers gestationOn gestationWords historyOf isBaby lastTouchDate nextBirthday openPrayers releasedPrayers statusOf tasksOf touchOn upcomingOf
-   · avatar · prayerLine sharePill · closeSheet
+   · activeSeasons gestationOn gestationWords historyOf isBaby lastTouchDate nextBirthday openPrayers statusOf touchOn upcomingOf
+   · avatar · prayerLine sharePill · closeSheet openSheet
    · blockHead fromThemBlock · howDialog undoConnected
-   · inviteDialog linkApi unlinkPerson · endSeason moveToHistory · completeTask uncompleteTask
+   · inviteDialog linkApi unlinkPerson · endSeason moveToHistory
    · dialNumber personDialog telLink · promoteToCircle · eventDialog · prayerDialog
    · isWalking stopDiscipling · discipleIntroDialog householdSummary walkBlocks
-   · quiet renderAll
+   · quiet renderAll switchView
 */
 
-/* Which half of the page is being read. Only ever anything but 'life' for
-   somebody in the road group, and put back to 'life' by openSheet — a person
-   you have just tapped should open on the page you expect, not on wherever you
-   happened to leave the last one. */
-let sheetTab = 'life';
+/* Which of somebody's two pages this is. Their ordinary one, or — only ever
+   for somebody on the road — the discipleship page that lives behind the
+   Discipleship tab. openSheet puts it back to 'life' for every ordinary way
+   in, so a person you have just tapped opens on the page you expect rather
+   than on wherever you happened to leave the last one.
 
-function showSheetTab(key) {
-  if (sheetTab === key) return;
-  sheetTab = key;
+   This used to be a pair of folder tabs at the top of one page. Two tabs sat
+   there on every discipled person whether or not you had come to read either,
+   and the road — which has its own tab in the sidebar, its own grid of faces
+   and its own way in — was filed as half of a page about something else. It
+   is its own page now, and the pill under the photo is the door between
+   them. */
+let sheetMode = 'life';
+
+/* Moving between the two without opening or closing anything. openSheet would
+   push a second entry onto the back stack for a sheet that is already on
+   screen, which is a back press that appears to do nothing. */
+function showSheetMode(mode) {
+  if (sheetMode === mode) return;
+  sheetMode = mode;
   renderSheet();
   /* renderSheet puts the reader back where they were scrolled to, which is the
      right answer for a repaint and the wrong one for arriving at a different
@@ -26,23 +37,16 @@ function showSheetTab(key) {
   $('#sheet-scroll').scrollTop = 0;
 }
 
-/* Two folder tabs rather than a segmented picker — see .sheet-tabs in
-   css/walk.css for how the layered-paper look is built. The markup itself
-   barely differs from a plain toggle; it's the styling that makes it read as
-   two sheets rather than two buttons. */
-function tabStrip() {
-  const strip = el('div', 'sheet-tabs');
-  strip.setAttribute('role', 'tablist');
-  [['life', 'Life'], ['walk', 'Walk with God']].forEach(([key, label]) => {
-    const on = sheetTab === key;
-    const b = el('button', 'sheet-tab' + (on ? ' is-on' : ''), label);
-    b.type = 'button';
-    b.setAttribute('role', 'tab');
-    b.setAttribute('aria-selected', String(on));
-    b.onclick = () => showSheetTab(key);
-    strip.append(b);
-  });
-  return strip;
+/* The way from somebody's ordinary page to their discipleship one. It goes
+   the long way round — through the Discipleship tab — on purpose: that tab is
+   where the road lives, and arriving there with their page open is what makes
+   the second one findable again afterwards without this button. The view is
+   switched before the sheet opens so the photo has a badge on screen to fly
+   in from (see findBadgePhoto, js/layers.js). */
+function goToWalk(id) {
+  closeSheet();
+  switchView('discipleship');
+  openSheet(id, 'walk');
 }
 
 function renderSheet() {
@@ -60,6 +64,12 @@ function renderSheet() {
   /* Read before the head is built, because the pill it decides on now sits
      under the photo rather than down among the facts. */
   const walking = isWalking(p);
+  /* Stopping the road is done from the discipleship page itself, and stopping
+     it empties that page of everything it had to say — so it becomes their
+     ordinary page again in the same breath, rather than an empty folder with
+     no way back out of it. */
+  if (sheetMode === 'walk' && !walking) sheetMode = 'life';
+  const onWalk = sheetMode === 'walk';
 
   const head = el('div', 'person-head');
 
@@ -71,18 +81,37 @@ function renderSheet() {
   photoCol.append(avatar(p, 'person-photo'));
 
   if (!p.isSelf && !p.isFuture) {
+    const first = p.name.split(' ')[0];
     const pill = el('button', 'share-pill walk-pill' + (walking ? ' is-on' : ''));
     pill.type = 'button';
     pill.append(el('span', 'glyph', walking ? '◈' : '◇'),
       document.createTextNode(walking ? 'Walking together' : 'Disciple'));
-    pill.title = walking
-      ? `Stop walking a road with ${p.name.split(' ')[0]}`
-      : `Start walking a road with ${p.name.split(' ')[0]}`;
-    /* Starting is the intro pop-up's job, not the click's — see
-       discipleIntroDialog in walk-sheet.js. Stopping never asked for
-       confirmation and doesn't start now. */
-    pill.onclick = () => walking ? stopDiscipling(p.id) : discipleIntroDialog(p.id);
+    /* One button, three things, and which page it is on decides between them.
+       On their ordinary page it is a door and never a switch: not walking yet,
+       the intro pop-up opens (discipleIntroDialog, walk-sheet.js); already
+       walking, it takes you to the other page rather than ending anything —
+       there is no longer a way to stop the road by mistake from a page you
+       opened to read a birthday. Stopping lives on the road's own page, where
+       it is the one thing left to do with it, and still asks for no
+       confirmation because it loses nothing. */
+    pill.title = onWalk ? `Stop walking a road with ${first}`
+      : walking ? `Open ${first}’s discipleship page`
+      : `Start walking a road with ${first}`;
+    pill.onclick = onWalk ? () => stopDiscipling(p.id)
+      : walking ? () => goToWalk(p.id)
+      : () => discipleIntroDialog(p.id);
     photoCol.append(pill);
+
+    /* The way back, on the road's page only. Not openSheet: the sheet is
+       already up and this is the same person, so it is a repaint rather than
+       an arrival — see showSheetMode. */
+    if (onWalk) {
+      const back = el('button', 'link-btn', 'their page');
+      back.type = 'button';
+      back.setAttribute('aria-label', `Back to ${first}’s page`);
+      back.onclick = () => showSheetMode('life');
+      photoCol.append(back);
+    }
   }
   head.append(photoCol);
 
@@ -96,6 +125,10 @@ function renderSheet() {
   nameRow.append(el('h2', null, p.name));
   idBox.append(nameRow);
   $('#sheet-edit').setAttribute('aria-label', `Edit ${p.name}’s details`);
+  /* Nothing on the road's page is edited through the pencil — a name, a
+     photo and a cadence are facts about them rather than about the road, so
+     the corner stack empties out and the page keeps its own room. */
+  $('#sheet-edit').hidden = onWalk;
 
   const facts = el('div', 'person-facts');
   const bd = nextBirthday(p);
@@ -116,7 +149,11 @@ function renderSheet() {
     f.append(document.createTextNode('☏ '), value);
     facts.append(f);
   }
-  idBox.append(facts);
+  /* The road's page carries none of this. Their birthday and their number are
+     on their own page, one tap away through the pill, and repeating them here
+     would push the checklist — the only reason to be on this page — below the
+     fold on a phone. */
+  if (!onWalk) idBox.append(facts);
 
   /* Joined rather than separate fields on screen: for most people this reads
      as "grandmother · Retired teacher", and for a future connection — who has
@@ -125,9 +162,9 @@ function renderSheet() {
      line of context, read after what they're called and how to reach them,
      not before. */
   const idLine = [p.relationship, p.occupation].filter(Boolean).join(' · ');
-  if (idLine) idBox.append(el('p', 'person-rel', idLine));
+  if (idLine && !onWalk) idBox.append(el('p', 'person-rel', idLine));
 
-  if (p.groups.length) {
+  if (p.groups.length && !onWalk) {
     const tags = el('div', 'group-pills');
     p.groups.forEach(g => {
       const pill = el('span', 'pill pill-group');
@@ -139,13 +176,13 @@ function renderSheet() {
 
   /* Their household read as a line rather than filled in as a form — who
      they are married to and since when, when they joined the church, their
-     children's names and ages. It sits with the birthday and the phone
-     number because it is the same kind of thing: what you would want to know
-     before knocking on the door. Above the tabs, so it is there on both. */
-  if (walking && !p.isSelf && !p.isFuture) idBox.append(householdSummary(p));
+     children's names and ages. It went where the road went: this is written
+     down because you are walking with them, it is only ever asked for by the
+     intro pop-up, and it belongs at the head of the page it is about. */
+  if (onWalk) idBox.append(householdSummary(p));
 
   const seasons = activeSeasons(p);
-  if (seasons.length) {
+  if (seasons.length && !onWalk) {
     const pills = el('div', 'season-pills');
     seasons.forEach(sn => {
       const pill = el('span', 'pill');
@@ -164,7 +201,7 @@ function renderSheet() {
      starting and stopping: already linked, it says so and pressing it cuts
      the link; not linked yet, it says Link and pressing it opens the invite. */
   const linkBtn = $('#sheet-link');
-  const canLink = !p.isSelf && !!linkApi();
+  const canLink = !p.isSelf && !onWalk && !!linkApi();
   linkBtn.hidden = !canLink;
   if (canLink) {
     const linked = !!p.linkedUid;
@@ -180,21 +217,18 @@ function renderSheet() {
   head.append(idBox);
   root.append(head);
 
-  /* ── two halves of one page ──
-     Only for somebody there is a second half for. Every other person's page
-     has no strip at all, which is the point: this appears the moment you start
-     walking a road with someone rather than sitting on every page waiting. */
-  if (walking) root.append(tabStrip());
-  const onWalk = walking && sheetTab === 'walk';
+  /* ── the road's own page ──
+     Everything about walking with them, and nothing else: no check-in bar, no
+     history, no prayer list. Those are on their ordinary page, one tap away
+     through the pill under the photo, and there is nothing to be gained by
+     having each of them in two places. */
+  if (onWalk) {
+    root.append(...walkBlocks(p));
+    restore();
+    return;
+  }
 
-  /* The folder's page — everything below the tabs sits inside this one
-     bordered box instead of loose on the sheet, so the tab reads as attached
-     to something rather than floating above a blank continuation of it.
-     Nobody without a second tab gets one: there is nothing here for it to be
-     attached to, so `body` is just `root` and every append below lands where
-     it always did. */
-  const body = walking ? el('div', 'sheet-folder-body') : root;
-  if (walking) root.append(body);
+  /* Everything below is their ordinary page. */
 
   /* ── from them ──
      Above your own material, because it is the newer thing and often the
@@ -203,7 +237,7 @@ function renderSheet() {
      exception: a shared prayer can be copied onto your own list, because
      praying for someone is the point and copying it makes it an ordinary row
      of yours from then on, which is the one bridge between the two worlds. */
-  if (!onWalk && p.linkedUid && shared[p.linkedUid]) fromThemBlock(body, p, shared[p.linkedUid]);
+  if (p.linkedUid && shared[p.linkedUid]) fromThemBlock(root, p, shared[p.linkedUid]);
 
   /* ── check-in bar ──
      Not for yourself: there is no rhythm to be behind on with the person
@@ -220,8 +254,8 @@ function renderSheet() {
     promote.type = 'button';
     promote.onclick = () => promoteToCircle(p.id);
     box.append(promote);
-    body.append(box);
-  } else if (!p.isSelf && !onWalk) {
+    root.append(box);
+  } else if (!p.isSelf) {
 
   const bar = el('div', 'touch-bar');
   const st = el('div', 'touch-status');
@@ -263,7 +297,7 @@ function renderSheet() {
     undo.onclick = () => undoConnected(p.id);
     bar.append(undo);
   }
-  body.append(bar);
+  root.append(bar);
 
   }   /* end of the not-yourself branch */
 
@@ -271,14 +305,42 @@ function renderSheet() {
      Built here, laid out below, in the order it always read in: history,
      right now, coming up, prayers. Self and everyone else share the same
      order — there is no longer a summary to lead with on either page. */
-  let snBlock, upBlock, evBlock, tdBlock;
+  let addRow, snBlock, upBlock, evBlock;
+
+  /* ── how lean the page is ──
+     Somebody else's page shows what is there and nothing else: three headings
+     with nothing under them said the same thing three times over, which was
+     that you had not written anything down about them yet — and said it on
+     the page you had opened to read about them.
+
+     So the three record blocks appear only once they hold something, and the
+     way to add is one button rather than a + on each of them. The dialog it
+     opens has always asked which kind of thing this is, so a + per section
+     was asking the same question twice.
+
+     Your own page is not lean. It is where you write about yourself, and the
+     empty prompt on each block is the invitation to. */
+  const lean = !p.isSelf;
+
+  const hist = p.isFuture ? [] : historyOf(p);
+  const ups = p.isFuture ? [] : upcomingOf(p);
+
+  if (lean && !p.isFuture) {
+    addRow = el('button', 'btn btn-quiet sheet-add');
+    addRow.type = 'button';
+    addRow.append(el('span', 'glyph', '＋'), document.createTextNode('Add'));
+    addRow.setAttribute('aria-label', `Add something to ${p.name.split(' ')[0]}’s page`);
+    addRow.onclick = () => eventDialog(p.id, null, 'history');
+  }
 
   /* ── right now: seasons ──
      Not for a future connection — seasons, coming up and history all model
      an ongoing story with them that starts once they're in the circle. */
-  if (!p.isFuture) {
+  if (!p.isFuture && (!lean || seasons.length)) {
   snBlock = el('div', 'sheet-block');
-  snBlock.append(blockHead('Present', () => eventDialog(p.id, null, 'season'), 'Start a season'));
+  snBlock.append(lean
+    ? blockHead('Present')
+    : blockHead('Present', () => eventDialog(p.id, null, 'season'), 'Start a season'));
   if (seasons.length) {
     seasons.sort((a, b) => (a.date < b.date ? 1 : -1)).forEach(sn => {
       const card = el('div', 'season-card');
@@ -318,25 +380,19 @@ function renderSheet() {
   if (open.length) open.forEach(pr => prBlock.append(prayerLine(p, pr, 'open')));
   else prBlock.append(el('p', 'quiet-note', 'Nothing on the list yet.'));
 
-  /* Both archives, each tucked away and each still reachable. */
-  const archive = (list, sortKey, state, word) => {
-    if (!list.length) return;
-    const det = el('details', 'answered');
-    const sm = el('summary');
-    sm.append(document.createTextNode(`${list.length} ${word}`));
-    det.append(sm);
-    [...list].sort((a, b) => (a[sortKey] < b[sortKey] ? 1 : -1))
-      .forEach(pr => det.append(prayerLine(p, pr, state)));
-    prBlock.append(det);
-  };
-  archive(answeredPrayers(p), 'answeredAt', 'answered', 'answered');
-  archive(releasedPrayers(p), 'releasedAt', 'released', 'let go');
+  /* Answered and let-go prayers are not here any more. Nothing is lost —
+     both are kept, and both are in Prayers → History, gathered by person the
+     same way the open list is. This page is what you are carrying for them
+     now; a thing that has been answered has stopped being that, and it was
+     sitting under the open list on every page in the app that had ever had
+     one. */
 
   /* ── coming up ── */
-  if (!p.isFuture) {
+  if (!p.isFuture && (!lean || ups.length)) {
   upBlock = el('div', 'sheet-block');
-  upBlock.append(blockHead('Future', () => eventDialog(p.id, null, 'upcoming'), 'Add a date'));
-  const ups = upcomingOf(p);
+  upBlock.append(lean
+    ? blockHead('Future')
+    : blockHead('Future', () => eventDialog(p.id, null, 'upcoming'), 'Add a date'));
   if (ups.length) {
     ups.forEach(({ r, o }) => {
       const past = o.inDays < 0;
@@ -381,11 +437,12 @@ function renderSheet() {
   }
 
   /* ── history ── */
-  if (!p.isFuture) {
+  if (!p.isFuture && (!lean || hist.length)) {
   evBlock = el('div', 'sheet-block');
-  evBlock.append(blockHead('Past', () => eventDialog(p.id, null, 'history'), 'Add to history'));
+  evBlock.append(lean
+    ? blockHead('Past')
+    : blockHead('Past', () => eventDialog(p.id, null, 'history'), 'Add to history'));
 
-  const hist = historyOf(p);
   if (hist.length) {
     const tl = el('div', 'timeline');
     [...hist].sort((a, b) => (a.date < b.date ? 1 : -1)).forEach(ev => {
@@ -417,55 +474,14 @@ function renderSheet() {
   }
 
   /* ── to do ──
-     The same records the calendar and Today already list, gathered onto the
-     page of whoever they are for. Without this a to-do pointed at somebody
-     would be real, dated and synced, and yet invisible on the one page that
-     is entirely about them.
+     Gone from every page, and not lost with it. A to-do is made from the
+     calendar's own add button, it stands in Today and on its day in the
+     calendar, and it is ticked off — or put back — from either of those
+     rows. What it is not any more is a fifth heading on a page about a
+     person, which is what it had become: the one block there that was about
+     your afternoon rather than about them. */
 
-     Outstanding first and finished after, rather than the finished ones
-     dropped: a to-do that is done is the record of having done it, and it is
-     the only place that record is kept — completeTask deliberately does not
-     file it into their history the way a planned coffee is filed. */
-  if (!p.isFuture) {
-  tdBlock = el('div', 'sheet-block');
-  tdBlock.append(blockHead('To do', () => eventDialog(p.id, null, 'task'), 'Add a to-do'));
-
-  const tasks = tasksOf(p);
-  if (tasks.length) {
-    [...tasks]
-      .sort((a, b) => (!!a.endDate - !!b.endDate) || (a.date < b.date ? -1 : a.date > b.date ? 1 : 0))
-      .forEach(t => {
-        const item = el('div', 'todo-item' + (t.endDate ? ' is-done' : ''));
-
-        const tick = el('button', 'tick');
-        tick.type = 'button';
-        tick.title = t.endDate ? 'Put it back on the list' : 'Mark as done';
-        tick.setAttribute('aria-label', tick.title);
-        tick.innerHTML = '<svg viewBox="0 0 24 24"><path d="M5 13l4.5 4.5L19 7"/></svg>';
-        tick.onclick = () => (t.endDate ? uncompleteTask(p.id, t.id) : completeTask(p.id, t.id));
-        item.append(tick);
-
-        const text = el('div', 'todo-text');
-        const line = el('button', 'todo-title');
-        line.type = 'button';
-        line.textContent = t.title;
-        line.onclick = () => eventDialog(p.id, t.id);
-        text.append(line);
-        text.append(el('small', null, t.endDate
-          ? `done ${prettyDate(t.endDate)}`
-          : prettyDate(t.date)));
-        if (t.note) text.append(el('p', 'tl-note', t.note));
-        item.append(text);
-
-        tdBlock.append(item);
-      });
-  } else {
-    tdBlock.append(el('p', 'quiet-note', 'Nothing to do for them right now.'));
-  }
-  }
-
-  const order = [evBlock, snBlock, upBlock, tdBlock, prBlock];
-  body.append(...(onWalk ? walkBlocks(p) : order.filter(Boolean)));
+  root.append(...[addRow, evBlock, snBlock, upBlock, prBlock].filter(Boolean));
   restore();
 }
 

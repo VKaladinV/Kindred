@@ -1,4 +1,4 @@
-/* uses: $ · Store · toast · offerPendingJoin · nudgeIfDue
+/* uses: $ · Store · toast · linkApi offerPendingJoin · nudgeIfDue
    · LOCK_PAUSE LOCK_TRIES PIN_MAX PIN_MIN askBio bioCredential bioReady canLock clearLock enrolBio hasPin lockRecord pinMatches setPin syncEmail
    · renderAll
 */
@@ -42,6 +42,11 @@ function unlock() {
   const dlg = $('#lock');
   if (dlg.open) dlg.close();
   renderAll();
+  /* Held back while the lock was up, because two modal dialogs are a stack
+     and the lock has to be the top of it — see paintGate, js/sync/gate.js.
+     Optional all the way along: with the sync layer removed there is no
+     bridge, no gate and nothing to put back. */
+  linkApi()?.paintGate?.();
   nudgeIfDue();   // held back while locked, so it lands now instead
   /* Held back for the same reason: an invitation waiting in storage is not
      for whoever happened to be holding the phone. */

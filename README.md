@@ -161,14 +161,25 @@ Inside:
   you're calling to arrange the visit, not reporting on it. It only becomes
   tappable if what you saved actually looks like a number; a handle or an email
   address stays plain text.
-- **Right now** — the seasons they're walking through. See below.
-- **Who they are** — a free-text summary that saves as you type. Meant for what's
-  true *right now*: what they're carrying, what to ask about next time.
-- **Prayer list** — add anything; tick it on the days you pray for it, and press
-  the **×** when you are ready to stop carrying it. See *Prayers* below.
-- **Coming up** and **History** — see below.
+- **Add** — one button, and the form it opens asks which kind of thing this is:
+  something already behind them, a date coming up, or a season. See *Three ways
+  to record something* below.
+- **Past**, **Present** and **Future** — what you have added, each under its own
+  heading. **A heading only appears once there is something under it.** A page
+  about somebody you have just met is their face, a way to reach them, and the
+  two buttons — not four empty headings telling you four times over that you
+  have not written anything yet.
+- **Prayer list** — always there, whether or not anything is on it. Add anything;
+  tick it on the days you pray for it, and press the **×** when you are ready to
+  stop carrying it. Once it is answered or let go it leaves this page and lives
+  in *Prayers → History*.
+- **Disciple** — under their photo. See *Walking a road with someone* below.
 - **edit details** — name, photo, relationship, groups, birthday, and how often
   you want to be nudged.
+
+**Your own page is not lean this way.** It keeps every heading with its own **+**
+and its own empty prompt, because it is where you write about yourself and a
+blank prompt there is the invitation to.
 
 On a phone, the **back button closes their page** and puts you back in your circle
 instead of closing Fellowship. Back inside a dialog closes just that dialog, so an
@@ -248,7 +259,13 @@ nudges you as it nears: a month out, then closing in, then every day inside the 
 week. Once the baby arrives, edit the record into their **history**.
 
 ### Prayers
-Every open prayer in one place, grouped by person, with how long it's been carried.
+Two folder tabs. **Carrying now** is every open prayer in one place, grouped by
+person, with how long it's been carried. **History** is everything that has stopped
+being carried — answered above, let go below — and it is the only place either of
+those lives, so a person's own page stays what you are still holding for them.
+
+Each tab carries its own count, so you can see there is something behind the other
+one without going to look.
 
 **Tick one on the days you pray for it.** The tick fills in, the line says *prayed
 today*, and tomorrow it reads *last prayed 1d ago* — so you can see at a glance what
@@ -265,9 +282,28 @@ mean:
 | **Let it go** | You are no longer carrying it, and it was never answered — a situation that moved on, a thing that stopped being yours to hold |
 | **remove it entirely** | You typed it by mistake. The only one that loses anything, which is why it asks again |
 
-Answered and let-go items tuck away into their own sections at the bottom, and
-neither is ever deleted. The tick in either one puts a prayer straight back on the
-list.
+Answered and let-go items move to **History**, and neither is ever deleted. The tick
+in either one puts a prayer straight back on the list.
+
+### Walking a road with someone
+Somebody's page has a **Disciple** pill under their photo. Pressing it asks three
+questions you probably already know the answers to — whether they have come to
+faith, whether they are married, whether there are children — and none of them has
+to be answered. From then on they have **a second page**, and it lives behind the
+**Discipleship** tab in the menu rather than on top of their ordinary one.
+
+That page is the road and nothing else: their household as a line, the four words
+(**Abide · Belong · Contribute · This is Church**), the pathway as a checklist, and
+any topics you name yourself. No check-in bar, no birthdays, no prayer list — those
+are their ordinary page, one tap away through the pill, which now reads **Walking
+together**.
+
+**Tapping a face in the Discipleship tab opens that second page.** Tapping the same
+face in your circle opens their ordinary one. The two pages are one tap from each
+other in both directions, and **stopping** the road is only offered on the road's
+own page — so it can never be a mis-tap on a page you opened to read a phone
+number. Nothing written is lost when you stop; it is all there again the moment you
+start.
 
 ### Today
 Only what is coming up: birthdays and your dated records together, in **Today**,
@@ -315,6 +351,38 @@ that's the trade for your data never leaving your device. **This applies to the 
 date too**: Fellowship cannot count down to it at you, it can only tell you where things
 stand the next time you open the app. In practice, put the icon on your home screen
 where you'll see it, and let the *Today* tab do the work.
+
+## Who can use it
+
+Fellowship is not open to sign up for. Making an account needs **a code you handed
+out**, and until one has been redeemed the account can read nothing from the
+database and write nothing to it — it cannot sync, it cannot link with anybody, and
+it cannot publish a profile. Signed in and not let in, the app covers itself with a
+screen saying so, with a field for the code.
+
+**Settings → Who can use Fellowship** is where you hand them out, and it is the one
+row in Settings that only your own account has. Give a code a name so the list means
+something, press **Make a code**, and send the link. It works once, it stops working
+after thirty days, and you can revoke it before then. The same screen lists everyone
+who has used one, and lets you block or unblock any of them. It will not let you
+block or demote yourself, and neither will the database.
+
+Two honest limits, both worth knowing:
+
+- **This is a gate on the account, not on the app.** Fellowship is local-first —
+  anybody holding a copy of these files can open `index.html` and keep a circle of
+  their own on their own device, exactly as you can with no account at all. What a
+  code buys is the server: syncing between devices, and linking with you.
+- **The code is checked in the app as a courtesy; the database is what enforces it.**
+  Somebody could still create an account by talking to Supabase directly. It would
+  arrive in your list as *waiting — never used a code*, able to do nothing at all
+  until you let it in.
+
+Setting it up is one file: paste `supabase/members.sql` into the Supabase SQL editor
+and run it, after `schema.sql` and `share.sql`. It seeds every account that already
+exists as approved and makes the oldest one — yours — the admin, before it closes
+anything, and it prints the resulting list so you can see that happened. Until it is
+run, nothing changes: the app finds no gate, assumes there is none, and carries on.
 
 ## Locking it
 
@@ -507,7 +575,8 @@ you open the `.apk` with.
 | `index.html` | the page structure |
 | `css/` | the visual design, split by what it dresses |
 | `js/` | the behaviour and storage, one concern per file |
-| `js/sync/` | signing in and syncing |
+| `js/sync/` | signing in, syncing, and who is allowed in |
+| `supabase/` | the SQL to paste into Supabase: `schema` first, then `share`, then `members` |
 | `config.js` | which Supabase project this copy syncs to |
 | `serve.js` | the small local server for working on it (no dependencies) |
 | `sw.js` | service worker — makes it work offline |
@@ -518,6 +587,7 @@ you open the `.apk` with.
 | `tools/make-icons.js` | rebuilds every icon from that artwork |
 | `tools/make-demo.js` | builds a set of demo people for trying it out |
 | `tools/stamp.js` | names each deploy in `version.json`, so an installed app knows to refresh |
+| `tools/check.js` | the two rules below, checked — run `node tools/check.js` before a deploy |
 
 No build step, no npm install, no frameworks. Edit a file, refresh the page.
 
@@ -533,8 +603,8 @@ each other:
 | `constants` `util` `store` `state` `normalise` `model` | the data, and the vocabulary for talking about it |
 | `imaging` `ui` `badge` `hex` `circle-flip` `filters` `circle` | the faces, how big each is drawn and where it sits |
 | `prayers` `today` `calendar` | the other three views |
-| `layers` `sheet-blocks` `sheet` `check-in` | a person's page, and what covers the app while it is open |
-| `invite` `mutations` `person-dialog` `cropper` `save-person` `event-dialog` `health-dialog` `backup` | everything that changes something |
+| `layers` `sheet-blocks` `walk` `walk-sheet` `sheet` `check-in` | a person's two pages, and what covers the app while either is open |
+| `invite` `mutations` `person-dialog` `cropper` `save-person` `event-dialog` `prayer-dialog` `backup` | everything that changes something |
 | `notify` `lock-crypto` `lock` | reminders, and the PIN in front of all of it |
 | `views` `wire` `boot` | what repaints, what listens, and the order it starts in |
 
@@ -549,6 +619,11 @@ Three rules worth knowing before editing:
   Missing from `index.html` it simply never loads; missing from `sw.js` the
   app still works, but that file has to be fetched before it can start with
   no connection.
+
+  Both of those, and the unique-name rule above, are what `node tools/check.js`
+  checks. It reads and never writes, takes no arguments and has no
+  dependencies. A duplicate top-level name is the one mistake here with no
+  visible symptom other than a white page, so it is worth the ten seconds.
 - **A view paints when it is on screen and is noted as stale otherwise**
   (see `views.js`). Anything a render writes *outside* its own view — the
   Today pip, the masthead tagline, the footer count — has to be painted

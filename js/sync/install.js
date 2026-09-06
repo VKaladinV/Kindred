@@ -1,4 +1,5 @@
 /* uses: configured · Session recover signIn signOut signUp
+   · approved isAdmin loadMembership membership onMembership redeemCode · paintGate
    · claimInvite createInvite deleteInvitePhoto downloadInvitePhoto joinUrl listInvites listLinks previewInvite revokeInvite unlink uploadInvitePhoto
    · flatten mergeTable nest planPush · projectSelf publishMine pullShared
    · status sync · openSignIn · syncBoot
@@ -16,6 +17,9 @@ if (configured) {
   window.KindredSync = {
     sync, signIn, signUp, recover, signOut, Session, status: () => status, openSignIn,
     createInvite, claimInvite, previewInvite, listLinks, listInvites, revokeInvite, unlink, joinUrl,
+    /* Whether this account has been let in, for anything in the app that
+       wants to know without reaching into this layer's own state. */
+    membership, approved, isAdmin, loadMembership, onMembership, redeemCode, paintGate,
     uploadInvitePhoto, downloadInvitePhoto, deleteInvitePhoto,
     projectSelf, publishMine, pullShared,
     flatten, nest, mergeTable, planPush,   // exported so the rules can be tested

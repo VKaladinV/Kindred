@@ -1,10 +1,10 @@
 /* uses: KINDS MARITAL STAGES WALK WALK_LABELS · $ $$ el monthYear prettyDate
    · byId people · avatar · kidAge marriageYears · byNeed
-   · blockHead paintFaces
+   · blockHead paintFaces · openSheet
    · isWalking kidOf maritalEnded maritalMarried saveHousehold
      saveKid saveMark saveTopic startDiscipleship toggleMark toggleStage
      toggleTopic topicOf
-   · sheetTab
+   · goToWalk
 */
 
 /* ── the discipleship page ──────────────────────────────────────
@@ -280,11 +280,15 @@ function saveDiscipleIntro(e) {
     age: $('.di-kid-age', row).value,
   })).filter(k => k.name) : [];
 
-  /* Set before startDiscipleship rather than after, so the render it already
-     does lands on the Walk tab in one pass instead of two. */
-  sheetTab = 'walk';
-  startDiscipleship(editingDiscipleIntro, { acceptedJesus, acceptedJesusYears, married, marriedYears, kids });
+  const started = editingDiscipleIntro;
+  startDiscipleship(started, { acceptedJesus, acceptedJesusYears, married, marriedYears, kids });
   $('#dlg-disciple-intro').close();
+  /* Straight onto the page that has just been made — answering three
+     questions about somebody and being left where you started reads as
+     nothing having happened, and the checklist is what those answers were
+     for. Also the one moment the road's page is worth showing unasked: it
+     teaches where it now lives. */
+  goToWalk(started);
 }
 
 /* ── their household ────────────────────────────────────────────
@@ -468,7 +472,11 @@ function renderDiscipleship() {
   const grid = $('#grid-discipleship');
   grid.textContent = '';
   const list = people.filter(isWalking).sort(byNeed);
-  paintFaces(grid, list);
+  /* A face here opens the road's page rather than their ordinary one. This is
+     the tab about the road, so what a face in it means is the road — their
+     birthday and their phone number are one tap further on, through the pill
+     under the photo (renderSheet, js/sheet.js). */
+  paintFaces(grid, list, id => openSheet(id, 'walk'));
   $('#blank-discipleship').hidden = list.length > 0;
   grid.hidden = list.length === 0;
 }

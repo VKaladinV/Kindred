@@ -54,6 +54,25 @@
 }
 .lock-pin:disabled { opacity: .55; }
 
+/* ── the same card, waiting on a person rather than a PIN ───────
+   #gate wears .lock wholesale (js/sync/gate.js). Only the field differs: a
+   PIN is four to eight digits and is read at a glance, so it is set in wide
+   tracking down the middle; a code is a long opaque string somebody pastes,
+   and the same treatment made it unreadable and impossible to check against
+   the message it came from. */
+.gate-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: .82rem; letter-spacing: 0; text-indent: 0;
+  text-align: left; padding: .7rem .8rem;
+}
+.gate-who {
+  margin: 1.4rem 0 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: .74rem; color: var(--ink-faint);
+}
+.gate-who:empty { display: none; }
+#gate .lock-forgot { margin-top: .5rem; }
+
 .lock-error { margin: .7rem 0 0; min-height: 1.2em; font-size: .82rem; font-weight: 600; color: var(--alert); }
 .lock-actions { display: flex; gap: .5rem; justify-content: center; margin-top: 1rem; flex-wrap: wrap; }
 .lock .btn svg { width: 1rem; height: 1rem; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; }
