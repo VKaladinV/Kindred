@@ -101,6 +101,26 @@ const Store = (() => {
       mem.groups = list || [];
     },
 
+    /* Any other list kept beside the roster under a key of its own — the
+       communities you oversee, and the church's events. The same three
+       shelves the groups above sit on, written once for any key rather than
+       copied out again per list: a third copy of the same six lines is where
+       one of them quietly stops matching the other two. */
+    async loadList(key) {
+      if (mode === 'indexeddb') return (await idb('kv', s => s.get(key))) || [];
+      if (mode === 'localstorage') {
+        try { return JSON.parse(localStorage.getItem('kindred:' + key) || '[]'); }
+        catch { return []; }
+      }
+      return mem[key] || [];
+    },
+
+    async saveList(key, list) {
+      if (mode === 'indexeddb') return idb('kv', s => s.put(list || [], key), true);
+      if (mode === 'localstorage') return localStorage.setItem('kindred:' + key, JSON.stringify(list || []));
+      mem[key] = list || [];
+    },
+
     /* Always records, always with Blobs in them, whichever shelf they came
        off — so nothing above this file ever has to ask what mode it is in. */
     async loadPhotos() {

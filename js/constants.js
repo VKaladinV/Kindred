@@ -148,6 +148,38 @@ const STAGES = [
   ['church',     'This is Church'],
 ];
 
+/* ── communities you oversee ─────────────────────────────────────
+   How often one meets. The key is what is stored and the label is what is
+   shown, the same split KINDS keeps: renaming a label is free, renaming a key
+   orphans every community that was saved under it.
+
+   The day it meets is not stored separately — it is the weekday of the date
+   it started meeting from, and for a monthly one the same week of the month
+   as that date (rhythmDates, in js/communities.js). One date answers both
+   questions, so the two can never disagree with each other. */
+const RHYTHMS = [
+  ['week',      'Every week'],
+  ['fortnight', 'Every two weeks'],
+  ['month',     'Every month'],
+];
+
+/* Sunday first, because that is the order Date.getDay() counts in. English on
+   purpose, to match every other word on the page — the app is written in one
+   language, and a rhythm that read "Every Dienstag" next to it would be the
+   only line on screen in another. */
+const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+/* Which week of the month a monthly meeting falls in. The fifth is "last",
+   because a fifth Tuesday only exists in some months and a meeting that
+   skipped every month without one would not be the meeting anybody meant. */
+const ORDINALS = ['first', 'second', 'third', 'fourth', 'last'];
+
+/* How many meetings, and how many church events, the attendance map shows and
+   a rate is counted over. Enough to see a pattern, few enough to fit across a
+   phone without the page itself scrolling sideways. */
+const ATTEND_MEETINGS = 8;
+const ATTEND_EVENTS = 5;
+
 /* Stored, not shown — the labels are here and the values are what is written
    down, so a wording change never orphans anybody's answer. '' is a real
    state: most people in a circle were never asked. */

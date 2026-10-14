@@ -305,6 +305,62 @@ own page — so it can never be a mis-tap on a page you opened to read a phone
 number. Nothing written is lost when you stop; it is all there again the moment you
 start.
 
+The Discipleship tab has two folders, **People** and **Communities**, and remembers
+which one you were last reading. *People* is the ones you walk with yourself. Anyone
+who is one of the people of a community you oversee is drawn on that community's page
+instead, so a dozen people per community never bury the handful you walk with
+yourself.
+
+#### Communities you oversee
+Not the *Community/Discipleship* shelf a person can be filed under — that is one of
+the four filters on the circle. A community here is a gathering you are responsible
+for: it has a name, **leaders** (as many as it has), **its people**, and a day it
+meets.
+
+**New community** in the *Communities* folder asks for all four. The day is a
+rhythm — **every week**, **every two weeks** or **every month** — and the date it
+started from. The weekday comes from that date, and a monthly one keeps to the same
+week of the month: start it on the second Tuesday and it is the second Tuesday every
+month; start it on the 29th or later and it is the *last* Tuesday. The dialog says
+which you have chosen as you choose it.
+
+**Everyone added to a community starts on a road with you**, quietly — none of the
+three questions *Disciple* asks, because a community is a dozen people at a time and
+the answers can be filled in on each page later. Leaders are only leaders: nothing is
+started for them, and their attendance is not kept. Taking somebody out of a
+community never stops their road, and removing a community keeps everyone in it in
+your circle and on the road with you.
+
+**Tapping a community opens its page**, and back takes you out again:
+
+- **Led by** — the leaders' faces. Each opens their ordinary page, which in turn
+  carries a *Leads …* pill back to the community. A leader has no road of their own,
+  so that pill is the one place leading shows.
+- **Who came** — the register: a row for each person, a column for each of the last
+  eight meetings, and a dot where they were there. Tap a dot to tick it. Tap a date to
+  fill in the whole meeting at once, with **Everyone** and **Nobody** to start from —
+  and **We didn't meet** for a week that did not happen, which greys the column and
+  leaves it out of everybody's count. The **+** records a meeting held on a day the
+  rhythm does not land on. On a phone the dates scroll under the names, and the page
+  itself never moves sideways.
+- **Church events** — the same register, over the church's own dates.
+- **The people** — their faces, each opening their discipleship page.
+
+The number under each name is how many of the recent meetings they came to, counted
+**from the first one they were ticked at** — somebody who joined three weeks ago has
+not missed the meetings before that. *new* means nothing has been ticked yet.
+
+**Church events** are one list for the whole church — a Sunday, a conference, a night
+of prayer — kept under the communities in the *Communities* folder. Make each one once,
+with a title and a date, and tick who came from inside each community, where you know
+who its people are. The same service ticked from two communities is still one fact about
+each person who was there.
+
+On somebody's own discipleship page, an **Attendance** block sits under *Part of the
+body*: each community they are in, the last eight meetings as dots, *came 6 of the last
+8 meetings*, and the same for church events. *Regularly attends church* and *Attends a
+community* above it stay yours to tick — coming is not the same as belonging.
+
 ### Today
 Only what is coming up: birthdays and your dated records together, in **Today**,
 **This week** and **Later**. Nothing about who you owe a call — the circle answers
@@ -436,7 +492,8 @@ needs https proper, so a file opened off the disk can have a PIN but not a finge
 ## Backups
 
 **Settings → Save a backup** downloads a single `.json` file containing everyone,
-their history, dates, seasons, prayers, and photos. Keep it somewhere safe (this
+their history, dates, seasons, prayers, and photos — and the communities you oversee,
+the church's events, and who came to what. Keep it somewhere safe (this
 folder is in OneDrive, which is a reasonable place).
 
 *Restore from backup* merges a file back in. It matches people **by name**, so
@@ -481,6 +538,11 @@ the PC and again on the phone, and from then on everyone in your circle, their h
 and coming-up dates, seasons, prayers, check-ins, and their photos travel between both.
 Netlify isn't the go-between — the devices reconcile against Supabase directly, not
 through the site.
+
+Communities, church events and who came to them travel too, once
+`supabase/communities.sql` has been run against the database. Until then they stay
+on the device they were made on and everything else syncs as usual; *Sync now* says so,
+and the first sync after the file is run sends them all up.
 
 **When it syncs.** Not continuously. It catches up at these moments:
 
@@ -576,7 +638,7 @@ you open the `.apk` with.
 | `css/` | the visual design, split by what it dresses |
 | `js/` | the behaviour and storage, one concern per file |
 | `js/sync/` | signing in, syncing, and who is allowed in |
-| `supabase/` | the SQL to paste into Supabase: `schema` first, then `share`, then `members`. `check-gate` is a test — it proves the gate is shut and rolls itself back |
+| `supabase/` | the SQL to paste into Supabase: `schema` first, then `share`, then `members`, then `communities`. `check-gate` is a test — it proves the gate is shut and rolls itself back |
 | `config.js` | which Supabase project this copy syncs to |
 | `serve.js` | the small local server for working on it (no dependencies) |
 | `sw.js` | service worker — makes it work offline |
@@ -604,6 +666,7 @@ each other:
 | `imaging` `ui` `badge` `hex` `circle-flip` `filters` `circle` | the faces, how big each is drawn and where it sits |
 | `prayers` `today` `calendar` | the other three views |
 | `layers` `sheet-blocks` `walk` `walk-sheet` `sheet` `check-in` | a person's two pages, and what covers the app while either is open |
+| `communities` `community-page` `community-dialog` | the communities you oversee: who leads them, who is in them, and who came |
 | `invite` `mutations` `person-dialog` `cropper` `save-person` `event-dialog` `prayer-dialog` `backup` | everything that changes something |
 | `notify` `lock-crypto` `lock` | reminders, and the PIN in front of all of it |
 | `views` `wire` `boot` | what repaints, what listens, and the order it starts in |

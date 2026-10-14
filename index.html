@@ -45,6 +45,7 @@
 <link rel="stylesheet" href="css/calendar.css">
 <link rel="stylesheet" href="css/sheet.css">
 <link rel="stylesheet" href="css/walk.css">
+<link rel="stylesheet" href="css/community.css">
 <link rel="stylesheet" href="css/controls.css">
 <link rel="stylesheet" href="css/lock.css">
 </head>
@@ -324,23 +325,70 @@
   </section>
 
   <!-- ─────────── DISCIPLESHIP ─────────── -->
-  <!-- The road group (js/walk.js), drawn as an ordinary badge grid the same
-       way Circle and Future already are — a dedicated way in rather than a
-       new kind of state. -->
+  <!-- Two folders: the people you walk with yourself (a flag on each person,
+       js/walk.js), and the communities you oversee (js/communities.js). And,
+       like Groups, a second state for standing inside one community — its
+       leaders, its register, and its people — which the bar above swaps with,
+       which is why there are two of those. Painted by js/community-page.js. -->
   <section class="view" id="view-discipleship" aria-label="Discipleship" hidden>
-    <div class="section-head">
-      <h2 class="section-title">Discipleship</h2>
-      <p class="section-sub">People I am walking a road with</p>
-      <button type="button" class="btn btn-quiet" id="btn-disciple-add">Disciple someone</button>
+
+    <div id="disciple-out">
+      <div class="section-head disciple-head">
+        <h2 class="section-title">Discipleship</h2>
+        <p class="section-sub" id="disciple-sub">People I am walking a road with</p>
+        <button type="button" class="btn btn-quiet" id="btn-disciple-add">Disciple someone</button>
+        <button type="button" class="btn btn-quiet" id="btn-community-new" hidden>New community</button>
+      </div>
+
+      <div class="sheet-tabs" id="disciple-tabs" role="tablist">
+        <button type="button" class="sheet-tab is-on" id="disciple-tab-people" role="tab" aria-selected="true">People <span class="tab-n" id="disciple-n-people"></span></button>
+        <button type="button" class="sheet-tab" id="disciple-tab-communities" role="tab" aria-selected="false">Communities <span class="tab-n" id="disciple-n-communities"></span></button>
+      </div>
+
+      <div class="sheet-folder-body disciple-folder">
+        <div id="disciple-page-people">
+          <div class="circle-grid" id="grid-discipleship"></div>
+
+          <div class="blank" id="blank-discipleship" hidden>
+            <p class="blank-mark">◈</p>
+            <h2>Nobody yet</h2>
+            <p>Choose someone already in your circle to start walking a road with. Anyone in a community you oversee is on that community’s page.</p>
+            <button class="btn btn-primary" id="btn-disciple-first">Disciple someone</button>
+          </div>
+        </div>
+
+        <div id="disciple-page-communities" hidden>
+          <div class="circle-grid" id="grid-communities"></div>
+
+          <div class="blank" id="blank-communities" hidden>
+            <p class="blank-mark">◎</p>
+            <h2>No communities yet</h2>
+            <p>A community you oversee — its leaders, its people, and the day it meets. Everyone in it starts on a road with you, and you can keep a register of who came.</p>
+            <button class="btn btn-primary" id="btn-community-first">Make a community</button>
+          </div>
+
+          <div class="church-events" id="church-events"></div>
+        </div>
+      </div>
     </div>
 
-    <div class="circle-grid" id="grid-discipleship"></div>
+    <div id="community-in" hidden>
+      <div class="section-head group-head">
+        <button type="button" class="group-back" id="btn-community-back" aria-label="Back to communities">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 5.5 8 12l6.5 6.5"/></svg>
+        </button>
+        <div class="group-head-text">
+          <h2 class="section-title" id="community-title"></h2>
+          <p class="section-sub" id="community-sub"></p>
+        </div>
+        <button type="button" class="btn btn-quiet" id="btn-community-edit">Edit</button>
+      </div>
 
-    <div class="blank" id="blank-discipleship" hidden>
-      <p class="blank-mark">◈</p>
-      <h2>Nobody yet</h2>
-      <p>Choose someone already in your circle to start walking a road with.</p>
-      <button class="btn btn-primary" id="btn-disciple-first">Disciple someone</button>
+      <div class="community-leaders" id="community-leaders" hidden></div>
+      <div id="community-att"></div>
+
+      <div class="block-head community-people-head" id="community-people-head" hidden><h3>The people</h3></div>
+      <div class="circle-grid" id="grid-community"></div>
     </div>
   </section>
 
@@ -398,6 +446,115 @@
       <span class="spacer"></span>
       <button type="button" class="btn btn-quiet" id="btn-group-cancel">Cancel</button>
       <button type="submit" class="btn btn-primary" id="btn-group-save">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- ─────────── MAKE / EDIT A COMMUNITY ───────────
+     The group dialog's shape, with a rhythm and a second row of faces. The two
+     rows share one search, and a face pressed in one is let go of in the
+     other — nobody both leads a community and is one of its people. -->
+<dialog class="dlg" id="dlg-community">
+  <form id="form-community" method="dialog">
+    <h2 class="dlg-title" id="dlg-community-title">A new community</h2>
+
+    <label class="field">
+      <span>Name</span>
+      <input type="text" id="c-name" required maxlength="50" autocomplete="off" placeholder="Tuesday community">
+    </label>
+
+    <div class="field-row">
+      <label class="field">
+        <span>Meets</span>
+        <select id="c-every"></select>
+      </label>
+      <label class="field">
+        <span>Starting from</span>
+        <input type="date" id="c-from" required>
+      </label>
+    </div>
+    <p class="hint field-aside" id="c-rhythm-hint"></p>
+
+    <label class="search c-search">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>
+      <input type="search" id="c-search" placeholder="Find someone" aria-label="Find someone">
+    </label>
+
+    <div class="field">
+      <span>Led by <em id="c-leaders-count"></em></span>
+      <div class="face-pick face-pick-short" id="c-leaders" role="group" aria-label="Who leads this community"></div>
+    </div>
+
+    <div class="field">
+      <span>Its people <em id="c-members-count"></em></span>
+      <div class="face-pick" id="c-members" role="group" aria-label="Who is in this community"></div>
+      <p class="hint c-members-hint">Everyone added here starts on a road with you, and their discipleship page opens from the community.</p>
+    </div>
+    <p class="hint" id="c-empty" hidden>Nobody in your circle yet — add someone first.</p>
+
+    <div class="dlg-actions">
+      <button type="button" class="btn btn-danger-quiet" id="btn-community-delete" hidden>Remove</button>
+      <span class="spacer"></span>
+      <button type="button" class="btn btn-quiet" id="btn-community-cancel">Cancel</button>
+      <button type="submit" class="btn btn-primary">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- ─────────── WHO CAME ───────────
+     One meeting, or one church event, for everybody in a community at once.
+     The same faces as the community dialog, pressed for the ones who came. -->
+<dialog class="dlg" id="dlg-attendance">
+  <form id="form-attendance" method="dialog">
+    <h2 class="dlg-title" id="att-title">Who came?</h2>
+    <p class="dlg-lede" id="att-lede"></p>
+
+    <label class="field" id="wrap-att-date" hidden>
+      <span>Which day</span>
+      <input type="date" id="att-date">
+    </label>
+
+    <div class="att-quick" id="att-quick">
+      <span class="att-count" id="att-count"></span>
+      <span class="spacer"></span>
+      <button type="button" class="btn btn-quiet btn-tiny" id="btn-att-all">Everyone</button>
+      <button type="button" class="btn btn-quiet btn-tiny" id="btn-att-none">Nobody</button>
+    </div>
+    <div class="face-pick" id="att-pick" role="group" aria-label="Who came"></div>
+    <p class="hint" id="att-empty" hidden>Nobody in this community yet.</p>
+
+    <div class="dlg-actions">
+      <button type="button" class="btn btn-danger-quiet" id="btn-att-skip">We didn’t meet</button>
+      <button type="button" class="link-btn" id="btn-att-event" hidden>change this event</button>
+      <span class="spacer"></span>
+      <button type="button" class="btn btn-quiet" id="btn-att-cancel">Cancel</button>
+      <button type="submit" class="btn btn-primary" id="btn-att-save">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- ─────────── A CHURCH EVENT ───────────
+     A title and a day, shared by every community. Who came is ticked from
+     inside each one, where you know who its people are. -->
+<dialog class="dlg" id="dlg-church-event">
+  <form id="form-church-event" method="dialog">
+    <h2 class="dlg-title" id="dlg-church-event-title">A church event</h2>
+
+    <label class="field">
+      <span>What it is</span>
+      <input type="text" id="ce-title" required maxlength="60" autocomplete="off" placeholder="Sunday service">
+    </label>
+
+    <label class="field">
+      <span>When</span>
+      <input type="date" id="ce-date" required>
+    </label>
+
+    <div class="dlg-actions">
+      <button type="button" class="btn btn-danger-quiet" id="btn-church-event-delete" hidden>Remove</button>
+      <span class="spacer"></span>
+      <button type="button" class="btn btn-quiet" id="btn-church-event-cancel">Cancel</button>
+      <button type="submit" class="btn btn-primary">Save</button>
     </div>
   </form>
 </dialog>
@@ -1362,6 +1519,11 @@
 <script src="js/walk-sheet.js"></script>
 <script src="js/sheet.js"></script>
 <script src="js/check-in.js"></script>
+
+<!-- the communities you oversee: who leads them, who is in them, who came -->
+<script src="js/communities.js"></script>
+<script src="js/community-page.js"></script>
+<script src="js/community-dialog.js"></script>
 
 <!-- everything that changes something -->
 <script src="js/invite.js"></script>

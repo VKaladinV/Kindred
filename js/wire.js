@@ -17,6 +17,7 @@
      editingWalkItem kidDialog paintDisciplePick paintMaritalEnd
      refreshHouseholdKids saveDiscipleIntro saveHouseholdForm saveKidForm
      saveWalkItem yesNoGroup
+   · wireCommunities
    · toggleTheme
    · saveAnswered saveReleased saveRemoved showPrayerTab
    · exportAll importAll
@@ -364,6 +365,7 @@ function wire() {
     if (!locked) checkClaimedInvites();
   });
 
+  wireCommunities();
   wireDialogLayers();
 }
 

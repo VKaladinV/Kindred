@@ -1,17 +1,22 @@
-/* uses: MAX_TOUCHES ROAD_ID · el today
-   · addToRoster futures groups me notifyMutate people roster saveRoster
+/* uses: MAX_TOUCHES ROAD_ID STAGES · el today
+   · addToRoster churchEvents communities futures groups me notifyMutate people roster saveRoster
    · hasPhoto photosForBackup putPhotoDataUrl
-   · normalise normaliseDiscipleship normaliseGroup normaliseGroups · toast · renderAll
+   · normalise normaliseAttendance normaliseChurchEvent normaliseCommunity
+     normaliseDiscipleship normaliseGroup normaliseGroups · toast · renderAll
    · foldRoadMembers
 */
 
 async function exportAll() {
   const payload = {
     app: 'kindred',
-    version: 4,
+    version: 5,
     exportedAt: new Date().toISOString(),
     people: roster(),          // your own profile is part of what you are backing up
     groups,
+    /* The communities you oversee and the church's events. Who came to what
+       is not here separately — it is on each person, in `people` above. */
+    communities,
+    churchEvents,
     /* Base64 again on the way out, and deliberately: a backup is a JSON file
        that has to survive being copied about and read back by any version of
        this app, so the format is unchanged from when photos were stored that
@@ -40,9 +45,16 @@ async function importAll(file) {
      would otherwise point at people who, on this device, are called something
      else. Built while the answer is in hand rather than worked out again after. */
   const landedAs = new Map();
+  /* Who came to what, held back until the communities and events below have
+     landed. A tick names a community or an event by id, and one in the file
+     may merge onto one already here under another id — so the ticks can only
+     be put down once it is known what each of those ids became. */
+  const owed = [];
 
   for (const raw of data.people) {
     const incoming = normalise(raw);
+    const attended = incoming.attendance;
+    incoming.attendance = [];
     /* A backup carries your own profile too, and it has to land on yours
        rather than be matched by name against the circle — otherwise restoring
        your own backup puts you in your own circle as a stranger who happens
@@ -93,6 +105,11 @@ async function importAll(file) {
         marks: { ...incoming.discipleship.marks, ...existing.discipleship.marks },
         topics: [...existing.discipleship.topics,
           ...incoming.discipleship.topics.filter(t => !topicIds.has(t.id))],
+        /* Lit in either is lit. Left out, as it once was, these came back
+           from normaliseDiscipleship all four false — restoring a backup
+           quietly put out every word you had lit on anybody already here. */
+        stages: Object.fromEntries(STAGES.map(([k]) =>
+          [k, !!(existing.discipleship.stages[k] || incoming.discipleship.stages[k])])),
       });
       /* The small copy and the mark are worked out on the way in, so a photo
          out of a backup written by any version of this app arrives in the
@@ -101,11 +118,13 @@ async function importAll(file) {
         await putPhotoDataUrl(existing.id, data.photos[raw.id]);
       }
       landedAs.set(raw.id, existing.id);
+      owed.push([existing, attended]);
       merged++;
     } else {
       addToRoster(incoming);
       if (data.photos?.[raw.id]) await putPhotoDataUrl(incoming.id, data.photos[raw.id]);
       landedAs.set(raw.id, incoming.id);
+      owed.push([incoming, attended]);
       added++;
     }
   }
@@ -133,6 +152,54 @@ async function importAll(file) {
       || groups.find(x => x.name.toLowerCase() === g.name.toLowerCase());
     if (existing) existing.members = [...new Set([...existing.members, ...members])];
     else groups.push({ ...g, members: [...new Set(members)] });
+  }
+
+  /* Communities by id, then by name, exactly as groups are above. Leaders and
+     people are unioned rather than replaced, and so are the meetings marked
+     as not held or held on another day: a restore adds back what was lost
+     without taking away anything done since. When it starts meeting is the
+     one thing that is not unioned — it is a single answer, and the one here
+     wins unless there is none. */
+  const communityAs = new Map();
+  for (const raw of (Array.isArray(data.communities) ? data.communities : [])) {
+    const c = normaliseCommunity(raw);
+    const ids = list => list.map(id => landedAs.get(id) || id);
+    const existing = communities.find(x => x.id === c.id)
+      || communities.find(x => x.name.toLowerCase() === c.name.toLowerCase());
+    if (existing) {
+      Object.assign(existing, normaliseCommunity({
+        ...existing,
+        every: existing.from ? existing.every : c.every,
+        from: existing.from || c.from,
+        leaders: [...existing.leaders, ...ids(c.leaders)],
+        members: [...existing.members, ...ids(c.members)],
+        skipped: [...existing.skipped, ...c.skipped],
+        extra: [...existing.extra, ...c.extra],
+      }));
+      communityAs.set(c.id, existing.id);
+    } else {
+      communities.push(normaliseCommunity({ ...c, leaders: ids(c.leaders), members: ids(c.members) }));
+      communityAs.set(c.id, c.id);
+    }
+  }
+
+  /* Events by id, then by the same title on the same day — two files that
+     both wrote down last Sunday's service mean one service. */
+  const eventAs = new Map();
+  for (const raw of (Array.isArray(data.churchEvents) ? data.churchEvents : [])) {
+    const e = normaliseChurchEvent(raw);
+    const existing = churchEvents.find(x => x.id === e.id)
+      || churchEvents.find(x => x.date === e.date && x.title.toLowerCase() === e.title.toLowerCase());
+    if (existing) eventAs.set(e.id, existing.id);
+    else { churchEvents.push(e); eventAs.set(e.id, e.id); }
+  }
+
+  /* And now the ticks, against whatever each community and event landed as. */
+  for (const [p, attended] of owed) {
+    if (!attended.length) continue;
+    p.attendance = normaliseAttendance([...p.attendance, ...attended.map(a => ({
+      ...a, of: (a.kind === 'meeting' ? communityAs : eventAs).get(a.of) || a.of,
+    }))]);
   }
 
   await saveRoster();

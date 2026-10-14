@@ -5,6 +5,7 @@
      saveKid saveMark saveTopic startDiscipleship toggleMark toggleStage
      toggleTopic topicOf
    · goToWalk
+   · attendanceBlock communitiesOf · quiet
 */
 
 /* ── the discipleship page ──────────────────────────────────────
@@ -20,8 +21,15 @@
    on householdSummary, in js/sheet.js. Asking for it twice, once in the pop-up
    and again as a block waiting to be filled in, was the thing worth removing. */
 
+/* Where they have been, straight after the section that asks whether they
+   regularly attend church and a community — the register is the evidence for
+   those two lines, though the lines themselves stay yours to tick, because
+   coming is not the same as belonging. attendanceBlock (js/community-page.js)
+   is null for anybody with no register to read, and drops out. */
 function walkBlocks(p) {
-  return [stagesBlock(p), ...WALK.map(s => sectionBlock(p, s)), topicsBlock(p)];
+  const sections = WALK.map(s => sectionBlock(p, s));
+  sections.splice(WALK.findIndex(s => s.ns === 'belong') + 1, 0, attendanceBlock(p));
+  return [stagesBlock(p), ...sections, topicsBlock(p)].filter(Boolean);
 }
 
 /* ── the four words above the checklist ──────────────────────────
@@ -463,15 +471,22 @@ function saveWalkItem(e) {
   $('#dlg-walk-item').close();
 }
 
-/* ── the discipleship tab ─────────────────────────────────────────
-   Everyone on the road, drawn as an ordinary badge grid — paintFaces is the
-   same function Circle and a group you've zoomed into already share
-   (js/circle.js), asked the same question about a narrower list rather than
-   given a layout of its own. */
-function renderDiscipleship() {
+/* ── the discipleship tab's people ───────────────────────────────
+   Everyone on the road with you yourself, drawn as an ordinary badge grid —
+   paintFaces is the same function Circle and a group you've zoomed into
+   already share (js/circle.js), asked the same question about a narrower list
+   rather than given a layout of its own.
+
+   Not everyone on a road, though: somebody who is one of the people of a
+   community you oversee is drawn on that community's page instead (see
+   js/community-page.js, which owns the tab and calls this for its first
+   folder). A dozen people per community would otherwise bury the handful you
+   walk with yourself. */
+function renderDisciplePeople() {
   const grid = $('#grid-discipleship');
+  grid.classList.toggle('no-entry', quiet);
   grid.textContent = '';
-  const list = people.filter(isWalking).sort(byNeed);
+  const list = people.filter(p => isWalking(p) && !communitiesOf(p.id).length).sort(byNeed);
   /* A face here opens the road's page rather than their ordinary one. This is
      the tab about the road, so what a face in it means is the road — their
      birthday and their phone number are one tap further on, through the pill

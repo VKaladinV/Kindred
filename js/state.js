@@ -13,10 +13,19 @@ let shared = {};
    mixed into it: a group holds ids, not persons, so that removing somebody
    from a group and removing them from your life stay two different acts. */
 let groups = [];
+/* The communities you oversee, and the church's events their people are
+   ticked against. Kept beside the roster the way groups are, and for the same
+   reason: they hold ids, not persons. Who came to what is the one part that
+   lives on the people themselves (p.attendance). */
+let communities = [];
+let churchEvents = [];
 let openId = null;
 /* The group you have zoomed into, if any — the id, so a sync landing a fresh
    array of groups underneath cannot leave this pointing at a stale object. */
 let openGroup = null;
+/* The community whose page is open in the Discipleship tab, if any — an id
+   for the same reason openGroup is one. */
+let openCommunity = null;
 const filterGroups = new Set();   // empty means everyone
 const filterFocus = new Set();    // empty means nothing narrowed beyond the groups
 let query = '';
@@ -122,7 +131,10 @@ const roster = () => [...people, ...futures, ...(me ? [me] : [])];
    way out of the app — exists to make sure a write owed is a write paid, and
    there is nothing to be gained by having two of it. A group is a name and a
    handful of ids; writing it alongside costs nothing measurable. */
-const saveRoster = () => Promise.all([Store.savePeople(roster()), Store.saveGroups(groups)]);
+const saveRoster = () => Promise.all([
+  Store.savePeople(roster()), Store.saveGroups(groups),
+  Store.saveList('communities', communities), Store.saveList('churchEvents', churchEvents),
+]);
 
 /* ── which list somebody belongs in ─────────────────────────────
    Decided here rather than at each call site. Adding a person, removing one
@@ -157,6 +169,13 @@ function removeFromRoster(p) {
      pending but gone, and the only place that knows it. */
   for (const g of groups) {
     if (g.members.includes(p.id)) g.members = g.members.filter(id => id !== p.id);
+  }
+  /* And out of every community, whether they led it or were one of its
+     people — the same moment, and the same reasoning. Reassigned rather than
+     spliced: the sync remembers each row's text against the arrays in it. */
+  for (const c of communities) {
+    if (c.leaders.includes(p.id)) c.leaders = c.leaders.filter(id => id !== p.id);
+    if (c.members.includes(p.id)) c.members = c.members.filter(id => id !== p.id);
   }
 }
 
