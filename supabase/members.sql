@@ -343,10 +343,15 @@ create policy codes_own on public.access_codes
 --  was — see those files for why each is the way it is.
 -- ══════════════════════════════════════════════════════════════════════
 
+-- The three from communities.sql are in the list too, so running this file
+-- again after that one keeps them gated. Skipped where communities.sql has
+-- not been run yet: there is nothing there to gate.
 do $$
 declare t text;
 begin
-  foreach t in array array['people', 'records', 'prayers', 'touches', 'groups'] loop
+  foreach t in array array['people', 'records', 'prayers', 'touches', 'groups',
+                           'communities', 'church_events', 'attendance'] loop
+    if to_regclass(format('public.%I', t)) is null then continue; end if;
     execute format('drop policy if exists own_rows on public.%I', t);
     execute format(
       'create policy own_rows on public.%I

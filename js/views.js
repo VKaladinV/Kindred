@@ -1,8 +1,8 @@
-/* uses: $ $$ · byId me openGroup openId · avatar
+/* uses: $ $$ · byId me openCommunity openGroup openId · avatar
    · paintCircleCount renderCircle renderFuture · renderGroups leaveGroup · renderPrayers
    · paintTodayCount renderToday
    · calPicked clearPickedDay renderCalendar · renderSheet
-   · renderDiscipleship
+   · leaveCommunity renderDiscipleship
 */
 
 let activeView = 'circle';
@@ -31,6 +31,10 @@ function switchView(name) {
      later back press zoom out of a group nobody is looking at. Silent, because
      there is nothing to zoom out of once the view it happened in is hidden. */
   if (name !== 'groups' && openGroup) leaveGroup({ animate: false });
+  /* And standing inside a community, the same way and for the same reason.
+     Not repainted on the way out — the tab it is in is about to be hidden,
+     and is painted afresh on the way back in, below. */
+  if (name !== 'discipleship' && openCommunity) leaveCommunity({ paint: false });
 
   /* Anything that changed while this view was hidden is paid for here, now
      that it can be seen. The circle is repainted whether or not it was noted

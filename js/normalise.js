@@ -1,4 +1,4 @@
-/* uses: GROUPS KINDS LEGACY_GROUPS MARITAL MAX_TOUCHES STAGES TOUCH_KINDS TYPES WALK_KEYS
+/* uses: GROUPS KINDS LEGACY_GROUPS MARITAL MAX_TOUCHES RHYTHMS STAGES TOUCH_KINDS TYPES WALK_KEYS
    · daysBetween today uid · shared
 */
 
@@ -79,6 +79,84 @@ function normaliseGroup(g) {
     members: [...new Set(raw.filter(x => typeof x === 'string' && x))],
     createdAt: g?.createdAt || today(),
   };
+}
+
+/* ── a community you oversee ─────────────────────────────────────
+   A group with more to say: who leads it, who is in it, and when it meets.
+   Not one of `groups` and not made by the same dialog, for the reason
+   normaliseGroup gives about GROUPS — it shares a word with them and nothing
+   else. A group is a circle of faces; this is a gathering with a rhythm and a
+   register, and its people are on a road.
+
+   The same refusal to prune that normaliseGroup makes, for the same reason: an
+   id with nobody behind it may only be a person who has not reached this
+   device yet. What this does settle is that nobody is both — a leader is not
+   also one of the people, and leading is the answer that wins.
+
+   skipped and extra are sorted rather than kept in the order they were tapped.
+   The sync compares rows stringified (same(), in js/sync/shape.js), and two
+   devices that marked the same two weeks in a different order would otherwise
+   read each other's copy as changed forever. */
+const ymdOnly = s => (typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : '');
+const idList = raw => [...new Set((Array.isArray(raw) ? raw : []).filter(x => typeof x === 'string' && x))];
+const dateSet = raw => [...new Set((Array.isArray(raw) ? raw : []).map(ymdOnly).filter(Boolean))].sort();
+
+function normaliseCommunity(c) {
+  const leaders = idList(c?.leaders);
+  const leading = new Set(leaders);
+  return {
+    id: c?.id || uid(),
+    name: (c?.name || '').trim() || 'Untitled',
+    leaders,
+    members: idList(c?.members).filter(id => !leading.has(id)),
+    every: RHYTHMS.some(([k]) => k === c?.every) ? c.every : 'week',
+    from: ymdOnly(c?.from),
+    skipped: dateSet(c?.skipped),
+    extra: dateSet(c?.extra),
+    createdAt: c?.createdAt || today(),
+  };
+}
+
+/* One date in the church's life — a Sunday, a conference, a men's breakfast.
+   Shared by every community rather than owned by one: who came is written on
+   each person (normaliseAttendance, below), so a service ticked from two
+   communities is still one fact about each person who was there. */
+function normaliseChurchEvent(e) {
+  return {
+    id: e?.id || uid(),
+    title: (e?.title || '').trim() || 'Untitled',
+    date: ymdOnly(e?.date) || today(),
+    createdAt: e?.createdAt || today(),
+  };
+}
+
+/* Who came, written on the person who came — the same arrangement a check-in
+   has, and for the same reason. Each tick is a row of its own on the server,
+   so two devices ticking two different people at the same meeting add up
+   rather than overwrite each other, and a person removed takes their ticks
+   with them.
+
+   A meeting is a community and a date; an event is just the event, which
+   already knows its own date — and a date stored twice is a date that can
+   disagree with itself once the event is moved.
+
+   A kind this version has never heard of is kept rather than dropped, the
+   same tolerance an unknown discipleship mark gets: a device on older code
+   must not quietly wipe something a newer one wrote. Sorted, and deduplicated
+   on what makes a tick the same tick, so two devices write it identically. */
+function normaliseAttendance(raw) {
+  const seen = new Map();
+  for (const a of Array.isArray(raw) ? raw : []) {
+    const kind = typeof a?.kind === 'string' ? a.kind : '';
+    const of = typeof a?.of === 'string' ? a.of : '';
+    if (!kind || !of) continue;
+    const on = kind === 'event' ? '' : ymdOnly(a.on);
+    if (kind === 'meeting' && !on) continue;
+    const key = `${kind}:${of}:${on}`;
+    if (!seen.has(key)) seen.set(key, { kind, of, on });
+  }
+  return [...seen.values()].sort((a, b) =>
+    a.on.localeCompare(b.on) || a.kind.localeCompare(b.kind) || a.of.localeCompare(b.of));
 }
 
 /* A check-in used to be a bare date. Reading both shapes here means the change
@@ -238,6 +316,11 @@ function normalise(p) {
     joinedChurchOn: p.joinedChurchOn || '',
     kids: Array.isArray(p.kids) ? p.kids.map(normaliseKid) : [],
     discipleship: normaliseDiscipleship(p.discipleship),
+    /* Which meetings of a community they were at, and which church events.
+       Last, after everything above, though nothing about the people row
+       itself depends on where it sits — it travels in a table of its own
+       (attendance, in js/sync/shape.js), the way touches do. */
+    attendance: normaliseAttendance(p.attendance),
   };
 }
 

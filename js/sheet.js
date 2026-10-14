@@ -7,6 +7,7 @@
    · inviteDialog linkApi unlinkPerson · endSeason moveToHistory
    · dialNumber personDialog telLink · promoteToCircle · eventDialog · prayerDialog
    · isWalking stopDiscipling · discipleIntroDialog householdSummary walkBlocks
+   · communitiesOf · communityPills enterCommunity leaveCommunity openCommunity setDiscipleTab
    · quiet renderAll switchView
 */
 
@@ -45,7 +46,17 @@ function showSheetMode(mode) {
    in from (see findBadgePhoto, js/layers.js). */
 function goToWalk(id) {
   closeSheet();
+  /* Which part of the tab their face is drawn in: the page of the community
+     they are one of the people of, or your own People folder. Decided before
+     the view is switched, so that switch paints the right one and the flight
+     has the right badge to start from. */
+  const home = communitiesOf(id)[0];
+  if (!home) {
+    setDiscipleTab('people');
+    if (openCommunity) leaveCommunity({ paint: false });
+  }
   switchView('discipleship');
+  if (home) enterCommunity(home.id);
   openSheet(id, 'walk');
 }
 
@@ -173,6 +184,12 @@ function renderSheet() {
     });
     idBox.append(tags);
   }
+
+  /* Which communities they lead or are in — on their ordinary page only, and
+     the only place a leader's part shows at all, since leading is not a road
+     of their own (communityPills, js/community-page.js). */
+  const inCommunities = !onWalk && communityPills(p);
+  if (inCommunities) idBox.append(inCommunities);
 
   /* Their household read as a line rather than filled in as a form — who
      they are married to and since when, when they joined the church, their

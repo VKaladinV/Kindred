@@ -4,6 +4,11 @@
 --  Paste the whole file into the Supabase SQL Editor and press Run.
 --  It is safe to run more than once: everything is idempotent.
 --
+--  Once members.sql has been run, do not run this file again to pick up a
+--  change: its policies below are the ungated ones, and would replace the
+--  gated ones members.sql put on the same five tables. Newer tables come
+--  in files of their own for exactly that reason — communities.sql is one.
+--
 --  Design notes
 --  ------------
 --  * Primary keys are TEXT, not uuid, because the app already generates

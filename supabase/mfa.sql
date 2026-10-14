@@ -35,7 +35,10 @@ grant select on auth.mfa_factors to authenticated;
 do $$
 declare t text;
 begin
-  foreach t in array array['people', 'records', 'prayers', 'touches', 'profiles'] loop
+  foreach t in array array['people', 'records', 'prayers', 'touches', 'profiles',
+                           'communities', 'church_events', 'attendance'] loop
+    -- communities.sql's three, when it has been run.
+    if to_regclass(format('public.%I', t)) is null then continue; end if;
     execute format('drop policy if exists mfa_gate on public.%I', t);
     execute format($fmt$
       create policy mfa_gate on public.%I

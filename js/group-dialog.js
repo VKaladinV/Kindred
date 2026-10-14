@@ -10,35 +10,44 @@ let editingGroupId = null;
 
    The pressed state on each button is the state. Nothing is held on the side to
    fall out of step with it — the same arrangement the group chips on a person
-   have, and read back the same way. */
-function paintMemberPick(chosen) {
-  const box = $('#g-members');
+   have, and read back the same way.
+
+   Written for any box rather than for this dialog's one, because a community
+   (js/community-dialog.js) picks its leaders, its people and who came to a
+   meeting the same way. onToggle hears about each tap, for a count to keep or
+   a second picker to keep in step. */
+function paintFacePick(box, list, chosen, onToggle) {
   box.textContent = '';
   const picked = new Set(chosen);
+  list.forEach(p => {
+    const b = el('button', 'face-opt');
+    b.type = 'button';
+    b.dataset.id = p.id;
+    b.dataset.name = p.name.toLowerCase();
+    b.setAttribute('aria-pressed', String(picked.has(p.id)));
+    b.append(avatar(p, 'face-opt-photo', false, 'thumb'), el('span', 'face-opt-name', p.name));
+    b.onclick = () => {
+      const on = b.getAttribute('aria-pressed') !== 'true';
+      b.setAttribute('aria-pressed', String(on));
+      if (onToggle) onToggle(p.id, on);
+    };
+    box.append(b);
+  });
+}
 
+const readFacePick = box =>
+  $$('.face-opt', box).filter(b => b.getAttribute('aria-pressed') === 'true').map(b => b.dataset.id);
+
+function paintMemberPick(chosen) {
   /* The circle, and only the circle: not you, and not somebody you have merely
      flagged to meet. The same thing every other renderer means by people. */
   const list = [...people].sort((a, b) => a.name.localeCompare(b.name));
   $('#g-empty').hidden = list.length > 0;
-
-  list.forEach(p => {
-    const on = picked.has(p.id);
-    const b = el('button', 'face-opt');
-    b.type = 'button';
-    b.dataset.id = p.id;
-    b.setAttribute('aria-pressed', String(on));
-    b.append(avatar(p, 'face-opt-photo', false, 'thumb'), el('span', 'face-opt-name', p.name));
-    b.onclick = () => {
-      b.setAttribute('aria-pressed', String(b.getAttribute('aria-pressed') !== 'true'));
-      paintMemberCount();
-    };
-    box.append(b);
-  });
+  paintFacePick($('#g-members'), list, chosen, paintMemberCount);
   paintMemberCount();
 }
 
-const readMemberPick = () =>
-  $$('#g-members .face-opt').filter(b => b.getAttribute('aria-pressed') === 'true').map(b => b.dataset.id);
+const readMemberPick = () => readFacePick($('#g-members'));
 
 function paintMemberCount() {
   const n = readMemberPick().length;

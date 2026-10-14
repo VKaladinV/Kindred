@@ -44,8 +44,14 @@ const readJson = (s, fallback) => {
   try { return JSON.parse(s); } catch { return fallback; }
 };
 
-function flatten(people, marks, groups = []) {
-  const rows = { people: {}, records: {}, prayers: {}, touches: {}, groups: {} };
+function flatten(people, marks, groups = [], communities = [], events = []) {
+  /* One bucket per table, every time. A bucket missing here is not an empty
+     table, it is a crash: the attendance loop below writes into its bucket by
+     key, and the sync compares bucket against bucket by name. */
+  const rows = {
+    people: {}, records: {}, prayers: {}, touches: {}, groups: {},
+    communities: {}, church_events: {}, attendance: {},
+  };
   const photoLens = {};
   for (const p of people) {
     /* Key order follows the table's columns, and the two new ones go last for
@@ -119,6 +125,13 @@ function flatten(people, marks, groups = []) {
          every check-in on every sync. */
       rows.touches[id] = { id, person_id: p.id, touched_on: t.date, kind: t.kind || '' };
     }
+    for (const a of p.attendance) {
+      /* Deterministic for the same reason a check-in's id is: the same tick
+         made on two devices is one row, not two. An event's tick carries no
+         date of its own — the event knows when it was — so its id has none. */
+      const id = `${p.id}:${a.kind}:${a.of}${a.on ? ':' + a.on : ''}`;
+      rows.attendance[id] = { id, person_id: p.id, kind: a.kind, of_id: a.of, held_on: d(a.on) };
+    }
     /* photoLens is what the snapshot has always called this and it stays that
        — it is written to disk, and renaming it would quietly tell every
        device on earth that it had never agreed anything about any photo. */
@@ -132,6 +145,20 @@ function flatten(people, marks, groups = []) {
     rows.groups[g.id] = {
       id: g.id, name: g.name, members: g.members, created_on: d(g.createdAt),
     };
+  }
+  /* Hanging from nobody, like a group, and in the table's column order for
+     the same reason. The arrays are copied rather than handed over: same()
+     remembers each row's text against the row object, and a row holding the
+     live array would go on reading as the text it had when first asked. */
+  for (const c of communities) {
+    rows.communities[c.id] = {
+      id: c.id, name: c.name, leaders: [...c.leaders], members: [...c.members],
+      meets_every: c.every, meets_from: d(c.from),
+      skipped: [...c.skipped], extra: [...c.extra], created_on: d(c.createdAt),
+    };
+  }
+  for (const e of events) {
+    rows.church_events[e.id] = { id: e.id, title: e.title, held_on: d(e.date), created_on: d(e.createdAt) };
   }
   return { rows, photoLens };
 }
@@ -147,7 +174,7 @@ function nest(rows) {
       id: r.id, name: r.name || 'Unnamed', relationship: r.relationship || '',
       birthday: r.birthday || '', contact: r.contact || '',
       summary: r.summary || '', cadenceDays: r.cadence_days || 0,
-      createdAt: r.created_on || '', touches: [], events: [], prayers: [],
+      createdAt: r.created_on || '', touches: [], events: [], prayers: [], attendance: [],
       /* Anything flatten writes has to be read back here. nest's result
          replaces the whole in-memory list on every sync, so a column written
          and not read is not merely lost between devices — it is wiped on this
@@ -184,6 +211,12 @@ function nest(rows) {
     const p = byId[r.person_id]; if (!p) continue;
     p.touches.push({ date: r.touched_on, kind: r.kind || '' });
   }
+  /* || {} because a snapshot written before this table existed has no bucket
+     for it, and nest is also asked to rebuild people out of one of those. */
+  for (const r of Object.values(rows.attendance || {})) {
+    const p = byId[r.person_id]; if (!p) continue;
+    p.attendance.push({ kind: r.kind, of: r.of_id, on: r.held_on || '' });
+  }
   for (const p of people) p.touches.sort((a, b) => a.date.localeCompare(b.date));
   return people;
 }
@@ -198,6 +231,29 @@ const nestGroups = rows => Object.values(rows).map(r => ({
      the whole in-memory list on every sync, so a column written and not read is
      not merely lost between devices, it is wiped on this one seconds later. */
   members: Array.isArray(r.members) ? r.members : [],
+  createdAt: r.created_on || '',
+}));
+
+/* The communities and the church's events, back out of their rows — beside
+   nestGroups rather than inside nest, for the reason it gives. Anything
+   flatten writes has to be read back here, or it is wiped on this device on
+   the next sync rather than merely lost between two. */
+const nestCommunities = rows => Object.values(rows || {}).map(r => ({
+  id: r.id,
+  name: r.name || 'Untitled',
+  leaders: Array.isArray(r.leaders) ? r.leaders : [],
+  members: Array.isArray(r.members) ? r.members : [],
+  every: r.meets_every || 'week',
+  from: r.meets_from || '',
+  skipped: Array.isArray(r.skipped) ? r.skipped : [],
+  extra: Array.isArray(r.extra) ? r.extra : [],
+  createdAt: r.created_on || '',
+}));
+
+const nestChurchEvents = rows => Object.values(rows || {}).map(r => ({
+  id: r.id,
+  title: r.title || 'Untitled',
+  date: r.held_on || '',
   createdAt: r.created_on || '',
 }));
 

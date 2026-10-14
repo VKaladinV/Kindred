@@ -1,0 +1,231 @@
+/* ══════════════════════════════════════════════════════════════
+   Communities you oversee — the Discipleship tab's second folder,
+   a community's own page, and its register of who came.
+
+   Most of this borrows: the folders are .sheet-tabs (controls.css), a
+   community's face is a group's disc (groups.css), its bar is the group
+   bar, every section is a .sheet-block with a .block-head (sheet.css), and
+   the pickers are the group dialog's .face-pick. What this file dresses on
+   its own is the register — a table of dots that has to fit a phone
+   without the page scrolling sideways — and the short lines that read it
+   back on somebody's own page.
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── the tab's head and folders ─────────────────────────────────── */
+
+.disciple-head { margin-bottom: 1.4rem; }
+.disciple-head .btn { margin-top: .8rem; }
+
+/* The count on each folder, quieter than its name. Empty says nothing. */
+.sheet-tab .tab-n {
+  margin-left: .2rem;
+  font-family: var(--body); font-size: .72rem; font-weight: 700;
+  color: var(--ink-faint); font-variant-numeric: tabular-nums;
+}
+.sheet-tab .tab-n:empty { display: none; }
+
+/* A grid of faces wants more room around it than a list of prayers does —
+   the badges tilt and lift past their own edges. */
+.disciple-folder { padding: 1.6rem 1.2rem 1.8rem; }
+.disciple-folder .blank { padding: 2rem .5rem 1.5rem; }
+
+/* ── the church's events, under the communities ─────────────────── */
+
+.church-events { margin-top: 2.4rem; }
+.church-events .quiet-note { margin-top: .2rem; }
+
+.ce-row {
+  display: grid; grid-template-columns: 4.2rem 1fr auto; align-items: baseline; gap: .8rem;
+  width: 100%; text-align: left;
+  border: 0; border-radius: 10px; background: none; cursor: pointer;
+  padding: .55rem .5rem;
+  font-family: var(--body); color: var(--ink);
+  transition: background .15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.ce-row + .ce-row { border-top: 1px dotted var(--rule-soft); border-radius: 0; }
+.ce-row:hover { background: var(--green-lift); border-radius: 10px; }
+.ce-row:focus-visible { outline: 2px solid var(--green); outline-offset: -2px; }
+.ce-date {
+  font-size: .68rem; letter-spacing: .12em; text-transform: uppercase;
+  font-weight: 700; color: var(--ink-faint); white-space: nowrap;
+}
+.ce-title { font-size: .94rem; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ce-count { font-size: .74rem; color: var(--ink-faint); white-space: nowrap; }
+.ce-row.is-ahead .ce-date { color: var(--gold-ink); }
+
+/* ── a community's page ─────────────────────────────────────────── */
+
+#community-in .group-head { margin-bottom: 1.4rem; }
+
+.community-leaders {
+  display: flex; flex-wrap: wrap; align-items: center; gap: .4rem .9rem;
+  margin: -.4rem 0 2rem;
+}
+.cl-label {
+  font-size: .68rem; letter-spacing: .18em; text-transform: uppercase;
+  font-weight: 700; color: var(--ink-faint);
+}
+.cl-leader {
+  display: inline-flex; align-items: center; gap: .45rem;
+  border: 0; background: none; padding: .15rem .2rem; cursor: pointer;
+  font-family: var(--body); font-size: .9rem; font-weight: 600; color: var(--ink);
+  border-radius: 999px;
+  -webkit-tap-highlight-color: transparent;
+}
+.cl-leader:hover { color: var(--green); }
+.cl-leader:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+.cl-photo {
+  width: 1.9rem; height: 1.9rem; border-radius: 50%; overflow: hidden;
+  background: var(--paper-sunk); display: grid; place-items: center;
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--ink) 9%, transparent);
+  font-family: var(--display); font-size: .7rem; color: var(--ink-faint);
+}
+.cl-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+.community-people-head { margin-top: .4rem; }
+
+/* ── the register ───────────────────────────────────────────────
+   A table that scrolls across inside its own box. The names stay put on the
+   left while the dates move under them, and the page around it never moves
+   sideways at all — on a phone that would drag every other thing on the
+   page out from under your thumb. */
+.att-block { margin-bottom: 2.2rem; }
+
+/* On a card of its own, the way a folder's page is. The name column has to
+   be painted a solid colour to hide the dates sliding under it, and the page
+   behind is not one colour — the bloom at the top of the screen shades it —
+   so the card is what gives that column a colour to match. */
+.att-scroll {
+  /* As wide as the register and no wider: on a computer a few weeks of dots
+     would otherwise sit at one end of a card the width of the page. */
+  width: fit-content; max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  background: var(--paper-raise);
+  border: 1px solid var(--rule);
+  border-radius: 12px;
+  box-shadow: var(--shadow-lift);
+  /* Nothing at the sides: a sticky column holds to the edge of the box, not
+     to its padding, so padding there is a strip the dates show through. The
+     cells at either end carry that breathing room instead. */
+  padding: .3rem 0 .5rem;
+}
+.att-grid { border-collapse: separate; border-spacing: 0; }
+.att-grid th, .att-grid td { padding: 0; text-align: center; vertical-align: middle; }
+.att-grid tbody tr + tr > * { border-top: 1px dotted var(--rule-soft); }
+
+/* The name column. Sticky, and given the card's own colour so the dates
+   sliding under it are hidden rather than shown through. */
+.att-grid .att-name,
+.att-grid .att-corner {
+  position: sticky; left: 0; z-index: 1;
+  background: var(--paper-raise);
+  text-align: left;
+}
+.att-grid .att-name { padding: 0 .5rem 0 .7rem; box-shadow: 1px 0 0 var(--rule-soft); }
+.att-grid tr > :last-child { padding-right: .5rem; }
+
+.att-who {
+  display: flex; align-items: center; gap: .5rem;
+  width: 7rem; padding: .35rem .2rem .35rem 0;
+  border: 0; background: none; cursor: pointer; text-align: left;
+  font-family: var(--body); color: var(--ink);
+  -webkit-tap-highlight-color: transparent;
+}
+.att-who:hover .att-who-name { color: var(--green); }
+.att-who:focus-visible { outline: 2px solid var(--green); outline-offset: 1px; border-radius: 6px; }
+.att-photo {
+  flex: 0 0 auto; width: 1.9rem; height: 1.9rem; border-radius: 50%; overflow: hidden;
+  background: var(--paper-sunk); display: grid; place-items: center;
+  font-family: var(--display); font-size: .7rem; color: var(--ink-faint);
+}
+.att-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.att-who-words { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; }
+.att-who-name { font-size: .86rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; transition: color .2s; }
+.att-rate { font-size: .66rem; letter-spacing: .06em; color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+
+/* A column's head is a button: it opens that whole meeting at once. */
+.att-col-btn {
+  display: flex; flex-direction: column; align-items: center; gap: .05rem;
+  width: 2.7rem; padding: .2rem 0 .45rem;
+  border: 0; background: none; cursor: pointer;
+  font-family: var(--body); color: var(--ink-soft);
+  border-radius: 8px;
+  -webkit-tap-highlight-color: transparent;
+}
+.att-col-btn:hover { color: var(--green); background: var(--green-lift); }
+.att-col-btn:focus-visible { outline: 2px solid var(--green); outline-offset: -2px; }
+.att-col-top {
+  font-size: .6rem; letter-spacing: .1em; text-transform: uppercase; font-weight: 700;
+  max-width: 2.6rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.att-col-day { font-size: .7rem; white-space: nowrap; font-variant-numeric: tabular-nums; }
+/* Event titles are words rather than a weekday, and get a little more room. */
+.att-grid.is-events .att-col-btn { width: 3.4rem; }
+.att-grid.is-events .att-col-top { max-width: 3.2rem; text-transform: none; letter-spacing: .02em; font-size: .64rem; }
+.att-col.is-skipped .att-col-btn { color: var(--ink-faint); text-decoration: line-through; text-decoration-thickness: 1px; }
+
+/* One dot per person per meeting. The size of the check-in tick, so it reads
+   as the same kind of mark, inside a cell big enough for a thumb. */
+.att-dot {
+  display: block; margin: .3rem auto;
+  width: 1.55rem; height: 1.55rem; border-radius: 50%;
+  border: 1.5px solid var(--rule); background: var(--paper);
+  cursor: pointer; padding: 0;
+  transition: background .18s, border-color .18s, transform .18s var(--ease);
+  -webkit-tap-highlight-color: transparent;
+}
+.att-dot:hover { border-color: var(--green); }
+.att-dot:active { transform: scale(.9); }
+.att-dot:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+.att-dot.is-on { background: var(--sage); border-color: var(--sage); }
+.att-dot.is-skipped {
+  border-style: dashed; border-color: var(--rule); background: none;
+  cursor: default; opacity: .6;
+}
+.att-dot.is-skipped:hover { border-color: var(--rule); }
+
+.att-hint { margin-top: .6rem; }
+.att-ahead { margin: .8rem 0 0; font-size: .82rem; color: var(--ink-soft); }
+.att-ahead b { font-size: .64rem; letter-spacing: .14em; text-transform: uppercase; color: var(--gold-ink); margin-right: .3rem; }
+
+/* ── read back on somebody's own page ──────────────────────────── */
+
+.att-line + .att-line { margin-top: 1rem; }
+.att-line-top { font-size: .9rem; color: var(--ink); }
+.att-line-top .link-btn { font-size: .9rem; }
+.att-led { font-size: .8rem; color: var(--ink-faint); }
+.att-line-row { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem .8rem; margin-top: .4rem; }
+.att-mini { display: flex; gap: .28rem; }
+.att-mini-dot {
+  width: .72rem; height: .72rem; border-radius: 50%;
+  border: 1.5px solid var(--rule); background: none;
+}
+.att-mini-dot.is-on { background: var(--sage); border-color: var(--sage); }
+.att-mini-dot.is-skipped { border-style: dashed; opacity: .6; }
+.att-line-words { font-size: .8rem; color: var(--ink-faint); }
+.att-line > .att-line-words { margin-top: .2rem; }
+
+/* Which communities somebody leads or is in, on their ordinary page — the
+   group pill, as a button that takes you there. */
+.pill-community { cursor: pointer; font-family: var(--body); transition: border-color .2s, color .2s; }
+.pill-community:hover { border-color: var(--green); color: var(--ink); }
+.pill-community:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+
+/* ── the dialogs ────────────────────────────────────────────────── */
+
+/* The search sits on its own here rather than at the end of a toolbar row,
+   so .search's push to the right is undone and it takes the width. */
+.c-search { margin: 0 0 1.1rem; width: 100%; }
+.c-search input { width: 100%; }
+
+/* Leaders are a handful; the row of them should not take the room the
+   community's own people need below it. */
+.face-pick-short { max-height: min(24vh, 11rem); }
+.c-members-hint { margin-top: .5rem; }
+
+.att-quick { display: flex; align-items: center; gap: .4rem; margin-bottom: .8rem; }
+.att-quick .spacer { flex: 1; }
+.att-count { font-size: .74rem; letter-spacing: .08em; text-transform: uppercase; font-weight: 700; color: var(--ink-faint); }

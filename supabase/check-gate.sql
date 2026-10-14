@@ -66,7 +66,8 @@ begin
            (coalesce(p.qual::text, '') || coalesce(p.with_check::text, '')) like '%is_approved%' as gated
       from pg_policies p
      where p.schemaname = 'public'
-       and p.tablename in ('people','records','prayers','touches','groups','profiles','invites','links')
+       and p.tablename in ('people','records','prayers','touches','groups','profiles','invites','links',
+                           'communities','church_events','attendance')
      order by p.tablename, p.policyname
   loop
     -- links_end and profiles_drop are deliberately ungated: either side can
@@ -75,7 +76,7 @@ begin
       case when r.gated then 'gated  '
            when r.policyname in ('links_end', 'profiles_drop') then 'open ok'
            else '!! OPEN' end,
-      rpad(r.tablename, 9), r.policyname);
+      rpad(r.tablename, 13), r.policyname);
   end loop;
 
   ------------------------------------------------------------------

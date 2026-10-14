@@ -1,7 +1,7 @@
 /* uses: $ $$ · Store
-   · byId groups me mutateHooks people readyPromise resolveReady roster setRoster shared
+   · byId churchEvents communities groups me mutateHooks people readyPromise resolveReady roster setRoster shared
    · dropPhoto hasPhoto landPhoto loadPhotoRecords photoBytes photoMarks photoThumbDataUrl repairPhotos
-   · normalise normaliseGroup · toast
+   · normalise normaliseChurchEvent normaliseCommunity normaliseGroup · toast
    · migrateRoadGroup
    · applyBadgeSize badgeSizePref · openSheet
    · checkClaimedInvites offerPendingJoin takeLaunchFragment
@@ -75,6 +75,11 @@ async function boot() {
   await Store.init();
   setRoster(await Store.loadPeople());   // splits you back out of the roster
   groups = (await Store.loadGroups()).map(normaliseGroup);
+  /* Before resolveReady, below, like everything else a sync compares against:
+     a sync that found these empty would read every community and every event
+     as deleted here, and tombstone them on the server. */
+  communities = (await Store.loadList('communities')).map(normaliseCommunity);
+  churchEvents = (await Store.loadList('churchEvents')).map(normaliseChurchEvent);
   /* Both people and groups are in memory now, which is what a device still
      carrying discipleship as the old fixed-id group needs to fold it into
      discipleship.active and drop the group — before the first render, so it
@@ -161,6 +166,12 @@ window.Kindred = {
      what it looks like. */
   get groups() { return groups; },
   set groups(v) { groups = v; },
+  /* The communities you oversee and the church's events, as plainly as the
+     groups above. Who came to what is not here — it is on the people. */
+  get communities() { return communities; },
+  set communities(v) { communities = v; },
+  get churchEvents() { return churchEvents; },
+  set churchEvents(v) { churchEvents = v; },
 
   /* ── faces ──────────────────────────────────────────────────────────
      There used to be a `photos` here, a map of id to base64, and the sync
@@ -193,6 +204,8 @@ window.Kindred = {
   Store,
   normalise,
   normaliseGroup,
+  normaliseCommunity,
+  normaliseChurchEvent,
   toast,
   ready: readyPromise,
   render: () => renderRemote(),
